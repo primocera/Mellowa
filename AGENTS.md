@@ -86,4 +86,3 @@ The app helps users create:
 - Do not silently skip safety logic.
 - Do not implement AI generation without safety classification first.
 - Do not add medical claims or therapy language.
-- Track prompt progress in PROGRESS.md — mark each doc prompt done after verification.
