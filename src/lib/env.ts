@@ -26,7 +26,7 @@ export const serverEnv = {
     return required("AI_PROVIDER_API_KEY");
   },
   get aiModel() {
-    return process.env.AI_PROVIDER_MODEL ?? "claude-sonnet-5";
+    return process.env.AI_PROVIDER_MODEL ?? "claude-haiku-4-5-20251001";
   },
   get stripeSecretKey() {
     return required("STRIPE_SECRET_KEY");
