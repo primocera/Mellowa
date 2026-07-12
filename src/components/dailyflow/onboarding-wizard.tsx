@@ -1,0 +1,471 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2, ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  WellbeingProfileInput,
+  type WellbeingProfileInputType,
+} from "@/schemas/wellbeing";
+import clsx from "clsx";
+
+const STEPS = [
+  "Your rhythm",
+  "Main goal",
+  "Food",
+  "Baseline",
+  "Tone",
+  "One last thing",
+] as const;
+
+const GOALS: { value: WellbeingProfileInputType["primary_goal"]; label: string }[] = [
+  { value: "more_energy", label: "More energy" },
+  { value: "better_meal_rhythm", label: "Better meal rhythm" },
+  { value: "less_overwhelm", label: "Less overwhelm" },
+  { value: "better_sleep_routine", label: "Better sleep routine" },
+  { value: "habit_consistency", label: "Habit consistency" },
+  { value: "general_wellbeing_structure", label: "General structure" },
+];
+
+const COOKING_TIMES = [
+  { value: "under_15", label: "Under 15 min" },
+  { value: "15_30", label: "15–30 min" },
+  { value: "30_60", label: "30–60 min" },
+  { value: "over_60", label: "I enjoy longer cooking" },
+] as const;
+
+const BUDGETS = [
+  { value: "low", label: "Budget-friendly" },
+  { value: "medium", label: "Moderate" },
+  { value: "flexible", label: "Flexible" },
+] as const;
+
+const MOVEMENT = [
+  { value: "mostly_sitting", label: "Mostly sitting" },
+  { value: "lightly_active", label: "Lightly active" },
+  { value: "active", label: "Active" },
+  { value: "very_active", label: "Very active" },
+] as const;
+
+const TONES = [
+  { value: "gentle", label: "Gentle", hint: "Soft, kind and calm" },
+  { value: "direct", label: "Direct", hint: "Clear and to the point" },
+  { value: "minimal", label: "Minimal", hint: "Short, no fluff" },
+  { value: "encouraging", label: "Encouraging", hint: "Warm cheerleading" },
+] as const;
+
+type Draft = {
+  wake_time: string;
+  sleep_time: string;
+  work_schedule: string;
+  primary_goal: string;
+  food_preferences: string;
+  allergies: string;
+  cooking_time: string;
+  budget_level: string;
+  energy_baseline: number;
+  stress_baseline: number;
+  sleep_quality_baseline: number;
+  movement_level: string;
+  preferred_tone: string;
+  safety_acknowledged: boolean;
+};
+
+const INITIAL: Draft = {
+  wake_time: "07:00",
+  sleep_time: "23:00",
+  work_schedule: "",
+  primary_goal: "",
+  food_preferences: "",
+  allergies: "",
+  cooking_time: "",
+  budget_level: "",
+  energy_baseline: 3,
+  stress_baseline: 3,
+  sleep_quality_baseline: 3,
+  movement_level: "",
+  preferred_tone: "",
+  safety_acknowledged: false,
+};
+
+function Scale({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-sm font-medium text-[#1F2937]">{label}</p>
+      <div className="flex gap-2">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            className={clsx(
+              "h-11 flex-1 rounded-xl border text-sm font-medium transition",
+              value === n
+                ? "border-[#7C9A92] bg-[#7C9A92] text-white"
+                : "border-[#E5E1DA] bg-white text-[#6B7280] hover:border-[#7C9A92]/50"
+            )}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OptionGrid<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: readonly { value: T; label: string; hint?: string }[];
+  value: string;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          className={clsx(
+            "rounded-xl border px-4 py-3 text-left text-sm transition",
+            value === opt.value
+              ? "border-[#7C9A92] bg-[#7C9A92]/10 font-medium text-[#1F2937]"
+              : "border-[#E5E1DA] bg-white text-[#6B7280] hover:border-[#7C9A92]/50"
+          )}
+        >
+          {opt.label}
+          {opt.hint && <span className="mt-0.5 block text-xs text-[#6B7280]">{opt.hint}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function OnboardingWizard() {
+  const router = useRouter();
+  const [step, setStep] = useState(0);
+  const [draft, setDraft] = useState<Draft>(INITIAL);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
+
+  const stepValid = () => {
+    switch (step) {
+      case 0:
+        return draft.wake_time && draft.sleep_time && draft.work_schedule.trim();
+      case 1:
+        return !!draft.primary_goal;
+      case 2:
+        return !!draft.cooking_time && !!draft.budget_level;
+      case 3:
+        return !!draft.movement_level;
+      case 4:
+        return !!draft.preferred_tone;
+      case 5:
+        return draft.safety_acknowledged;
+      default:
+        return false;
+    }
+  };
+
+  async function finish() {
+    setError(null);
+
+    const parsed = WellbeingProfileInput.safeParse({
+      ...draft,
+      food_preferences: draft.food_preferences
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      allergies: draft.allergies
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    });
+
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "Please check your answers.");
+      return;
+    }
+
+    setSaving(true);
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    const d = parsed.data;
+    const { error: dbError } = await supabase.from("wellbeing_profiles").upsert(
+      {
+        user_id: user.id,
+        wake_time: d.wake_time,
+        sleep_time: d.sleep_time,
+        work_schedule: d.work_schedule,
+        primary_goal: d.primary_goal,
+        food_preferences: d.food_preferences,
+        allergies: d.allergies,
+        cooking_time: d.cooking_time,
+        budget_level: d.budget_level,
+        movement_level: d.movement_level,
+        sleep_quality_baseline: String(d.sleep_quality_baseline),
+        stress_baseline: String(d.stress_baseline),
+        preferred_tone: d.preferred_tone,
+        safety_acknowledged: d.safety_acknowledged,
+      },
+      { onConflict: "user_id" }
+    );
+
+    if (dbError) {
+      setError(dbError.message);
+      setSaving(false);
+      return;
+    }
+
+    router.push("/check-in");
+    router.refresh();
+  }
+
+  return (
+    <div className="mx-auto max-w-lg">
+      {/* Progress */}
+      <div className="mb-6">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+          Step {step + 1} of {STEPS.length} — {STEPS[step]}
+        </p>
+        <div className="flex gap-1.5">
+          {STEPS.map((_, i) => (
+            <div
+              key={i}
+              className={clsx(
+                "h-1.5 flex-1 rounded-full",
+                i <= step ? "bg-[#7C9A92]" : "bg-[#E5E1DA]"
+              )}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+        {step === 0 && (
+          <div className="space-y-5">
+            <h2 className="text-lg font-semibold text-[#1F2937]">Your daily rhythm</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#1F2937]">Wake time</label>
+                <input
+                  type="time"
+                  value={draft.wake_time}
+                  onChange={(e) => set("wake_time", e.target.value)}
+                  className="w-full rounded-xl border border-[#E5E1DA] px-4 py-3 text-[#1F2937] focus:border-[#7C9A92] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#1F2937]">Sleep time</label>
+                <input
+                  type="time"
+                  value={draft.sleep_time}
+                  onChange={(e) => set("sleep_time", e.target.value)}
+                  className="w-full rounded-xl border border-[#E5E1DA] px-4 py-3 text-[#1F2937] focus:border-[#7C9A92] focus:outline-none"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#1F2937]">
+                What does your typical day look like?
+              </label>
+              <input
+                type="text"
+                value={draft.work_schedule}
+                onChange={(e) => set("work_schedule", e.target.value)}
+                placeholder="e.g. office 9–5, shifts, home with kids…"
+                className="w-full rounded-xl border border-[#E5E1DA] px-4 py-3 text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
+              />
+            </div>
+          </div>
+        )}
+
+        {step === 1 && (
+          <div className="space-y-5">
+            <h2 className="text-lg font-semibold text-[#1F2937]">
+              What would help you most right now?
+            </h2>
+            <OptionGrid
+              options={GOALS}
+              value={draft.primary_goal}
+              onChange={(v) => set("primary_goal", v)}
+            />
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-5">
+            <h2 className="text-lg font-semibold text-[#1F2937]">Food, simply</h2>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#1F2937]">
+                Food preferences <span className="font-normal text-[#6B7280]">(comma separated, optional)</span>
+              </label>
+              <input
+                type="text"
+                value={draft.food_preferences}
+                onChange={(e) => set("food_preferences", e.target.value)}
+                placeholder="e.g. vegetarian, loves pasta, no fish"
+                className="w-full rounded-xl border border-[#E5E1DA] px-4 py-3 text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#1F2937]">
+                Allergies or intolerances <span className="font-normal text-[#6B7280]">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={draft.allergies}
+                onChange={(e) => set("allergies", e.target.value)}
+                placeholder="e.g. lactose, nuts"
+                className="w-full rounded-xl border border-[#E5E1DA] px-4 py-3 text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-medium text-[#1F2937]">Time for cooking</p>
+              <OptionGrid
+                options={COOKING_TIMES}
+                value={draft.cooking_time}
+                onChange={(v) => set("cooking_time", v)}
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-medium text-[#1F2937]">Food budget</p>
+              <OptionGrid
+                options={BUDGETS}
+                value={draft.budget_level}
+                onChange={(v) => set("budget_level", v)}
+              />
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-5">
+            <h2 className="text-lg font-semibold text-[#1F2937]">How things feel lately</h2>
+            <Scale
+              label="Energy (1 = running on empty, 5 = great)"
+              value={draft.energy_baseline}
+              onChange={(v) => set("energy_baseline", v)}
+            />
+            <Scale
+              label="Stress (1 = calm, 5 = very stressed)"
+              value={draft.stress_baseline}
+              onChange={(v) => set("stress_baseline", v)}
+            />
+            <Scale
+              label="Sleep quality (1 = poor, 5 = great)"
+              value={draft.sleep_quality_baseline}
+              onChange={(v) => set("sleep_quality_baseline", v)}
+            />
+            <div>
+              <p className="mb-2 text-sm font-medium text-[#1F2937]">Movement in a normal day</p>
+              <OptionGrid
+                options={MOVEMENT}
+                value={draft.movement_level}
+                onChange={(v) => set("movement_level", v)}
+              />
+            </div>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="space-y-5">
+            <h2 className="text-lg font-semibold text-[#1F2937]">
+              How should DailyFlow talk to you?
+            </h2>
+            <OptionGrid
+              options={TONES}
+              value={draft.preferred_tone}
+              onChange={(v) => set("preferred_tone", v)}
+            />
+          </div>
+        )}
+
+        {step === 5 && (
+          <div className="space-y-5">
+            <h2 className="text-lg font-semibold text-[#1F2937]">One last thing</h2>
+            <div className="rounded-xl bg-[#EEF2FF] px-4 py-4 text-sm leading-relaxed text-[#1F2937]">
+              DailyFlow is not medical care, therapy or emergency support. It provides
+              general wellbeing routines and habit structure. For medical conditions,
+              eating disorder concerns, pregnancy, severe mental health symptoms or
+              emergencies, please seek qualified professional support.
+            </div>
+            <label className="flex cursor-pointer items-start gap-3 text-sm text-[#1F2937]">
+              <input
+                type="checkbox"
+                checked={draft.safety_acknowledged}
+                onChange={(e) => set("safety_acknowledged", e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-[#7C9A92]"
+              />
+              I understand what DailyFlow is — and what it isn&apos;t.
+            </label>
+          </div>
+        )}
+
+        {error && (
+          <div className="mt-4 rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]">
+            {error}
+          </div>
+        )}
+
+        {/* Nav buttons */}
+        <div className="mt-8 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setStep((s) => Math.max(0, s - 1))}
+            disabled={step === 0 || saving}
+            className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium text-[#6B7280] transition hover:text-[#1F2937] disabled:invisible"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </button>
+
+          {step < STEPS.length - 1 ? (
+            <button
+              type="button"
+              onClick={() => setStep((s) => s + 1)}
+              disabled={!stepValid()}
+              className="flex items-center gap-1.5 rounded-xl bg-[#7C9A92] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#6D8C7D] disabled:opacity-50"
+            >
+              Continue
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={finish}
+              disabled={!stepValid() || saving}
+              className="flex items-center gap-1.5 rounded-xl bg-[#7C9A92] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#6D8C7D] disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              Finish
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
