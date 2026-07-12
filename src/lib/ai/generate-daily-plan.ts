@@ -13,8 +13,10 @@ export async function generateDailyPlan(args: {
   checkin: DailyCheckinInputType;
   habits: string[];
   date: string;
+  /** Extra corrective instruction, e.g. after a failed quality check. */
+  extraInstruction?: string;
 }): Promise<DailyPlanOutputType> {
-  const { profile, checkin, habits, date } = args;
+  const { profile, checkin, habits, date, extraInstruction } = args;
 
   const profileContext = {
     primary_goal: profile.primary_goal,
@@ -29,14 +31,18 @@ export async function generateDailyPlan(args: {
     preferred_tone: profile.preferred_tone,
   };
 
+  const basePrompt = buildDailyPlanUserPrompt({
+    profile: profileContext,
+    checkin,
+    habits,
+    date,
+  });
+
   return generateStructuredJson({
     systemPrompt: DAILY_PLAN_SYSTEM_PROMPT,
-    userPrompt: buildDailyPlanUserPrompt({
-      profile: profileContext,
-      checkin,
-      habits,
-      date,
-    }),
+    userPrompt: extraInstruction
+      ? `${basePrompt}\n\nIMPORTANT CORRECTION: ${extraInstruction}`
+      : basePrompt,
     zodSchema: DailyPlanOutput,
     temperature: 0.6,
     maxTokens: 4096,

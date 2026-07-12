@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DailyCheckinInput } from "@/schemas/wellbeing";
 import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateDailyPlan } from "@/lib/ai/generate-daily-plan";
+import { checkDailyPlanQuality } from "@/lib/ai/quality-checks";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canGenerateDailyPlan } from "@/lib/stripe/subscription";
 import type { WellbeingProfile } from "@/types/dailyflow";
@@ -104,14 +105,45 @@ export async function POST(request: Request) {
     .eq("user_id", user.id)
     .eq("active", true);
 
+  const habits = (habitRows ?? []).map((h) => h.name);
   let plan;
   try {
     plan = await generateDailyPlan({
       profile: profile as WellbeingProfile,
       checkin,
-      habits: (habitRows ?? []).map((h) => h.name),
+      habits,
       date: today,
     });
+
+    // Quality gate — one safer regeneration attempt if the plan fails
+    const quality = checkDailyPlanQuality(plan, {
+      energy_level: checkin.energy_level,
+      stress_level: checkin.stress_level,
+    });
+    if (!quality.ok) {
+      console.error("[ai] daily plan failed quality check, regenerating", {
+        reasons: quality.reasons,
+      });
+      plan = await generateDailyPlan({
+        profile: profile as WellbeingProfile,
+        checkin,
+        habits,
+        date: today,
+        extraInstruction: `The previous plan failed quality review (${quality.reasons.join(
+          "; "
+        )}). Create a LIGHTER, gentler plan: fewer items per section, simple non-restrictive meals, no medical or diet language, warm encouragement, and a clear minimum version for the habit.`,
+      });
+      const retryQuality = checkDailyPlanQuality(plan, {
+        energy_level: checkin.energy_level,
+        stress_level: checkin.stress_level,
+      });
+      if (!retryQuality.ok) {
+        return NextResponse.json(
+          { error: "quality_check_failed", reasons: retryQuality.reasons },
+          { status: 502 }
+        );
+      }
+    }
   } catch (err) {
     const code = err instanceof AiGenerationError ? err.code : "provider_error";
     return NextResponse.json(
