@@ -91,11 +91,17 @@ export function CheckinForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(
-          data.error === "onboarding_required"
-            ? "Please finish onboarding first."
-            : "Something went wrong. Please try again."
-        );
+        if (res.status === 402) {
+          setError(
+            "You've used this month's free plans. Upgrade to Premium on the Billing page for unlimited daily plans."
+          );
+        } else {
+          setError(
+            data.error === "onboarding_required"
+              ? "Please finish onboarding first."
+              : "Something went wrong. Please try again."
+          );
+        }
         setLoading(false);
         return;
       }

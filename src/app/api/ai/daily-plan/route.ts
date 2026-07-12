@@ -4,6 +4,7 @@ import { DailyCheckinInput } from "@/schemas/wellbeing";
 import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateDailyPlan } from "@/lib/ai/generate-daily-plan";
 import { AiGenerationError } from "@/lib/ai/errors";
+import { canGenerateDailyPlan } from "@/lib/stripe/subscription";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
 export async function POST(request: Request) {
@@ -46,6 +47,14 @@ export async function POST(request: Request) {
     );
   }
   const checkin = parsed.data;
+
+  // Plan gate — monthly usage limit
+  if (!(await canGenerateDailyPlan(user.id))) {
+    return NextResponse.json(
+      { error: "limit_reached", scope: "daily_plan" },
+      { status: 402 }
+    );
+  }
 
   // 4. Safety check BEFORE any generation
   const freeText = [checkin.today_focus, checkin.notes, checkin.hunger_pattern]

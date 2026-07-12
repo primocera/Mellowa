@@ -5,6 +5,7 @@ import { WeeklyPlanInput } from "@/schemas/wellbeing";
 import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateWeeklyPlan } from "@/lib/ai/generate-weekly-plan";
 import { AiGenerationError } from "@/lib/ai/errors";
+import { canUsePremiumFeature, canGenerateWeeklyPlan } from "@/lib/stripe/subscription";
 import type { DailyCheckin, WellbeingProfile } from "@/types/dailyflow";
 
 export async function POST(request: Request) {
@@ -22,6 +23,20 @@ export async function POST(request: Request) {
 
   if (!profile) {
     return NextResponse.json({ error: "onboarding_required" }, { status: 400 });
+  }
+
+  // Weekly plans are a premium feature; also enforce the monthly cap.
+  if (!(await canUsePremiumFeature(user.id, "weekly_plan"))) {
+    return NextResponse.json(
+      { error: "upgrade_required", scope: "weekly_plan" },
+      { status: 402 }
+    );
+  }
+  if (!(await canGenerateWeeklyPlan(user.id))) {
+    return NextResponse.json(
+      { error: "limit_reached", scope: "weekly_plan" },
+      { status: 402 }
+    );
   }
 
   let body: unknown = {};

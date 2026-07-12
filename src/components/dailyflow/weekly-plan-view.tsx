@@ -40,6 +40,12 @@ function GenerateButton({
         setMessage(data.user_message);
       } else if (res.ok) {
         router.refresh();
+      } else if (res.status === 402) {
+        setMessage(
+          data.error === "upgrade_required"
+            ? "Weekly plans are a Premium feature — you can upgrade on the Billing page."
+            : "You've reached this month's weekly plan limit — upgrade on the Billing page for more."
+        );
       } else {
         setMessage("Couldn't create the plan right now — try again in a moment.");
       }
