@@ -394,7 +394,7 @@ export function OnboardingWizard() {
         {step === 4 && (
           <div className="space-y-5">
             <h2 className="text-lg font-semibold text-[#1F2937]">
-              How should DailyFlow talk to you?
+              How should Mellowa talk to you?
             </h2>
             <OptionGrid
               options={TONES}
@@ -408,7 +408,7 @@ export function OnboardingWizard() {
           <div className="space-y-5">
             <h2 className="text-lg font-semibold text-[#1F2937]">One last thing</h2>
             <div className="rounded-xl bg-[#EEF2FF] px-4 py-4 text-sm leading-relaxed text-[#1F2937]">
-              DailyFlow is not medical care, therapy or emergency support. It provides
+              Mellowa is not medical care, therapy or emergency support. It provides
               general wellbeing routines and habit structure. For medical conditions,
               eating disorder concerns, pregnancy, severe mental health symptoms or
               emergencies, please seek qualified professional support.
@@ -420,7 +420,7 @@ export function OnboardingWizard() {
                 onChange={(e) => set("safety_acknowledged", e.target.checked)}
                 className="mt-0.5 h-4 w-4 accent-[#7C9A92]"
               />
-              I understand what DailyFlow is — and what it isn&apos;t.
+              I understand what Mellowa is — and what it isn&apos;t.
             </label>
           </div>
         )}

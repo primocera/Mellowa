@@ -77,6 +77,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         {errors.password && (
           <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
         )}
+        {isLogin && (
+          <div className="mt-1.5 text-right">
+            <Link
+              href="/forgot-password"
+              className="text-sm text-[#7C9A92] hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -97,7 +107,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       <p className="text-center text-sm text-[#6B7280]">
         {isLogin ? (
           <>
-            New to DailyFlow?{" "}
+            New to Mellowa?{" "}
             <Link href="/signup" className="font-medium text-[#7C9A92] hover:underline">
               Create an account
             </Link>

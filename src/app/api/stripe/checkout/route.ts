@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
 import { serverEnv } from "@/lib/env";
-import { ACTIVE_STATUSES } from "@/lib/stripe/plans";
+import { ACTIVE_STATUSES, TRIAL_DAYS } from "@/lib/stripe/plans";
 
 const CheckoutInput = z.object({
   interval: z.enum(["monthly", "yearly"]),
@@ -57,22 +57,34 @@ export async function POST(request: Request) {
     );
   }
 
+  const planName = parsed.data.interval === "monthly" ? "pro_monthly" : "pro_yearly";
   const price =
     parsed.data.interval === "monthly"
       ? serverEnv.stripePriceProMonthly
       : serverEnv.stripePriceProYearly;
 
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    mode: "subscription",
-    line_items: [{ price, quantity: 1 }],
-    success_url: `${serverEnv.appUrl}/billing?status=success`,
-    cancel_url: `${serverEnv.appUrl}/pricing?status=cancelled`,
-    metadata: { supabase_user_id: user.id },
-    subscription_data: {
-      metadata: { supabase_user_id: user.id },
-    },
-  });
+  try {
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: "subscription",
+      line_items: [{ price, quantity: 1 }],
+      success_url: `${serverEnv.appUrl}/billing?status=success`,
+      cancel_url: `${serverEnv.appUrl}/pricing?status=cancelled`,
+      metadata: { supabase_user_id: user.id, plan_name: planName },
+      subscription_data: {
+        trial_period_days: TRIAL_DAYS,
+        metadata: { supabase_user_id: user.id, plan_name: planName },
+      },
+    });
 
-  return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
+    console.error("[stripe] checkout session failed", {
+      message: err instanceof Error ? err.message : "unknown",
+    });
+    return NextResponse.json(
+      { error: "We couldn't start checkout right now. Please try again." },
+      { status: 502 }
+    );
+  }
 }

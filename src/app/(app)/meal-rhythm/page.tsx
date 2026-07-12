@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth/get-current-user";
 import { createClient } from "@/lib/supabase/server";
 import { MealRhythmView } from "@/components/dailyflow/meal-rhythm-view";
 
-export const metadata: Metadata = { title: "Meal rhythm — DailyFlow" };
+export const metadata: Metadata = { title: "Meal rhythm — Mellowa" };
 
 type MealRhythm = Parameters<typeof MealRhythmView>[0]["initial"];
 

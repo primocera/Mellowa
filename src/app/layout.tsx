@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "DailyFlow — A simple daily plan for food, energy, mood and habits",
+    default: "Mellowa — A simple daily plan for food, energy, mood and habits",
     template: "%s",
   },
   description:

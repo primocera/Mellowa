@@ -41,7 +41,7 @@ export function AppNav() {
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-56 flex-col border-r border-[#EDE9E2] bg-white px-4 py-6 md:flex">
         <Link href="/dashboard" className="mb-8 px-2 text-lg font-semibold tracking-tight text-[#1F2937]">
-          DailyFlow
+          Mellowa
         </Link>
         <nav className="flex flex-1 flex-col gap-1">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => (

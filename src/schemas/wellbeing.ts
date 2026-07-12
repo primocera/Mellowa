@@ -33,7 +33,7 @@ export const WellbeingProfileInput = z.object({
   movement_level: z.enum(["mostly_sitting", "lightly_active", "active", "very_active"]),
   preferred_tone: z.enum(preferredTones),
   safety_acknowledged: z.literal(true, {
-    error: "Please confirm you understand what DailyFlow is (and isn't).",
+    error: "Please confirm you understand what Mellowa is (and isn't).",
   }),
 });
 

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { HabitsView } from "@/components/dailyflow/habits-view";
 import type { Habit, HabitLog } from "@/types/dailyflow";
 
-export const metadata: Metadata = { title: "Habits — DailyFlow" };
+export const metadata: Metadata = { title: "Habits — Mellowa" };
 
 export default async function HabitsPage() {
   const user = await requireUser();

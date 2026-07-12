@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth/get-current-user";
 import { createClient } from "@/lib/supabase/server";
 import type { DailyCheckin, Habit, HabitLog } from "@/types/dailyflow";
 
-export const metadata: Metadata = { title: "Progress — DailyFlow" };
+export const metadata: Metadata = { title: "Progress — Mellowa" };
 
 const METRICS = [
   { key: "energy_level", label: "Energy" },

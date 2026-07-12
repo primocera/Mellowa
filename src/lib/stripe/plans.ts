@@ -1,6 +1,6 @@
-/** Plan definitions and simple MVP usage limits. Shared client/server. */
+/** Plan definitions and usage limits for the Mellowa trial-only model. */
 
-export type PlanTier = "free" | "pro";
+export type PlanTier = "sample" | "premium";
 
 export type PremiumFeature =
   | "weekly_plan"
@@ -8,14 +8,18 @@ export type PremiumFeature =
   | "journal_reflection"
   | "progress_insight";
 
+export const TRIAL_DAYS = 3;
+
 export const PLAN_LIMITS = {
-  free: {
-    dailyPlansPerMonth: 5,
-    weeklyPlansPerMonth: 1,
+  // Not subscribed: a single sample daily plan to preview the product.
+  sample: {
+    dailyPlansTotal: 1,
+    weeklyPlansPerMonth: 0,
     premiumFeatures: [] as PremiumFeature[],
   },
-  pro: {
-    dailyPlansPerMonth: 500, // effectively unlimited, reasonable ceiling
+  // Trialing or active: full access.
+  premium: {
+    dailyPlansTotal: Number.POSITIVE_INFINITY,
     weeklyPlansPerMonth: 60,
     premiumFeatures: [
       "weekly_plan",
@@ -26,39 +30,38 @@ export const PLAN_LIMITS = {
   },
 } as const;
 
-/** A subscription counts as active for these Stripe statuses. */
-export const ACTIVE_STATUSES = ["active", "trialing", "past_due"];
+/**
+ * Stripe statuses that unlock Premium. Trial and active only.
+ * Decision: `past_due` is NOT auto-unlocked — the billing page shows a
+ * warning and the user keeps read access, but new premium generations are
+ * gated until payment recovers. `canceled`/`incomplete`/`unpaid` are locked.
+ */
+export const ACTIVE_STATUSES = ["trialing", "active"];
+
+export const PREMIUM_FEATURES: readonly string[] = [
+  "Unlimited personalized daily plans",
+  "Weekly reset with meal rhythm & shopping list",
+  "Low-energy day mode",
+  "Journal reflections",
+  "Progress insights",
+];
 
 export const PRICING = {
-  free: {
-    name: "Free",
-    price: "$0",
-    cadence: "",
-    features: [
-      "Daily check-in",
-      "Up to 5 daily plans / month",
-      "Basic habit tracking",
-    ],
-  },
   monthly: {
-    name: "Premium Monthly",
-    price: "$9",
+    name: "Mellowa Monthly",
+    price: "€9.99",
     cadence: "/month",
-    features: [
-      "Personalized daily plans",
-      "Weekly plans & shopping lists",
-      "Meal rhythm ideas",
-      "Journal prompts & reflection",
-      "Progress insights",
-    ],
+    trialDays: TRIAL_DAYS,
+    priceEnvVar: "STRIPE_PRICE_PRO_MONTHLY",
+    features: PREMIUM_FEATURES,
   },
   yearly: {
-    name: "Premium Annual",
-    price: "$79",
+    name: "Mellowa Yearly",
+    price: "€59.99",
     cadence: "/year",
-    features: [
-      "Everything in Premium Monthly",
-      "Two months free vs. monthly",
-    ],
+    trialDays: TRIAL_DAYS,
+    priceEnvVar: "STRIPE_PRICE_PRO_YEARLY",
+    note: "Save 50% compared to monthly",
+    features: PREMIUM_FEATURES,
   },
 } as const;

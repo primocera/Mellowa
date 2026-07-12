@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { TodayPlan } from "@/components/dailyflow/today-plan";
 import type { DailyPlan } from "@/types/dailyflow";
 
-export const metadata: Metadata = { title: "Today — DailyFlow" };
+export const metadata: Metadata = { title: "Today — Mellowa" };
 
 export default async function TodayPage() {
   const user = await requireUser();

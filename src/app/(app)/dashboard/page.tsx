@@ -13,7 +13,7 @@ import { requireUser } from "@/lib/auth/get-current-user";
 import { createClient } from "@/lib/supabase/server";
 import type { DailyCheckin, Habit, HabitLog, WeeklyPlan } from "@/types/dailyflow";
 
-export const metadata: Metadata = { title: "Dashboard — DailyFlow" };
+export const metadata: Metadata = { title: "Dashboard — Mellowa" };
 
 const GENTLE_REMINDERS = [
   "Small steps count. One doable thing today is enough.",

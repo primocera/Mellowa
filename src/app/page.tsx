@@ -11,9 +11,9 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "DailyFlow — A simple daily plan for food, energy, mood and habits",
+  title: "Mellowa — A gentler daily plan for food, energy and habits",
   description:
-    "DailyFlow helps you structure your day with realistic meals, gentle routines, small habits, movement moments and stress resets — without strict dieting or overwhelm.",
+    "Mellowa turns your mood, energy and schedule into a realistic plan for meals, hydration, movement, stress resets and calmer evenings — without strict dieting or overwhelm.",
 };
 
 const PLAN_INCLUDES = [
@@ -34,24 +34,24 @@ const HOW_IT_WORKS = [
 
 const FAQ = [
   {
-    q: "Is DailyFlow a diet app?",
-    a: "No. DailyFlow never counts calories, restricts food or promises weight loss. It helps you build a calm, repeatable meal rhythm that fits your life.",
+    q: "Is Mellowa a diet app?",
+    a: "No. Mellowa never counts calories, restricts food or promises weight loss. It helps you build a calm, repeatable meal rhythm that fits your life.",
   },
   {
     q: "Is this therapy or medical advice?",
-    a: "No. DailyFlow is not medical care, therapy or emergency support. For medical conditions, eating disorder concerns, pregnancy or severe mental health symptoms, please seek qualified professional support.",
+    a: "No. Mellowa is not medical care, therapy or emergency support. For medical conditions, eating disorder concerns, pregnancy or severe mental health symptoms, please seek qualified professional support.",
   },
   {
     q: "What if I have a low-energy day?",
-    a: "That's exactly what DailyFlow is built for. Low energy means a simpler plan — easier meals, lighter movement, more recovery. Every plan has a minimum version.",
+    a: "That's exactly what Mellowa is built for. Low energy means a simpler plan — easier meals, lighter movement, more recovery. Every plan has a minimum version.",
   },
   {
     q: "How long does the daily check-in take?",
     a: "About a minute. Four quick sliders and an optional note — then your plan is ready.",
   },
   {
-    q: "Can I try it for free?",
-    a: "Yes. The free plan includes daily check-ins, a limited number of daily plans each month and basic habit tracking.",
+    q: "How does the free trial work?",
+    a: "You start with 3 days free. After the trial, your plan continues at €9.99/month or €59.99/year unless you cancel. You can cancel anytime before your trial ends — no charge.",
   },
 ];
 
@@ -60,7 +60,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#FAF7F2] text-[#1F2937]">
       {/* Nav */}
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
-        <span className="text-lg font-semibold tracking-tight">DailyFlow</span>
+        <span className="text-lg font-semibold tracking-tight">Mellowa</span>
         <nav className="flex items-center gap-3">
           <Link href="/pricing" className="text-sm text-[#6B7280] transition hover:text-[#1F2937]">
             Pricing
@@ -80,19 +80,19 @@ export default function LandingPage() {
       {/* 1. Hero */}
       <section className="mx-auto max-w-3xl px-6 pb-16 pt-14 text-center sm:pt-20">
         <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-          A simple daily plan for food, energy, mood and habits.
+          A gentler daily plan for food, energy and habits.
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-lg text-[#6B7280]">
-          DailyFlow helps you structure your day with realistic meals, gentle
-          routines, small habits, movement moments and stress resets — without
-          strict dieting or overwhelm.
+          Mellowa turns your mood, energy and schedule into a realistic plan for
+          meals, hydration, movement, stress resets and calmer evenings —
+          without strict dieting or overwhelm.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link
             href="/signup"
             className="rounded-xl bg-[#7C9A92] px-6 py-3.5 font-medium text-white transition hover:bg-[#6D8C7D]"
           >
-            Create my daily plan
+            Start my 3-day free trial
           </Link>
           <a
             href="#how-it-works"
@@ -101,6 +101,17 @@ export default function LandingPage() {
             See how it works
           </a>
         </div>
+        <p className="mt-4 text-sm text-[#9CA3AF]">
+          Then €9.99/month or €59.99/year. Cancel anytime before your trial ends.
+        </p>
+      </section>
+
+      {/* Low-energy emphasis */}
+      <section className="mx-auto max-w-3xl px-6 pt-4 text-center">
+        <p className="mx-auto max-w-xl text-[#6B7280]">
+          For the days when your energy is low, Mellowa makes the plan{" "}
+          <span className="font-medium text-[#1F2937]">smaller — not stricter.</span>
+        </p>
       </section>
 
       {/* 2. Problem */}
@@ -122,7 +133,7 @@ export default function LandingPage() {
             One realistic plan, based on your energy, mood and schedule.
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-white/85">
-            Tell DailyFlow how today feels. Get a plan that fits — simpler on
+            Tell Mellowa how today feels. Get a plan that fits — simpler on
             low-energy days, shorter on stressful ones, always doable.
           </p>
         </div>
@@ -184,7 +195,7 @@ export default function LandingPage() {
       {/* 7. Safety note */}
       <section className="mx-auto max-w-3xl px-6 py-8">
         <div className="rounded-2xl bg-[#EEF2FF] px-6 py-5 text-center text-sm leading-relaxed text-[#1F2937]">
-          DailyFlow is not medical care, therapy or emergency support. It offers
+          Mellowa is not medical care, therapy or emergency support. It offers
           general wellbeing routines and habit structure. For medical
           conditions, eating disorder concerns, pregnancy or severe mental
           health symptoms, please seek qualified professional support.
@@ -193,34 +204,38 @@ export default function LandingPage() {
 
       {/* 8. Pricing preview */}
       <section className="mx-auto max-w-3xl px-6 py-12 text-center">
-        <h2 className="text-2xl font-semibold tracking-tight">Simple pricing</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">
+          Start with 3 days free.
+        </h2>
         <p className="mt-2 text-[#6B7280]">
-          Start free. Upgrade when you want the full weekly structure.
+          Then €9.99/month or €59.99/year. Cancel anytime before your trial ends.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-4">
           <div className="w-64 rounded-2xl bg-white p-6 text-left shadow-sm">
-            <h3 className="font-medium">Free</h3>
-            <p className="mt-1 text-2xl font-semibold">$0</p>
-            <p className="mt-1 text-sm text-[#6B7280]">
-              Daily check-ins, a few plans each month, basic habits.
+            <h3 className="font-medium">Mellowa Monthly</h3>
+            <p className="mt-1 text-2xl font-semibold">
+              €9.99<span className="text-base font-normal text-[#6B7280]">/mo</span>
             </p>
+            <p className="mt-1 text-sm text-[#6B7280]">3 days free, then monthly.</p>
           </div>
           <div className="w-64 rounded-2xl border-2 border-[#7C9A92] bg-white p-6 text-left shadow-sm">
-            <h3 className="font-medium">Premium</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium">Mellowa Yearly</h3>
+              <span className="rounded-full bg-[#7C9A92]/10 px-2.5 py-0.5 text-xs font-medium text-[#6D8C7D]">
+                Save 50%
+              </span>
+            </div>
             <p className="mt-1 text-2xl font-semibold">
-              $9<span className="text-base font-normal text-[#6B7280]">/mo</span>
+              €59.99<span className="text-base font-normal text-[#6B7280]">/yr</span>
             </p>
-            <p className="mt-1 text-sm text-[#6B7280]">
-              Unlimited plans, weekly structure, shopping lists, journal and
-              progress.
-            </p>
+            <p className="mt-1 text-sm text-[#6B7280]">Best value. 3 days free.</p>
           </div>
         </div>
         <Link
           href="/pricing"
           className="mt-6 inline-block text-sm font-medium text-[#7C9A92] hover:underline"
         >
-          See full pricing →
+          See what&apos;s included →
         </Link>
       </section>
 
@@ -253,12 +268,12 @@ export default function LandingPage() {
           href="/signup"
           className="mt-6 inline-block rounded-xl bg-[#7C9A92] px-6 py-3.5 font-medium text-white transition hover:bg-[#6D8C7D]"
         >
-          Create my daily plan
+          Start my 3-day free trial
         </Link>
       </section>
 
       <footer className="border-t border-[#EDE9E2] py-8 text-center text-xs text-[#9CA3AF]">
-        © {new Date().getFullYear()} DailyFlow. Not medical care, therapy or
+        © {new Date().getFullYear()} Mellowa. Not medical care, therapy or
         emergency support.
       </footer>
     </div>

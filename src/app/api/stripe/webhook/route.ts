@@ -68,6 +68,9 @@ export async function POST(request: Request) {
     const planName =
       priceId === serverEnv.stripePriceProYearly ? "pro_yearly" : "pro_monthly";
 
+    const toIso = (unix: number | null | undefined) =>
+      unix ? new Date(unix * 1000).toISOString() : null;
+
     await admin.from("subscriptions").upsert(
       {
         user_id: targetUserId,
@@ -75,9 +78,10 @@ export async function POST(request: Request) {
         stripe_subscription_id: subscription.id,
         plan_name: planName,
         status: subscription.status,
-        current_period_end: periodEnd
-          ? new Date(periodEnd * 1000).toISOString()
-          : null,
+        current_period_end: toIso(periodEnd),
+        trial_start: toIso(subscription.trial_start),
+        trial_end: toIso(subscription.trial_end),
+        cancel_at_period_end: subscription.cancel_at_period_end ?? false,
       },
       { onConflict: "user_id" }
     );
@@ -113,6 +117,24 @@ export async function POST(request: Request) {
           .from("subscriptions")
           .update({ status: "past_due" })
           .eq("stripe_customer_id", customerId);
+      }
+      break;
+    }
+    case "invoice.payment_succeeded": {
+      // A recovered payment flips a past_due sub back to active. The
+      // authoritative status still comes from subscription.updated, but this
+      // reacts faster for the billing UI.
+      const invoice = event.data.object;
+      const customerId =
+        typeof invoice.customer === "string"
+          ? invoice.customer
+          : invoice.customer?.id;
+      if (customerId) {
+        await admin
+          .from("subscriptions")
+          .update({ status: "active" })
+          .eq("stripe_customer_id", customerId)
+          .eq("status", "past_due");
       }
       break;
     }

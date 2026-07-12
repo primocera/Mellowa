@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth/get-current-user";
 import { createClient } from "@/lib/supabase/server";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
-export const metadata: Metadata = { title: "Settings — DailyFlow" };
+export const metadata: Metadata = { title: "Settings — Mellowa" };
 
 export default async function SettingsPage() {
   const user = await requireUser();
@@ -87,7 +87,7 @@ export default async function SettingsPage() {
       </div>
 
       <p className="px-2 text-xs text-[#9CA3AF]">
-        DailyFlow is not medical care, therapy or emergency support.
+        Mellowa is not medical care, therapy or emergency support.
       </p>
     </div>
   );

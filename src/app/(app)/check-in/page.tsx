@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { CheckinForm } from "@/components/dailyflow/checkin-form";
 
-export const metadata: Metadata = { title: "Daily check-in — DailyFlow" };
+export const metadata: Metadata = { title: "Daily check-in — Mellowa" };
 
 export default function CheckInPage() {
   return (

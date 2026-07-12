@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { JournalView } from "@/components/dailyflow/journal-view";
 import type { JournalEntry } from "@/types/dailyflow";
 
-export const metadata: Metadata = { title: "Journal — DailyFlow" };
+export const metadata: Metadata = { title: "Journal — Mellowa" };
 
 export default async function JournalPage() {
   const user = await requireUser();
