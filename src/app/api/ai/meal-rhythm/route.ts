@@ -9,6 +9,8 @@ import {
   buildMealRhythmUserPrompt,
 } from "@/prompts/meal-rhythm";
 import { MealRhythmOutput } from "@/schemas/ai-output";
+import { guardAiRoute } from "@/lib/ai/guard";
+import { recordAiUsage } from "@/lib/ai/rate-limit";
 
 const MealRhythmInput = z.object({
   challenge: z.string().max(500).optional().default(""),
@@ -30,6 +32,10 @@ export async function POST(request: Request) {
   if (!profile) {
     return NextResponse.json({ error: "onboarding_required" }, { status: 400 });
   }
+
+  // Premium-only + rate limit — protects the AI provider key.
+  const guard = await guardAiRoute(user.id, { requirePremium: true });
+  if (guard) return guard;
 
   let body: unknown = {};
   try {
@@ -97,6 +103,8 @@ export async function POST(request: Request) {
     meal_type: "meal_rhythm_set",
     idea: ideas,
   });
+
+  await recordAiUsage(user.id, "meal-rhythm");
 
   return NextResponse.json({ blocked: false, ideas });
 }

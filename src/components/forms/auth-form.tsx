@@ -36,6 +36,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       return;
     }
 
+    // Best-effort welcome email on signup — never blocks the redirect.
+    if (!isLogin) {
+      void fetch("/api/email/welcome", { method: "POST" }).catch(() => {});
+    }
+
     router.push("/dashboard");
     router.refresh();
   }

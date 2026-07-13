@@ -5,6 +5,8 @@ import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateStructuredJson } from "@/lib/ai/generate-json";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { JournalReflectionOutput } from "@/schemas/ai-output";
+import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
+import { checkAiRateLimit, recordAiUsage } from "@/lib/ai/rate-limit";
 
 const JOURNAL_SYSTEM_PROMPT = `You are a gentle reflection companion for a consumer wellness app.
 You respond to short journal entries about routines, energy, meals and habits.
@@ -64,6 +66,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to save entry" }, { status: 500 });
   }
 
+  // Journaling is free; the AI reflection is a premium feature and costs a
+  // provider call — gate it (gracefully) so the entry is still saved.
+  const sub = await getUserSubscriptionStatus(user.id);
+  if (!sub.isPremium) {
+    return NextResponse.json({
+      blocked: false,
+      saved: true,
+      reflection: null,
+      premium_required: true,
+    });
+  }
+  const rate = await checkAiRateLimit(user.id);
+  if (!rate.ok) {
+    return NextResponse.json({
+      blocked: false,
+      saved: true,
+      reflection: null,
+      rate_limited: true,
+    });
+  }
+
   // Gentle reflection
   let reflection;
   try {
@@ -79,6 +102,8 @@ export async function POST(request: Request) {
     const code = err instanceof AiGenerationError ? err.code : "provider_error";
     return NextResponse.json({ blocked: false, saved: true, reflection: null, code });
   }
+
+  await recordAiUsage(user.id, "journal-reflection");
 
   return NextResponse.json({ blocked: false, saved: true, reflection });
 }

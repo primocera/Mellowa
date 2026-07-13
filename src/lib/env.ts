@@ -43,4 +43,15 @@ export const serverEnv = {
   get appUrl() {
     return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   },
+  // Optional — lifecycle email (Resend). Email is skipped if unset.
+  get resendApiKey() {
+    return process.env.RESEND_API_KEY ?? null;
+  },
+  get emailFrom() {
+    return process.env.EMAIL_FROM ?? "Mellowa <onboarding@resend.dev>";
+  },
+  // Optional — shared secret for Vercel Cron endpoints.
+  get cronSecret() {
+    return process.env.CRON_SECRET ?? null;
+  },
 };

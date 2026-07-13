@@ -285,6 +285,17 @@ export default function LandingPage() {
       </section>
 
       <footer className="border-t border-[#EDE9E2] py-8 text-center text-xs text-[#9CA3AF]">
+        <div className="mb-2 flex flex-wrap justify-center gap-4">
+          <Link href="/privacy" className="hover:text-[#6D8C7D]">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:text-[#6D8C7D]">
+            Terms
+          </Link>
+          <Link href="/refund" className="hover:text-[#6D8C7D]">
+            Refunds
+          </Link>
+        </div>
         © {new Date().getFullYear()} Mellowa. Not medical care, therapy or
         emergency support.
       </footer>

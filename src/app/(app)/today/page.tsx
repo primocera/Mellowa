@@ -52,5 +52,18 @@ export default async function TodayPage() {
     );
   }
 
-  return <TodayPlanV2 plan={plan} showMacros={showMacros} />;
+  // Persisted "mark as done" items for this plan.
+  const { data: completions } = await supabase
+    .from("plan_completions")
+    .select("item_key")
+    .eq("daily_plan_id", plan.id);
+  const completedKeys = (completions ?? []).map((c) => c.item_key);
+
+  return (
+    <TodayPlanV2
+      plan={plan}
+      showMacros={showMacros}
+      completedKeys={completedKeys}
+    />
+  );
 }

@@ -12,6 +12,8 @@ import {
   PlanSectionSchemas,
 } from "@/schemas/ai-output-v2";
 import type { MealCardType } from "@/schemas/ai-output-v2";
+import { guardAiRoute } from "@/lib/ai/guard";
+import { recordAiUsage } from "@/lib/ai/rate-limit";
 
 // Which daily_plans column each regeneratable section maps to.
 const SECTION_COLUMN = {
@@ -71,6 +73,10 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Premium-only + rate limit — regeneration is a provider call.
+  const guard = await guardAiRoute(user.id, { requirePremium: true });
+  if (guard) return guard;
 
   let body: unknown;
   try {
@@ -186,6 +192,8 @@ Return ONLY the regenerated part as a single JSON object matching the same shape
   if (updateError) {
     return NextResponse.json({ error: "Failed to save section" }, { status: 500 });
   }
+
+  await recordAiUsage(user.id, "regenerate-section");
 
   return NextResponse.json({ blocked: false, section: regenerated });
 }

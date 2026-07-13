@@ -6,6 +6,7 @@ import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateWeeklyPlan } from "@/lib/ai/generate-weekly-plan";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canUsePremiumFeature, canGenerateWeeklyPlan } from "@/lib/stripe/subscription";
+import { checkAiRateLimit, recordAiUsage } from "@/lib/ai/rate-limit";
 import type { DailyCheckin, WellbeingProfile } from "@/types/dailyflow";
 
 export async function POST(request: Request) {
@@ -36,6 +37,15 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "limit_reached", scope: "weekly_plan" },
       { status: 402 }
+    );
+  }
+
+  // Abuse guard — per-user rate limit.
+  const rate = await checkAiRateLimit(user.id);
+  if (!rate.ok) {
+    return NextResponse.json(
+      { error: "rate_limited", scope: rate.scope, retryAfterMinutes: rate.retryAfterMinutes },
+      { status: 429 }
     );
   }
 
@@ -120,6 +130,8 @@ export async function POST(request: Request) {
   if (saveError) {
     return NextResponse.json({ error: "Failed to save weekly plan" }, { status: 500 });
   }
+
+  await recordAiUsage(user.id, "weekly-plan");
 
   return NextResponse.json({ blocked: false, plan: saved });
 }

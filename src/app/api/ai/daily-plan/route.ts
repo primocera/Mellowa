@@ -6,6 +6,8 @@ import { generateDailyPlanV2 } from "@/lib/ai/generate-daily-plan-v2";
 import { checkDailyPlanV2Quality } from "@/lib/ai/quality-checks";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canGenerateDailyPlan } from "@/lib/stripe/subscription";
+import { guardAiRoute } from "@/lib/ai/guard";
+import { recordAiUsage } from "@/lib/ai/rate-limit";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
 export async function POST(request: Request) {
@@ -49,13 +51,17 @@ export async function POST(request: Request) {
   }
   const checkin = parsed.data;
 
-  // Plan gate — monthly usage limit
+  // Plan gate — sample tier gets one lifetime preview, premium is unlimited.
   if (!(await canGenerateDailyPlan(user.id))) {
     return NextResponse.json(
       { error: "limit_reached", scope: "daily_plan" },
       { status: 402 }
     );
   }
+
+  // Abuse guard — rate limit (sample allowance already checked above).
+  const guard = await guardAiRoute(user.id, { requirePremium: false });
+  if (guard) return guard;
 
   // 4. Safety check BEFORE any generation
   const freeText = [checkin.today_focus, checkin.notes, checkin.hunger_pattern]
@@ -212,6 +218,9 @@ export async function POST(request: Request) {
     );
   }
 
-  // 9. Return the saved plan
+  // 9. Record usage for rate-limit accounting (after success only).
+  await recordAiUsage(user.id, "daily-plan");
+
+  // 10. Return the saved plan
   return NextResponse.json({ blocked: false, plan: savedPlan });
 }

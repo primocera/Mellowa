@@ -114,9 +114,11 @@ function MacroPills({ macros }: { macros: MealCardType["approximate_macros"] }) 
 export function TodayPlanV2({
   plan,
   showMacros,
+  completedKeys = [],
 }: {
   plan: PlanRow;
   showMacros: boolean;
+  completedKeys?: string[];
 }) {
   const [meals, setMeals] = useState<MealCardType[]>(plan.meal_cards ?? []);
   const [movement, setMovement] = useState<MovementMomentType | null>(
@@ -125,13 +127,29 @@ export function TodayPlanV2({
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [simplifying, setSimplifying] = useState(false);
-  const [doneItems, setDoneItems] = useState<Record<string, boolean>>({});
+  const [doneItems, setDoneItems] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(completedKeys.map((k) => [k, true]))
+  );
 
   const summary = plan.plan_summary;
   const intensity = plan.plan_intensity ?? "normal";
 
-  const toggleDone = (key: string) =>
-    setDoneItems((d) => ({ ...d, [key]: !d[key] }));
+  // Optimistic toggle + persist to plan_completions. Reverts on failure.
+  const toggleDone = (key: string) => {
+    const next = !doneItems[key];
+    setDoneItems((d) => ({ ...d, [key]: next }));
+    fetch("/api/plan/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan_id: plan.id, item_key: key, done: next }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("save failed");
+      })
+      .catch(() => {
+        setDoneItems((d) => ({ ...d, [key]: !next }));
+      });
+  };
 
   async function regenerateMeal(mealType: string, reason: string) {
     setBusy(`meal:${mealType}`);
