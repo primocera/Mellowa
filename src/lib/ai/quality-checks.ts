@@ -1,5 +1,6 @@
 import "server-only";
 import type { DailyPlanOutputType } from "@/schemas/ai-output";
+import type { DailyPlanV2OutputType } from "@/schemas/ai-output-v2";
 
 /**
  * Post-generation quality gate for daily plans (Prompt 31).
@@ -83,6 +84,69 @@ export function checkDailyPlanQuality(
   // 9. Encouragement present and not empty
   if (!plan.encouragement.trim()) {
     reasons.push("missing encouragement");
+  }
+
+  return reasons.length ? { ok: false, reasons } : { ok: true };
+}
+
+/**
+ * Quality gate for the v2 daily plan (meal cards, movement, calm reset).
+ * Same safety intent, adapted to the richer shape.
+ */
+export function checkDailyPlanV2Quality(
+  plan: DailyPlanV2OutputType,
+  context: { energy_level: number; stress_level: number }
+): QualityResult {
+  const reasons: string[] = [];
+
+  // Banned language across the whole plan
+  const text = JSON.stringify(plan).toLowerCase();
+  for (const { pattern, reason } of BANNED_PATTERNS) {
+    if (pattern.test(text)) reasons.push(reason);
+  }
+
+  // Allergen safety: any listed allergy must not appear as an ingredient.
+  // (Allergy checking against the profile happens in the route; here we only
+  //  ensure meals actually carry a macro safety note.)
+  for (const meal of plan.meal_cards) {
+    if (!meal.safety_note.trim()) {
+      reasons.push(`meal "${meal.title}" missing macro safety note`);
+    }
+    if (meal.preparation_steps.length < 2) {
+      reasons.push(`meal "${meal.title}" has too few steps`);
+    }
+  }
+
+  // Movement must carry a caution note.
+  if (!plan.movement_moment.caution_note.trim()) {
+    reasons.push("movement missing caution note");
+  }
+
+  // Breathing must carry a gentle note.
+  if (!plan.breathing_exercise.gentle_note.trim()) {
+    reasons.push("breathing missing gentle note");
+  }
+
+  // Habit must include a minimum version.
+  if (!plan.one_small_habit.minimum_version.trim()) {
+    reasons.push("missing habit minimum version");
+  }
+
+  if (!plan.encouragement.trim()) {
+    reasons.push("missing encouragement");
+  }
+
+  // Low-energy / high-stress days should not pile on long routines.
+  const shouldBeLight = context.energy_level <= 2 || context.stress_level >= 4;
+  if (shouldBeLight) {
+    const longestSection = Math.max(
+      plan.movement_moment.steps.length,
+      plan.evening_wind_down.steps.length,
+      plan.breathing_exercise.steps.length
+    );
+    if (longestSection > 8) {
+      reasons.push("routines too long for a low-energy / high-stress day");
+    }
   }
 
   return reasons.length ? { ok: false, reasons } : { ok: true };

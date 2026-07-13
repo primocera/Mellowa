@@ -27,6 +27,16 @@ export interface WellbeingProfile {
   supplement_use: string | null;
   preferred_tone: string | null;
   safety_acknowledged: boolean;
+  // v2 plan preferences
+  show_macros: boolean;
+  macro_focus: string | null;
+  preferred_meal_prep_time: string | null;
+  cooking_skill: string | null;
+  movement_preference: string[];
+  movement_limitations: string | null;
+  stress_reset_preference: string[];
+  meditation_experience: string | null;
+  preferred_routine_length: string | null;
   created_at: string;
   updated_at: string;
 }

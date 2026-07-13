@@ -4,48 +4,64 @@ import { createClient } from "@/lib/supabase/server";
 import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateStructuredJson } from "@/lib/ai/generate-json";
 import { AiGenerationError } from "@/lib/ai/errors";
-import { DAILY_PLAN_SYSTEM_PROMPT } from "@/prompts/daily-plan";
+import { DAILY_PLAN_V2_SYSTEM_PROMPT } from "@/prompts/daily-plan-v2";
+import {
+  MealCardSchema,
+  MovementMomentSchema,
+  mealTypes,
+  PlanSectionSchemas,
+} from "@/schemas/ai-output-v2";
+import type { MealCardType } from "@/schemas/ai-output-v2";
 
-const REGENERATABLE_SECTIONS = [
-  "meal_rhythm",
-  "movement_plan",
-  "stress_reset",
-  "evening_routine",
-] as const;
+// Which daily_plans column each regeneratable section maps to.
+const SECTION_COLUMN = {
+  meal_card: "meal_cards",
+  movement_moment: "movement_plan",
+  breathing_exercise: "breathing_exercise",
+  relaxation_technique: "relaxation_technique",
+  evening_wind_down: "evening_routine",
+} as const;
 
-type SectionName = (typeof REGENERATABLE_SECTIONS)[number];
+const SECTION_SCHEMAS = {
+  meal_card: MealCardSchema,
+  movement_moment: MovementMomentSchema,
+  breathing_exercise: PlanSectionSchemas.breathing_exercise,
+  relaxation_technique: PlanSectionSchemas.relaxation_technique,
+  evening_wind_down: PlanSectionSchemas.evening_wind_down,
+} as const;
 
-const PlanItem = z.object({
-  title: z.string(),
-  description: z.string().default(""),
-  time_hint: z.string().default(""),
-});
-
-const PlanSection = z.object({
-  title: z.string(),
-  items: z.array(PlanItem).min(1).max(6),
-});
-
-const RegenerateInput = z.object({
-  plan_id: z.string().uuid(),
-  section_name: z.enum(REGENERATABLE_SECTIONS),
-  reason: z.enum([
-    "simplify",
-    "different_meals",
-    "less_time",
-    "lower_energy",
-    "more_structure",
-    "custom",
-  ]),
-  user_note: z.string().max(1000).optional().default(""),
-});
+const RegenerateInput = z
+  .object({
+    plan_id: z.string().uuid(),
+    section_name: z.enum([
+      "meal_card",
+      "movement_moment",
+      "breathing_exercise",
+      "relaxation_technique",
+      "evening_wind_down",
+    ]),
+    // Required only for meal_card.
+    meal_type: z.enum(mealTypes).optional(),
+    reason: z.enum([
+      "simplify",
+      "different_meals",
+      "less_time",
+      "lower_energy",
+      "make_easier",
+      "custom",
+    ]),
+    user_note: z.string().max(1000).optional().default(""),
+  })
+  .refine((v) => v.section_name !== "meal_card" || !!v.meal_type, {
+    message: "meal_type is required when regenerating a meal_card",
+  });
 
 const REASON_INSTRUCTIONS: Record<string, string> = {
-  simplify: "Make this section simpler and lighter. Fewer steps, easier options.",
-  different_meals: "Suggest different meal ideas with similar effort and budget.",
-  less_time: "The user has less time than planned. Make it shorter and easier.",
+  simplify: "Make this simpler and lighter — fewer steps, easier options.",
+  different_meals: "Suggest a different meal with similar effort and budget.",
+  less_time: "The user has less time. Make it shorter and easier.",
   lower_energy: "The user's energy is lower than expected. Make it gentler.",
-  more_structure: "Add a bit more concrete structure and timing.",
+  make_easier: "Make this gentler and easier to do.",
   custom: "Follow the user's note below.",
 };
 
@@ -70,7 +86,7 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  const { plan_id, section_name, reason, user_note } = parsed.data;
+  const { plan_id, section_name, meal_type, reason, user_note } = parsed.data;
 
   // Plan must belong to the user (RLS also enforces this)
   const { data: plan } = await supabase
@@ -95,37 +111,52 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from("wellbeing_profiles")
-    .select("primary_goal, cooking_time, budget_level, movement_level, food_preferences, allergies, preferred_tone")
+    .select(
+      "primary_goal, cooking_time, cooking_skill, budget_level, movement_level, movement_limitations, food_preferences, allergies, preferred_tone"
+    )
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const sectionKey = section_name as SectionName;
-  const userPrompt = `The user has an existing daily plan and wants ONE section adjusted.
+  // Current content of the section being regenerated.
+  const column = SECTION_COLUMN[section_name];
+  const currentContent =
+    section_name === "meal_card"
+      ? (plan.meal_cards as MealCardType[] | null)?.find(
+          (m) => m.meal_type === meal_type
+        )
+      : plan[column];
 
-Section to regenerate: ${section_name}
+  const schema = SECTION_SCHEMAS[section_name];
+  const targetDescription =
+    section_name === "meal_card"
+      ? `the ${meal_type} meal card (full meal card with ingredients, steps and approximate macros)`
+      : section_name.replace(/_/g, " ");
+
+  const userPrompt = `The user has an existing daily plan and wants ONE part regenerated.
+
+Regenerate: ${targetDescription}
 Reason: ${REASON_INSTRUCTIONS[reason]}
 ${user_note ? `User note: """${user_note}"""` : ""}
 
-User profile:
+User profile (respect allergies, preferences, cooking skill and limitations):
 ${JSON.stringify(profile ?? {}, null, 2)}
 
-Current section content:
-${JSON.stringify(plan[sectionKey], null, 2)}
+Current content:
+${JSON.stringify(currentContent ?? {}, null, 2)}
 
-Full plan summary for context:
+Plan summary for context:
 ${JSON.stringify(plan.plan_summary, null, 2)}
 
-Return ONLY the regenerated section as JSON: { "title": string, "items": [{ "title": string, "description": string, "time_hint": string }] }
-Keep it consistent with the rest of the plan. 1-6 short, doable items.`;
+Return ONLY the regenerated part as a single JSON object matching the same shape. Keep it consistent with the rest of the plan and follow all Mellowa safety rules.`;
 
-  let newSection;
+  let regenerated;
   try {
-    newSection = await generateStructuredJson({
-      systemPrompt: DAILY_PLAN_SYSTEM_PROMPT,
+    regenerated = await generateStructuredJson({
+      systemPrompt: DAILY_PLAN_V2_SYSTEM_PROMPT,
       userPrompt,
-      zodSchema: PlanSection,
+      zodSchema: schema,
       temperature: 0.7,
-      maxTokens: 2048,
+      maxTokens: 3072,
     });
   } catch (err) {
     const code = err instanceof AiGenerationError ? err.code : "provider_error";
@@ -135,9 +166,20 @@ Keep it consistent with the rest of the plan. 1-6 short, doable items.`;
     );
   }
 
+  // Persist: meal cards replace one entry in the array; others replace the column.
+  let updatePayload: Record<string, unknown>;
+  if (section_name === "meal_card") {
+    const cards = ((plan.meal_cards as MealCardType[] | null) ?? []).map((m) =>
+      m.meal_type === meal_type ? (regenerated as MealCardType) : m
+    );
+    updatePayload = { meal_cards: cards };
+  } else {
+    updatePayload = { [column]: regenerated };
+  }
+
   const { error: updateError } = await supabase
     .from("daily_plans")
-    .update({ [sectionKey]: newSection })
+    .update(updatePayload)
     .eq("id", plan_id)
     .eq("user_id", user.id);
 
@@ -145,5 +187,5 @@ Keep it consistent with the rest of the plan. 1-6 short, doable items.`;
     return NextResponse.json({ error: "Failed to save section" }, { status: 500 });
   }
 
-  return NextResponse.json({ blocked: false, section: newSection });
+  return NextResponse.json({ blocked: false, section: regenerated });
 }

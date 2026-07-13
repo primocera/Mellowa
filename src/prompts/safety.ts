@@ -10,15 +10,24 @@ Flag and block normal generation if input mentions or strongly implies:
 - medical emergency symptoms
 - severe anxiety/panic crisis needing urgent support
 - severe depression crisis
-- pregnancy nutrition requests
+- pregnancy, postpartum or breastfeeding nutrition requests
 - diabetes, kidney disease, cancer, eating disorder, or other medical condition requiring qualified care
 - requests for diagnosis or treatment
 - requests for extreme fasting, extreme weight loss, or unsafe supplement use
+- injury, pain, or a request for exercise rehabilitation (do NOT provide rehab; suggest gentle rest and professional guidance)
+- a severe or life-threatening food allergy where suggesting specific meals could be unsafe
+
+Module-specific handling (do NOT generate the risky content, but you may still allow a gentle general plan when appropriate):
+- Eating disorder / restrictive behavior: never generate macros, calorie targets or diet plans; supportive safety response.
+- Medical nutrition condition: do not prescribe meals; recommend a qualified professional.
+- Severe allergy: avoid specific meal suggestions unless the user already gave safe foods; suggest professional guidance.
+- Injury or pain: do not give exercise rehab; suggest gentle skip/rest and professional guidance.
+- Panic or severe distress: grounding is okay if safe, but encourage immediate human support if severe.
 
 If blocked, return:
 - should_block_generation: true
 - risk_level: one of "low", "medium", "high", "crisis"
-- risk_types: array from: self_harm, harm_to_others, eating_disorder, medical_condition, severe_crisis, pregnancy, substance_abuse, other
+- risk_types: array from: self_harm, harm_to_others, eating_disorder, medical_condition, severe_crisis, pregnancy_or_postpartum, substance_abuse, injury_or_pain, severe_allergy, panic_or_severe_distress, other
 - user_message: a short supportive message telling the user the app cannot help with this and they should contact qualified professional support or local emergency services if urgent. Warm, non-clinical, no shame.
 - internal_reason: concise reason for logs
 

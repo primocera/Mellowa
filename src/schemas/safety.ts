@@ -10,6 +10,11 @@ export const riskTypes = [
   "severe_crisis",
   "pregnancy",
   "substance_abuse",
+  // v2 additions for meal / movement / calm-reset modules
+  "injury_or_pain",
+  "severe_allergy",
+  "panic_or_severe_distress",
+  "pregnancy_or_postpartum",
   "other",
 ] as const;
 

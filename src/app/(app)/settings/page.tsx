@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { createClient } from "@/lib/supabase/server";
+import { PlanPreferencesForm } from "@/components/dailyflow/plan-preferences-form";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
 export const metadata: Metadata = { title: "Settings — Mellowa" };
@@ -72,6 +73,23 @@ export default async function SettingsPage() {
           </>
         )}
       </div>
+
+      {profile && (
+        <PlanPreferencesForm
+          userId={user.id}
+          initial={{
+            show_macros: profile.show_macros,
+            macro_focus: profile.macro_focus ?? "",
+            preferred_meal_prep_time: profile.preferred_meal_prep_time ?? "",
+            cooking_skill: profile.cooking_skill ?? "",
+            movement_preference: profile.movement_preference ?? [],
+            movement_limitations: profile.movement_limitations ?? "",
+            stress_reset_preference: profile.stress_reset_preference ?? [],
+            meditation_experience: profile.meditation_experience ?? "",
+            preferred_routine_length: profile.preferred_routine_length ?? "",
+          }}
+        />
+      )}
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="font-medium text-[#1F2937]">Subscription</h2>
