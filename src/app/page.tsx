@@ -211,14 +211,23 @@ export default function LandingPage() {
           Then €9.99/month or €59.99/year. Cancel anytime before your trial ends.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-4">
-          <div className="w-64 rounded-2xl bg-white p-6 text-left shadow-sm">
+          <Link
+            href="/signup?plan=monthly"
+            className="block w-64 rounded-2xl bg-white p-6 text-left shadow-sm transition hover:shadow-md hover:ring-2 hover:ring-[#7C9A92]/40"
+          >
             <h3 className="font-medium">Mellowa Monthly</h3>
             <p className="mt-1 text-2xl font-semibold">
               €9.99<span className="text-base font-normal text-[#6B7280]">/mo</span>
             </p>
             <p className="mt-1 text-sm text-[#6B7280]">3 days free, then monthly.</p>
-          </div>
-          <div className="w-64 rounded-2xl border-2 border-[#7C9A92] bg-white p-6 text-left shadow-sm">
+            <span className="mt-4 inline-block rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white">
+              Start free trial
+            </span>
+          </Link>
+          <Link
+            href="/signup?plan=yearly"
+            className="block w-64 rounded-2xl border-2 border-[#7C9A92] bg-white p-6 text-left shadow-sm transition hover:shadow-md"
+          >
             <div className="flex items-center justify-between">
               <h3 className="font-medium">Mellowa Yearly</h3>
               <span className="rounded-full bg-[#7C9A92]/10 px-2.5 py-0.5 text-xs font-medium text-[#6D8C7D]">
@@ -229,7 +238,10 @@ export default function LandingPage() {
               €59.99<span className="text-base font-normal text-[#6B7280]">/yr</span>
             </p>
             <p className="mt-1 text-sm text-[#6B7280]">Best value. 3 days free.</p>
-          </div>
+            <span className="mt-4 inline-block rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white">
+              Start free trial
+            </span>
+          </Link>
         </div>
         <Link
           href="/pricing"
