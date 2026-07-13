@@ -73,14 +73,14 @@ export function AppNav() {
         </button>
       </aside>
 
-      {/* Mobile bottom nav (first 5 items) */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-[#EDE9E2] bg-white py-2 md:hidden">
-        {NAV_ITEMS.slice(0, 5).map(({ href, label, icon: Icon }) => (
+      {/* Mobile bottom nav — horizontally scrollable */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex gap-1 overflow-x-auto border-t border-[#EDE9E2] bg-white px-2 py-2 md:hidden">
+        {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
             className={clsx(
-              "flex flex-col items-center gap-0.5 rounded-lg px-3 py-1 text-[11px]",
+              "flex shrink-0 flex-col items-center gap-0.5 rounded-lg px-3 py-1 text-[11px]",
               pathname.startsWith(href) ? "text-[#6D8C7D]" : "text-[#6B7280]"
             )}
           >
