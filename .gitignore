@@ -43,6 +43,6 @@ next-env.d.ts
 .vercel
 .env*
 
-# internal working files — local only
-DailyFlow_AI_Claude_Code_Prompts.docx
+# local working files
+*.docx
 PROGRESS.md
