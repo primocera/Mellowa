@@ -258,8 +258,11 @@ export function TodayPlanV2({
         <h2 className="px-1 text-sm font-medium uppercase tracking-wide text-[#9CA3AF]">
           Meal rhythm
         </h2>
-        {meals.map((meal) => (
-          <div key={meal.meal_type} className="rounded-2xl bg-white p-5 shadow-sm">
+        {meals.map((meal, mealIndex) => (
+          <div
+            key={`${meal.meal_type}-${mealIndex}`}
+            className="rounded-2xl bg-white p-5 shadow-sm"
+          >
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-[#7C9A92]">
