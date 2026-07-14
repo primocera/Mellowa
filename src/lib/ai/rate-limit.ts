@@ -18,6 +18,7 @@ export type AiRoute =
   | "meal-rhythm"
   | "habit-plan"
   | "journal-reflection"
+  | "low-energy-day"
   | "regenerate-section";
 
 export interface RateLimitResult {

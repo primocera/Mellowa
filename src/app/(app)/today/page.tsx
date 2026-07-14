@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { createClient } from "@/lib/supabase/server";
 import { TodayPlanV2 } from "@/components/dailyflow/today-plan-v2";
+import { LowEnergyDayCard } from "@/components/dailyflow/low-energy-day-card";
 
 export const metadata: Metadata = { title: "Today — Mellowa" };
 
@@ -34,7 +35,8 @@ export default async function TodayPage() {
   // No plan, or an older plan from before the v2 format → fresh check-in.
   if (!plan || !plan.meal_cards) {
     return (
-      <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+      <div className="space-y-4">
+        <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
         <h1 className="text-xl font-semibold text-[#1F2937]">
           {plan ? "Time for a fresh plan" : "No plan yet today"}
         </h1>
@@ -48,6 +50,8 @@ export default async function TodayPage() {
         >
           Start today&apos;s check-in
         </Link>
+        </div>
+        <LowEnergyDayCard />
       </div>
     );
   }
@@ -60,10 +64,13 @@ export default async function TodayPage() {
   const completedKeys = (completions ?? []).map((c) => c.item_key);
 
   return (
-    <TodayPlanV2
-      plan={plan}
-      showMacros={showMacros}
-      completedKeys={completedKeys}
-    />
+    <div className="space-y-4">
+      <LowEnergyDayCard />
+      <TodayPlanV2
+        plan={plan}
+        showMacros={showMacros}
+        completedKeys={completedKeys}
+      />
+    </div>
   );
 }
