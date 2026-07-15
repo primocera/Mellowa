@@ -15,7 +15,40 @@ type Prefs = {
   stress_reset_preference: string[];
   meditation_experience: string;
   preferred_routine_length: string;
+  // v4 (Prompt 4)
+  schedule_type: string;
+  meal_pattern: string;
+  disliked_ingredients: string[];
+  kitchen_equipment: string[];
+  default_servings: number;
+  reminders_opt_in: boolean;
+  reminder_time: string;
+  quiet_hours_start: string;
+  quiet_hours_end: string;
 };
+
+const SCHEDULE_TYPE = [
+  { value: "office", label: "Office" },
+  { value: "home", label: "Home" },
+  { value: "caregiving", label: "Caregiving" },
+  { value: "shift", label: "Shift work" },
+  { value: "travel", label: "Travel" },
+  { value: "irregular", label: "Irregular" },
+];
+const MEAL_PATTERN = [
+  { value: "three_meals", label: "3 meals" },
+  { value: "two_meals", label: "2 meals" },
+  { value: "small_frequent", label: "Small & frequent" },
+  { value: "flexible", label: "Flexible" },
+];
+const KITCHEN_EQUIPMENT = [
+  { value: "stovetop", label: "Stovetop" },
+  { value: "oven", label: "Oven" },
+  { value: "microwave", label: "Microwave" },
+  { value: "blender", label: "Blender" },
+  { value: "air_fryer", label: "Air fryer" },
+  { value: "minimal", label: "Minimal / none" },
+];
 
 const MACRO_FOCUS = [
   { value: "balanced", label: "Balanced" },
@@ -137,7 +170,19 @@ export function PlanPreferencesForm({
     stress_reset_preference: initial.stress_reset_preference ?? [],
     meditation_experience: initial.meditation_experience ?? "",
     preferred_routine_length: initial.preferred_routine_length ?? "",
+    schedule_type: initial.schedule_type ?? "",
+    meal_pattern: initial.meal_pattern ?? "",
+    disliked_ingredients: initial.disliked_ingredients ?? [],
+    kitchen_equipment: initial.kitchen_equipment ?? [],
+    default_servings: initial.default_servings ?? 1,
+    reminders_opt_in: initial.reminders_opt_in ?? false,
+    reminder_time: initial.reminder_time ?? "",
+    quiet_hours_start: initial.quiet_hours_start ?? "",
+    quiet_hours_end: initial.quiet_hours_end ?? "",
   });
+  const [dislikedText, setDislikedText] = useState(
+    (initial.disliked_ingredients ?? []).join(", ")
+  );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -148,6 +193,10 @@ export function PlanPreferencesForm({
 
   async function save() {
     setSaving(true);
+    const disliked = dislikedText
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
     const supabase = createClient();
     await supabase
       .from("wellbeing_profiles")
@@ -161,6 +210,15 @@ export function PlanPreferencesForm({
         stress_reset_preference: prefs.stress_reset_preference,
         meditation_experience: prefs.meditation_experience || null,
         preferred_routine_length: prefs.preferred_routine_length || null,
+        schedule_type: prefs.schedule_type || null,
+        meal_pattern: prefs.meal_pattern || null,
+        disliked_ingredients: disliked,
+        kitchen_equipment: prefs.kitchen_equipment,
+        default_servings: prefs.default_servings,
+        reminders_opt_in: prefs.reminders_opt_in,
+        reminder_time: prefs.reminder_time || null,
+        quiet_hours_start: prefs.quiet_hours_start || null,
+        quiet_hours_end: prefs.quiet_hours_end || null,
       })
       .eq("user_id", userId);
     setSaving(false);
@@ -269,6 +327,120 @@ export function PlanPreferencesForm({
             value={prefs.preferred_routine_length}
             onChange={(v) => set("preferred_routine_length", v)}
           />
+        </div>
+
+        <div className="border-t border-[#F0EDE7] pt-5">
+          <p className="mb-2 text-sm font-medium text-[#1F2937]">Typical day</p>
+          <Chips
+            options={SCHEDULE_TYPE}
+            value={prefs.schedule_type}
+            onChange={(v) => set("schedule_type", v)}
+          />
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm font-medium text-[#1F2937]">Meal pattern</p>
+          <Chips
+            options={MEAL_PATTERN}
+            value={prefs.meal_pattern}
+            onChange={(v) => set("meal_pattern", v)}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-[#1F2937]">
+            Foods you&apos;d rather avoid{" "}
+            <span className="font-normal text-[#6B7280]">
+              (taste, not allergy — comma separated)
+            </span>
+          </label>
+          <input
+            type="text"
+            value={dislikedText}
+            onChange={(e) => {
+              setDislikedText(e.target.value);
+              setSaved(false);
+            }}
+            placeholder="e.g. mushrooms, cilantro, olives"
+            className="w-full rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm font-medium text-[#1F2937]">
+            Kitchen equipment
+          </p>
+          <MultiChips
+            options={KITCHEN_EQUIPMENT}
+            value={prefs.kitchen_equipment}
+            onChange={(v) => set("kitchen_equipment", v)}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-[#1F2937]">
+            Default servings per meal
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={8}
+            value={prefs.default_servings}
+            onChange={(e) =>
+              set(
+                "default_servings",
+                Math.min(8, Math.max(1, Number(e.target.value) || 1))
+              )
+            }
+            className="w-24 rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm text-[#1F2937] focus:border-[#7C9A92] focus:outline-none"
+          />
+        </div>
+
+        <div className="border-t border-[#F0EDE7] pt-5">
+          <label className="flex cursor-pointer items-start gap-3 text-sm text-[#1F2937]">
+            <input
+              type="checkbox"
+              checked={prefs.reminders_opt_in}
+              onChange={(e) => set("reminders_opt_in", e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-[#7C9A92]"
+            />
+            Send me a gentle daily reminder
+          </label>
+          {prefs.reminders_opt_in && (
+            <div className="mt-3">
+              <label className="mb-1 block text-sm font-medium text-[#1F2937]">
+                Preferred reminder time
+              </label>
+              <input
+                type="time"
+                value={prefs.reminder_time}
+                onChange={(e) => set("reminder_time", e.target.value)}
+                className="w-32 rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm text-[#1F2937] focus:border-[#7C9A92] focus:outline-none"
+              />
+            </div>
+          )}
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm font-medium text-[#1F2937]">
+            Quiet hours{" "}
+            <span className="font-normal text-[#6B7280]">(no reminders)</span>
+          </p>
+          <div className="flex items-center gap-2 text-sm text-[#6B7280]">
+            <input
+              type="time"
+              value={prefs.quiet_hours_start}
+              onChange={(e) => set("quiet_hours_start", e.target.value)}
+              className="w-32 rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-[#1F2937] focus:border-[#7C9A92] focus:outline-none"
+            />
+            <span>to</span>
+            <input
+              type="time"
+              value={prefs.quiet_hours_end}
+              onChange={(e) => set("quiet_hours_end", e.target.value)}
+              className="w-32 rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-[#1F2937] focus:border-[#7C9A92] focus:outline-none"
+            />
+          </div>
         </div>
       </div>
 

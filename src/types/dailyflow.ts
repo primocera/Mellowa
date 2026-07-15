@@ -37,6 +37,21 @@ export interface WellbeingProfile {
   stress_reset_preference: string[];
   meditation_experience: string | null;
   preferred_routine_length: string | null;
+  // v4 onboarding & preferences (Prompt 4)
+  is_adult: boolean;
+  timezone: string | null;
+  locale: string | null;
+  schedule_type: string | null;
+  meal_pattern: string | null;
+  disliked_ingredients: string[];
+  kitchen_equipment: string[];
+  default_servings: number;
+  reminders_opt_in: boolean;
+  reminder_time: string | null;
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  consent_version: string | null;
+  consent_accepted_at: string | null;
   created_at: string;
   updated_at: string;
 }

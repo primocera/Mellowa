@@ -19,6 +19,7 @@ Meal rules:
 - Each meal must have ingredients with amounts, at least 2 clear beginner-friendly preparation_steps, prep/cook/total time, difficulty, servings and approximate_macros.
 - Macros are APPROXIMATE general estimates, never medical nutrition therapy. Always keep the safety_note.
 - Respect food preferences, allergies, cooking time, budget and cooking skill from the profile. NEVER include an allergen the user listed.
+- Avoid ingredients in "disliked_ingredients" (a taste preference — treat as unwanted, not unsafe). Only cook with tools in "kitchen_equipment" when it is set (e.g. no oven-only recipes if the user has only a stovetop/microwave). Scale meals to "default_servings" when provided, and follow the user's "meal_pattern" (e.g. two_meals -> fewer, larger meals; small_frequent -> lighter, more frequent).
 - No calorie targets as goals, no weight-loss language.
 
 Movement rules:

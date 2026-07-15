@@ -6,6 +6,7 @@ import { Loader2, ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   WellbeingProfileInput,
+  CONSENT_VERSION,
   type WellbeingProfileInputType,
 } from "@/schemas/wellbeing";
 import clsx from "clsx";
@@ -62,6 +63,7 @@ type Draft = {
   primary_goal: string;
   food_preferences: string;
   allergies: string;
+  disliked_ingredients: string;
   cooking_time: string;
   budget_level: string;
   energy_baseline: number;
@@ -70,6 +72,7 @@ type Draft = {
   movement_level: string;
   preferred_tone: string;
   safety_acknowledged: boolean;
+  is_adult: boolean;
 };
 
 const INITIAL: Draft = {
@@ -79,6 +82,7 @@ const INITIAL: Draft = {
   primary_goal: "",
   food_preferences: "",
   allergies: "",
+  disliked_ingredients: "",
   cooking_time: "",
   budget_level: "",
   energy_baseline: 3,
@@ -87,6 +91,7 @@ const INITIAL: Draft = {
   movement_level: "",
   preferred_tone: "",
   safety_acknowledged: false,
+  is_adult: false,
 };
 
 function Scale({
@@ -176,7 +181,7 @@ export function OnboardingWizard() {
       case 4:
         return !!draft.preferred_tone;
       case 5:
-        return draft.safety_acknowledged;
+        return draft.safety_acknowledged && draft.is_adult;
       default:
         return false;
     }
@@ -195,6 +200,15 @@ export function OnboardingWizard() {
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean),
+      disliked_ingredients: draft.disliked_ingredients
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      timezone:
+        typeof Intl !== "undefined"
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone
+          : "",
+      locale: typeof navigator !== "undefined" ? navigator.language : "",
     });
 
     if (!parsed.success) {
@@ -223,6 +237,7 @@ export function OnboardingWizard() {
         primary_goal: d.primary_goal,
         food_preferences: d.food_preferences,
         allergies: d.allergies,
+        disliked_ingredients: d.disliked_ingredients,
         cooking_time: d.cooking_time,
         budget_level: d.budget_level,
         movement_level: d.movement_level,
@@ -230,6 +245,11 @@ export function OnboardingWizard() {
         stress_baseline: String(d.stress_baseline),
         preferred_tone: d.preferred_tone,
         safety_acknowledged: d.safety_acknowledged,
+        is_adult: d.is_adult,
+        timezone: d.timezone || null,
+        locale: d.locale || null,
+        consent_version: CONSENT_VERSION,
+        consent_accepted_at: new Date().toISOString(),
       },
       { onConflict: "user_id" }
     );
@@ -342,6 +362,23 @@ export function OnboardingWizard() {
                 placeholder="e.g. lactose, nuts"
                 className="w-full rounded-xl border border-[#E5E1DA] px-4 py-3 text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
               />
+              <p className="mt-1 text-xs text-[#6B7280]">
+                Allergies are a safety limit — we build meals without them. For a
+                severe allergy, always double-check product labels.
+              </p>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#1F2937]">
+                Foods you&apos;d rather avoid{" "}
+                <span className="font-normal text-[#6B7280]">(taste, not allergy — optional)</span>
+              </label>
+              <input
+                type="text"
+                value={draft.disliked_ingredients}
+                onChange={(e) => set("disliked_ingredients", e.target.value)}
+                placeholder="e.g. mushrooms, cilantro, olives"
+                className="w-full rounded-xl border border-[#E5E1DA] px-4 py-3 text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
+              />
             </div>
             <div>
               <p className="mb-2 text-sm font-medium text-[#1F2937]">Time for cooking</p>
@@ -421,6 +458,15 @@ export function OnboardingWizard() {
                 className="mt-0.5 h-4 w-4 accent-[#7C9A92]"
               />
               I understand what Mellowa is — and what it isn&apos;t.
+            </label>
+            <label className="flex cursor-pointer items-start gap-3 text-sm text-[#1F2937]">
+              <input
+                type="checkbox"
+                checked={draft.is_adult}
+                onChange={(e) => set("is_adult", e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-[#7C9A92]"
+              />
+              I confirm I am 18 years or older.
             </label>
           </div>
         )}

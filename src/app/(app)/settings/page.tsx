@@ -87,6 +87,15 @@ export default async function SettingsPage() {
             stress_reset_preference: profile.stress_reset_preference ?? [],
             meditation_experience: profile.meditation_experience ?? "",
             preferred_routine_length: profile.preferred_routine_length ?? "",
+            schedule_type: profile.schedule_type ?? "",
+            meal_pattern: profile.meal_pattern ?? "",
+            disliked_ingredients: profile.disliked_ingredients ?? [],
+            kitchen_equipment: profile.kitchen_equipment ?? [],
+            default_servings: profile.default_servings ?? 1,
+            reminders_opt_in: profile.reminders_opt_in ?? false,
+            reminder_time: profile.reminder_time ?? "",
+            quiet_hours_start: profile.quiet_hours_start ?? "",
+            quiet_hours_end: profile.quiet_hours_end ?? "",
           }}
         />
       )}
