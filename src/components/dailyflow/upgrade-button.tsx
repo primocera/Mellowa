@@ -33,6 +33,8 @@ export function UpgradeButton({
       }
       if (data.error === "already_subscribed") {
         setError("You already have an active subscription.");
+      } else if (data.error === "email_unverified") {
+        setError("Please confirm your email address first, then try again.");
       } else if (data.url) {
         window.location.href = data.url;
         return;

@@ -10,12 +10,22 @@ const CheckoutInput = z.object({
   interval: z.enum(["monthly", "yearly"]),
 });
 
+// Statuses that mean the user already has (or is mid-creating) a subscription
+// and must not open a second checkout. Superset of ACTIVE_STATUSES.
+const BLOCKING_STATUSES = [...ACTIVE_STATUSES, "incomplete", "past_due"];
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // A verified email is required before we take a payment method. Prevents
+  // throwaway/unconfirmed accounts from cycling trials.
+  if (!user.email_confirmed_at) {
+    return NextResponse.json({ error: "email_unverified" }, { status: 403 });
+  }
 
   let body: unknown;
   try {
@@ -32,18 +42,18 @@ export async function POST(request: Request) {
   const stripe = getStripe();
   const admin = createAdminClient();
 
-  // Existing subscription row (holds the Stripe customer id)
+  // Existing subscription row (holds the Stripe customer id + trial history)
   const { data: sub } = await admin
     .from("subscriptions")
-    .select("stripe_customer_id, status")
+    .select("stripe_customer_id, status, trial_used_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (sub?.status && ACTIVE_STATUSES.includes(sub.status)) {
+  if (sub?.status && BLOCKING_STATUSES.includes(sub.status)) {
     return NextResponse.json({ error: "already_subscribed" }, { status: 400 });
   }
 
-  // Reuse or create the Stripe customer (pattern ported from elevai)
+  // Reuse the same Stripe customer across the account's lifetime.
   let customerId = sub?.stripe_customer_id ?? null;
   if (!customerId) {
     const customer = await stripe.customers.create({
@@ -63,21 +73,34 @@ export async function POST(request: Request) {
       ? serverEnv.stripePriceProMonthly
       : serverEnv.stripePriceProYearly;
 
-  try {
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: "subscription",
-      line_items: [{ price, quantity: 1 }],
-      success_url: `${serverEnv.appUrl}/billing?status=success`,
-      cancel_url: `${serverEnv.appUrl}/pricing?status=cancelled`,
-      metadata: { supabase_user_id: user.id, plan_name: planName },
-      subscription_data: {
-        trial_period_days: TRIAL_DAYS,
-        metadata: { supabase_user_id: user.id, plan_name: planName },
-      },
-    });
+  // One trial per person, ever. A user who has already consumed a trial
+  // (canceled, past_due, deleted checkout, interval switch) starts paid.
+  const trialEligible = !sub?.trial_used_at;
 
-    return NextResponse.json({ url: session.url });
+  try {
+    const session = await stripe.checkout.sessions.create(
+      {
+        customer: customerId,
+        mode: "subscription",
+        line_items: [{ price, quantity: 1 }],
+        success_url: `${serverEnv.appUrl}/billing?status=success`,
+        cancel_url: `${serverEnv.appUrl}/pricing?status=cancelled`,
+        metadata: { supabase_user_id: user.id, plan_name: planName },
+        subscription_data: {
+          ...(trialEligible ? { trial_period_days: TRIAL_DAYS } : {}),
+          metadata: { supabase_user_id: user.id, plan_name: planName },
+        },
+      },
+      {
+        // Idempotent per user + interval + trial-eligibility, so a double
+        // click or retried request cannot create two subscriptions.
+        idempotencyKey: `checkout_${user.id}_${parsed.data.interval}_${
+          trialEligible ? "trial" : "paid"
+        }`,
+      }
+    );
+
+    return NextResponse.json({ url: session.url, trial: trialEligible });
   } catch (err) {
     console.error("[stripe] checkout session failed", {
       message: err instanceof Error ? err.message : "unknown",

@@ -110,6 +110,15 @@ export async function POST(request: Request) {
     const toIso = (unix: number | null | undefined) =>
       unix ? new Date(unix * 1000).toISOString() : null;
 
+    // Once a subscription ever carries a trial, permanently mark the trial as
+    // used so this user can never receive another one (Prompt 13).
+    const hasTrial = subscription.trial_start != null;
+    const { data: existing } = await admin
+      .from("subscriptions")
+      .select("trial_used_at, first_trial_subscription_id")
+      .eq("user_id", targetUserId)
+      .maybeSingle();
+
     await admin.from("subscriptions").upsert(
       {
         user_id: targetUserId,
@@ -121,6 +130,12 @@ export async function POST(request: Request) {
         trial_start: toIso(subscription.trial_start),
         trial_end: toIso(subscription.trial_end),
         cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+        trial_used_at:
+          existing?.trial_used_at ??
+          (hasTrial ? toIso(subscription.trial_start) : null),
+        first_trial_subscription_id:
+          existing?.first_trial_subscription_id ??
+          (hasTrial ? subscription.id : null),
       },
       { onConflict: "user_id" }
     );
