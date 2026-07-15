@@ -39,10 +39,12 @@ export function estimateRouteCostUsd(route: string): number {
 
 /**
  * Global daily spend ceiling across ALL users, in USD. A safety valve against
- * runaway cost (bug, abuse, viral spike). Tunable via env; generous default.
+ * runaway cost (bug, abuse, viral spike), NOT a budget. At ~$0.01-0.03 per
+ * generation the default still allows hundreds of plans/day. Raise via env as
+ * the paying user base grows. Tunable via AI_GLOBAL_DAILY_CEILING_USD.
  */
 export function globalDailyCeilingUsd(): number {
   const raw = process.env.AI_GLOBAL_DAILY_CEILING_USD;
   const parsed = raw ? Number(raw) : NaN;
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 25;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5;
 }

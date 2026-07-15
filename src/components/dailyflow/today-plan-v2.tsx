@@ -16,6 +16,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import clsx from "clsx";
+import { SaveMealButton } from "@/components/dailyflow/save-meal-button";
 import type {
   MealCardType,
   MovementMomentType,
@@ -285,9 +286,12 @@ export function TodayPlanV2({
                   </p>
                 )}
               </div>
-              <span className="shrink-0 rounded-full bg-[#FAF7F2] px-2.5 py-0.5 text-xs text-[#6B7280]">
-                {meal.total_time_minutes} min · {meal.difficulty}
-              </span>
+              <div className="flex shrink-0 items-center gap-1">
+                <span className="rounded-full bg-[#FAF7F2] px-2.5 py-0.5 text-xs text-[#6B7280]">
+                  {meal.total_time_minutes} min · {meal.difficulty}
+                </span>
+                <SaveMealButton meal={meal} />
+              </div>
             </div>
 
             {showMacros && <MacroPills macros={meal.approximate_macros} />}

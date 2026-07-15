@@ -10,6 +10,7 @@ import {
   Footprints,
   Repeat,
   BookOpen,
+  Heart,
   TrendingUp,
   Settings,
   LogOut,
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/movement", label: "Movement", icon: Footprints },
   { href: "/habits", label: "Habits", icon: Repeat },
   { href: "/journal", label: "Journal", icon: BookOpen },
+  { href: "/favourites", label: "Favourites", icon: Heart },
   { href: "/progress", label: "Progress", icon: TrendingUp },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
