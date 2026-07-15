@@ -56,6 +56,8 @@ export default function PricingPage() {
               <UpgradeButton
                 interval="monthly"
                 label="Start 3-day free trial"
+                amount={PRICING.monthly.price}
+                cadence={PRICING.monthly.cadence}
                 highlight
               />
             </div>
@@ -78,7 +80,12 @@ export default function PricingPage() {
             <p className="mt-1 text-sm text-[#7C9A92]">3 days free, then billed yearly</p>
             <FeatureList features={PRICING.yearly.features} />
             <div className="mt-6">
-              <UpgradeButton interval="yearly" label="Start 3-day free trial" />
+              <UpgradeButton
+                interval="yearly"
+                label="Start 3-day free trial"
+                amount={PRICING.yearly.price}
+                cadence={PRICING.yearly.cadence}
+              />
             </div>
           </div>
         </div>

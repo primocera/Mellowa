@@ -75,11 +75,15 @@ export default async function BillingPage() {
               <UpgradeButton
                 interval="monthly"
                 label="Start 3-day free trial — €9.99/mo"
+                amount="€9.99"
+                cadence="/month"
                 highlight
               />
               <UpgradeButton
                 interval="yearly"
                 label="Start 3-day free trial — €59.99/yr"
+                amount="€59.99"
+                cadence="/year"
               />
             </div>
             <p className="mt-3 text-xs text-[#9CA3AF]">

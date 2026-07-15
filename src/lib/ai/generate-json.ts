@@ -2,6 +2,7 @@ import "server-only";
 import type { z } from "zod";
 import { getAiClient, getAiModel } from "./client";
 import { AiGenerationError } from "./errors";
+import { isAiMockEnabled, mockFromSchema } from "./mock";
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
@@ -32,6 +33,13 @@ export async function generateStructuredJson<S extends z.ZodTypeAny>({
   maxTokens = 4096,
   timeoutMs = DEFAULT_TIMEOUT_MS,
 }: GenerateOptions<S>): Promise<z.infer<S>> {
+  // Local dev mock — no provider call, no cost. See lib/ai/mock.ts.
+  if (isAiMockEnabled()) {
+    console.warn("[ai] AI_MOCK=1 — returning mock data, no provider call");
+    await new Promise((r) => setTimeout(r, 400));
+    return mockFromSchema(zodSchema);
+  }
+
   const client = getAiClient();
 
   let responseText: string;

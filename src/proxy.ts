@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isDevBypassEnabled } from "@/lib/auth/dev-bypass";
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
@@ -16,6 +17,11 @@ const PROTECTED_PREFIXES = [
 ];
 
 export async function proxy(request: NextRequest) {
+  // Local dev-bypass: skip all auth redirects, let every route through.
+  if (isDevBypassEnabled()) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

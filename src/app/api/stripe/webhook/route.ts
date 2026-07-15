@@ -11,13 +11,22 @@ import {
 } from "@/lib/email/templates";
 
 /**
- * Stripe webhook — keeps the subscriptions table in sync.
+ * Stripe webhook — keeps the subscriptions table in sync (Prompt 14).
+ *
+ * Idempotency & replay safety:
+ *   - Every event is claimed via `claim_stripe_event`. Already-processed
+ *     events short-circuit with a 200 (duplicate), so lifecycle emails and
+ *     entitlement writes never run twice.
+ *   - If an event cannot be mapped to a user (or throws), we mark it failed
+ *     and return a non-2xx so Stripe retries. We never silently ack.
  *
  * Local testing:
  *   stripe listen --forward-to localhost:3000/api/stripe/webhook
- *   (copy the printed whsec_... into STRIPE_WEBHOOK_SECRET in .env.local)
  *   stripe trigger checkout.session.completed
  */
+
+class RetryableError extends Error {}
+
 export async function POST(request: Request) {
   const stripe = getStripe();
 
@@ -43,6 +52,35 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
+
+  // Claim the event atomically. `false` → already done or being processed.
+  const { data: claimed, error: claimError } = await admin.rpc(
+    "claim_stripe_event",
+    { p_event_id: event.id, p_type: event.type }
+  );
+  if (claimError) {
+    console.error("[stripe] could not claim event", {
+      event: event.id,
+      message: claimError.message,
+    });
+    // Transient DB issue — let Stripe retry.
+    return NextResponse.json({ error: "claim_failed" }, { status: 500 });
+  }
+  if (!claimed) {
+    // Duplicate / replay of an already-processed event. Ack without redoing.
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
+  async function finalize(status: "done" | "failed", lastError?: string) {
+    await admin
+      .from("stripe_events")
+      .update({
+        status,
+        processed_at: new Date().toISOString(),
+        last_error: lastError ?? null,
+      })
+      .eq("event_id", event.id);
+  }
 
   // Resolve a user's email (from Supabase auth) to send lifecycle mail.
   async function emailForCustomer(
@@ -95,10 +133,9 @@ export async function POST(request: Request) {
       targetUserId = data?.user_id ?? null;
     }
     if (!targetUserId) {
-      console.error("[stripe] cannot map subscription to a user", {
-        subscription: subscription.id,
-      });
-      return;
+      // Cannot map to a user — do NOT ack. Retryable so a race (webhook before
+      // the checkout row is written) resolves on Stripe's retry.
+      throw new RetryableError(`unmapped subscription ${subscription.id}`);
     }
 
     const item = subscription.items.data[0];
@@ -110,23 +147,35 @@ export async function POST(request: Request) {
     const toIso = (unix: number | null | undefined) =>
       unix ? new Date(unix * 1000).toISOString() : null;
 
-    // Once a subscription ever carries a trial, permanently mark the trial as
-    // used so this user can never receive another one (Prompt 13).
-    const hasTrial = subscription.trial_start != null;
+    // Existing row for trial-lock preservation and out-of-order guarding.
     const { data: existing } = await admin
       .from("subscriptions")
-      .select("trial_used_at, first_trial_subscription_id")
+      .select("trial_used_at, first_trial_subscription_id, current_period_end")
       .eq("user_id", targetUserId)
       .maybeSingle();
 
-    await admin.from("subscriptions").upsert(
+    // Out-of-order protection: ignore a stale event whose period end predates
+    // what we already stored (Stripe can deliver events out of order).
+    const nextPeriodEnd = toIso(periodEnd);
+    if (
+      existing?.current_period_end &&
+      nextPeriodEnd &&
+      new Date(nextPeriodEnd) < new Date(existing.current_period_end) &&
+      subscription.status !== "canceled"
+    ) {
+      return;
+    }
+
+    const hasTrial = subscription.trial_start != null;
+
+    const { error } = await admin.from("subscriptions").upsert(
       {
         user_id: targetUserId,
         stripe_customer_id: customerId,
         stripe_subscription_id: subscription.id,
         plan_name: planName,
         status: subscription.status,
-        current_period_end: toIso(periodEnd),
+        current_period_end: nextPeriodEnd,
         trial_start: toIso(subscription.trial_start),
         trial_end: toIso(subscription.trial_end),
         cancel_at_period_end: subscription.cancel_at_period_end ?? false,
@@ -139,103 +188,115 @@ export async function POST(request: Request) {
       },
       { onConflict: "user_id" }
     );
+    if (error) throw new RetryableError(`subscriptions upsert: ${error.message}`);
   }
 
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object;
-      if (session.mode === "subscription" && session.subscription) {
-        const subscription = await stripe.subscriptions.retrieve(
-          typeof session.subscription === "string"
-            ? session.subscription
-            : session.subscription.id
-        );
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object;
+        if (session.mode === "subscription" && session.subscription) {
+          const subscription = await stripe.subscriptions.retrieve(
+            typeof session.subscription === "string"
+              ? session.subscription
+              : session.subscription.id
+          );
+          await syncSubscription(subscription);
+        }
+        break;
+      }
+      case "customer.subscription.created": {
+        const subscription = event.data.object;
         await syncSubscription(subscription);
-      }
-      break;
-    }
-    case "customer.subscription.created": {
-      const subscription = event.data.object;
-      await syncSubscription(subscription);
-      if (subscription.status === "trialing") {
-        const email = await emailForCustomer(subscription);
-        if (email) {
-          const daysLeft = subscription.trial_end
-            ? Math.max(
-                1,
-                Math.ceil(
-                  (subscription.trial_end * 1000 - Date.now()) /
-                    (24 * 60 * 60 * 1000)
+        if (subscription.status === "trialing") {
+          const email = await emailForCustomer(subscription);
+          if (email) {
+            const daysLeft = subscription.trial_end
+              ? Math.max(
+                  1,
+                  Math.ceil(
+                    (subscription.trial_end * 1000 - Date.now()) /
+                      (24 * 60 * 60 * 1000)
+                  )
                 )
-              )
-            : 3;
-          const { subject, html } = trialStartedEmail(daysLeft);
-          await sendEmail({ to: email, subject, html });
+              : 3;
+            const { subject, html } = trialStartedEmail(daysLeft);
+            await sendEmail({ to: email, subject, html });
+          }
         }
+        break;
       }
-      break;
-    }
-    case "customer.subscription.updated": {
-      const subscription = event.data.object;
-      await syncSubscription(subscription);
-      // Trial → active transition: subscription just converted to paid.
-      const prev = event.data.previous_attributes as
-        | Partial<Stripe.Subscription>
-        | undefined;
-      if (prev?.status === "trialing" && subscription.status === "active") {
-        const email = await emailForCustomer(subscription);
-        if (email) {
-          const { subject, html } = trialEndedEmail();
-          await sendEmail({ to: email, subject, html });
+      case "customer.subscription.updated": {
+        const subscription = event.data.object;
+        await syncSubscription(subscription);
+        const prev = event.data.previous_attributes as
+          | Partial<Stripe.Subscription>
+          | undefined;
+        if (prev?.status === "trialing" && subscription.status === "active") {
+          const email = await emailForCustomer(subscription);
+          if (email) {
+            const { subject, html } = trialEndedEmail();
+            await sendEmail({ to: email, subject, html });
+          }
         }
+        break;
       }
-      break;
-    }
-    case "customer.subscription.deleted": {
-      await syncSubscription(event.data.object);
-      break;
-    }
-    case "invoice.payment_failed": {
-      const invoice = event.data.object;
-      const customerId =
-        typeof invoice.customer === "string"
-          ? invoice.customer
-          : invoice.customer?.id;
-      if (customerId) {
-        await admin
-          .from("subscriptions")
-          .update({ status: "past_due" })
-          .eq("stripe_customer_id", customerId);
-        const email = await emailForCustomerId(customerId);
-        if (email) {
-          const { subject, html } = paymentFailedEmail();
-          await sendEmail({ to: email, subject, html });
+      case "customer.subscription.deleted": {
+        await syncSubscription(event.data.object);
+        break;
+      }
+      case "invoice.payment_failed": {
+        const invoice = event.data.object;
+        const customerId =
+          typeof invoice.customer === "string"
+            ? invoice.customer
+            : invoice.customer?.id;
+        if (customerId) {
+          await admin
+            .from("subscriptions")
+            .update({ status: "past_due" })
+            .eq("stripe_customer_id", customerId);
+          const email = await emailForCustomerId(customerId);
+          if (email) {
+            const { subject, html } = paymentFailedEmail();
+            await sendEmail({ to: email, subject, html });
+          }
         }
+        break;
       }
-      break;
-    }
-    case "invoice.payment_succeeded": {
-      // A recovered payment flips a past_due sub back to active. The
-      // authoritative status still comes from subscription.updated, but this
-      // reacts faster for the billing UI.
-      const invoice = event.data.object;
-      const customerId =
-        typeof invoice.customer === "string"
-          ? invoice.customer
-          : invoice.customer?.id;
-      if (customerId) {
-        await admin
-          .from("subscriptions")
-          .update({ status: "active" })
-          .eq("stripe_customer_id", customerId)
-          .eq("status", "past_due");
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object;
+        const customerId =
+          typeof invoice.customer === "string"
+            ? invoice.customer
+            : invoice.customer?.id;
+        if (customerId) {
+          await admin
+            .from("subscriptions")
+            .update({ status: "active" })
+            .eq("stripe_customer_id", customerId)
+            .eq("status", "past_due");
+        }
+        break;
       }
-      break;
+      default:
+        // Unhandled event types are fine — acknowledge them.
+        break;
     }
-    default:
-      // Unhandled event types are fine — acknowledge them.
-      break;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown";
+    await finalize("failed", message);
+    if (err instanceof RetryableError) {
+      console.error("[stripe] retryable processing failure", {
+        event: event.id,
+        message,
+      });
+      return NextResponse.json({ error: "processing_failed" }, { status: 500 });
+    }
+    console.error("[stripe] webhook handler error", { event: event.id, message });
+    return NextResponse.json({ error: "handler_error" }, { status: 500 });
   }
 
+  await finalize("done");
   return NextResponse.json({ received: true });
 }
