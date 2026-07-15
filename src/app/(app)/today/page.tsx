@@ -11,14 +11,18 @@ export default async function TodayPage() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  const today = new Date().toISOString().slice(0, 10);
+  // Client-local dates can differ from server UTC by a day (Prompt 3), so
+  // show the newest plan dated within the last day rather than an exact match.
+  const now = new Date();
+  now.setDate(now.getDate() - 1);
+  const yesterday = now.toISOString().slice(0, 10);
 
   const [planRes, profileRes] = await Promise.all([
     supabase
       .from("daily_plans")
       .select("*")
       .eq("user_id", user.id)
-      .eq("plan_date", today)
+      .gte("plan_date", yesterday)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),

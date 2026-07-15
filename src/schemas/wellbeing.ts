@@ -41,11 +41,23 @@ export type WellbeingProfileInputType = z.infer<typeof WellbeingProfileInput>;
 
 export const DailyCheckinInput = z.object({
   energy_level: levelScale,
-  mood_level: levelScale,
+  // Prompt 3: mood and sleep are optional detail — default to neutral.
+  mood_level: levelScale.optional().default(3),
   stress_level: levelScale,
-  sleep_quality: levelScale,
+  sleep_quality: levelScale.optional().default(3),
   hunger_pattern: z.string().optional().default(""),
   time_available: z.string().optional().default(""),
+  // Prompt 3: day context (never a health condition).
+  context: z
+    .enum(["office", "home", "caregiving", "shift", "travel", "irregular", ""])
+    .optional()
+    .default(""),
+  // Client-local date + IANA timezone so the plan lands on the user's day.
+  local_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  timezone: z.string().max(64).optional().default(""),
   today_focus: z.string().optional().default(""),
   notes: z.string().max(2000).optional().default(""),
   // Prompt 2: plan-mode selection. "auto" resolves from energy/stress/time.

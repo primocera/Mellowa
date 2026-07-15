@@ -78,7 +78,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  // Prompt 3: prefer the client's local date so late-evening check-ins land
+  // on the user's day, but only accept it within ±1 day of server time.
+  const serverToday = new Date().toISOString().slice(0, 10);
+  let today = serverToday;
+  if (checkin.local_date) {
+    const diffDays = Math.abs(
+      (new Date(checkin.local_date).getTime() - new Date(serverToday).getTime()) /
+        (24 * 60 * 60 * 1000)
+    );
+    if (diffDays <= 1) today = checkin.local_date;
+  }
 
   // 6. Save the check-in
   const { data: savedCheckin, error: checkinError } = await supabase
@@ -94,6 +104,8 @@ export async function POST(request: Request) {
       time_available: checkin.time_available,
       today_focus: checkin.today_focus,
       notes: checkin.notes,
+      context: checkin.context || null,
+      client_timezone: checkin.timezone || null,
     })
     .select()
     .single();
