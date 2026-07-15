@@ -25,6 +25,8 @@ export interface UserSubscriptionStatus {
   isPremium: boolean;
   daysLeftInTrial: number | null;
   shouldShowTrialBanner: boolean;
+  cancelAtPeriodEnd: boolean;
+  planName: string | null;
 }
 
 /**
@@ -37,7 +39,7 @@ export async function getUserSubscriptionStatus(
   const supabase = await createClient();
   const { data } = await supabase
     .from("subscriptions")
-    .select("status, trial_end, current_period_end")
+    .select("status, trial_end, current_period_end, cancel_at_period_end, plan_name")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -61,6 +63,8 @@ export async function getUserSubscriptionStatus(
     isPremium,
     daysLeftInTrial,
     shouldShowTrialBanner: status === "trialing",
+    cancelAtPeriodEnd: data?.cancel_at_period_end ?? false,
+    planName: data?.plan_name ?? null,
   };
 }
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
 import { UpgradeButton } from "@/components/dailyflow/upgrade-button";
+import { ManageBilling } from "@/components/dailyflow/manage-billing";
 
 export const metadata: Metadata = { title: "Billing — Mellowa" };
 
@@ -50,10 +51,24 @@ export default async function BillingPage() {
               </p>
             )}
 
+            {sub.planName && (
+              <p className="mt-2 text-sm text-[#6B7280]">
+                Plan: {sub.planName === "pro_yearly" ? "Yearly (€59.99/year)" : "Monthly (€9.99/month)"}
+              </p>
+            )}
+
             <p className="mt-3 text-sm text-[#6B7280]">
               You have full access to daily plans, weekly reset, meal rhythm,
               journal and progress.
             </p>
+
+            <ManageBilling
+              cancelAtPeriodEnd={sub.cancelAtPeriodEnd}
+              periodEndLabel={formatDate(
+                isTrialing ? sub.trialEndsAt : sub.currentPeriodEnd
+              )}
+              canCancel
+            />
           </>
         ) : (
           <>
@@ -66,29 +81,46 @@ export default async function BillingPage() {
             >
               {isPastDue ? "Payment issue" : "No active plan"}
             </p>
-            <p className="mt-3 text-sm text-[#6B7280]">
-              {isPastDue
-                ? "There was a problem with your last payment. Update your billing details to keep your routines unlocked."
-                : "Start your 3-day free trial to unlock unlimited daily plans, weekly reset, meal rhythm, journal reflections and progress insights."}
-            </p>
-            <div className="mt-4 space-y-2">
-              <UpgradeButton
-                interval="monthly"
-                label="Start 3-day free trial — €9.99/mo"
-                amount="€9.99"
-                cadence="/month"
-                highlight
-              />
-              <UpgradeButton
-                interval="yearly"
-                label="Start 3-day free trial — €59.99/yr"
-                amount="€59.99"
-                cadence="/year"
-              />
-            </div>
-            <p className="mt-3 text-xs text-[#9CA3AF]">
-              Cancel anytime before your trial ends.
-            </p>
+            {isPastDue ? (
+              <>
+                <p className="mt-3 text-sm text-[#6B7280]">
+                  There was a problem with your last payment. Update your payment
+                  method to restore full access — your saved plans stay readable
+                  in the meantime.
+                </p>
+                <ManageBilling
+                  cancelAtPeriodEnd={sub.cancelAtPeriodEnd}
+                  periodEndLabel={formatDate(sub.currentPeriodEnd)}
+                  canCancel
+                />
+              </>
+            ) : (
+              <>
+                <p className="mt-3 text-sm text-[#6B7280]">
+                  Start your 3-day free trial to unlock unlimited daily plans,
+                  weekly reset, meal rhythm, journal reflections and progress
+                  insights.
+                </p>
+                <div className="mt-4 space-y-2">
+                  <UpgradeButton
+                    interval="monthly"
+                    label="Start 3-day free trial — €9.99/mo"
+                    amount="€9.99"
+                    cadence="/month"
+                    highlight
+                  />
+                  <UpgradeButton
+                    interval="yearly"
+                    label="Start 3-day free trial — €59.99/yr"
+                    amount="€59.99"
+                    cadence="/year"
+                  />
+                </div>
+                <p className="mt-3 text-xs text-[#9CA3AF]">
+                  Cancel anytime before your trial ends.
+                </p>
+              </>
+            )}
           </>
         )}
       </div>
