@@ -17,6 +17,12 @@ import {
   findMealAllergenViolations,
   allergenExclusionInstruction,
 } from "@/lib/safety/allergens";
+import {
+  pickBreathing,
+  pickRelaxation,
+  pickMovement,
+  pickEvening,
+} from "@/lib/content/wellbeing-library";
 
 // Which daily_plans column each regeneratable section maps to.
 const SECTION_COLUMN = {
@@ -126,20 +132,47 @@ export async function POST(request: Request) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  // Current content of the section being regenerated.
-  const column = SECTION_COLUMN[section_name];
-  const currentContent =
-    section_name === "meal_card"
-      ? (plan.meal_cards as MealCardType[] | null)?.find(
-          (m) => m.meal_type === meal_type
-        )
-      : plan[column];
+  // Prompts 7/8/9: curated sections are served from the reviewed library —
+  // no provider call, instant, and always safe wording. A time-based seed
+  // gives a different pick on each tap.
+  if (section_name !== "meal_card") {
+    const seed = `${user.id}:${Date.now()}`;
+    let curated: unknown;
+    switch (section_name) {
+      case "breathing_exercise":
+        curated = pickBreathing(seed);
+        break;
+      case "relaxation_technique":
+        curated = pickRelaxation(seed);
+        break;
+      case "movement_moment":
+        curated = pickMovement(seed, {
+          limitations: profile?.movement_limitations,
+          lowEnergy: reason === "lower_energy" || reason === "make_easier",
+        });
+        break;
+      case "evening_wind_down":
+        curated = pickEvening(seed, null);
+        break;
+    }
+    const { error: curatedError } = await supabase
+      .from("daily_plans")
+      .update({ [SECTION_COLUMN[section_name]]: curated })
+      .eq("id", plan_id)
+      .eq("user_id", user.id);
+    if (curatedError) {
+      return NextResponse.json({ error: "Failed to save section" }, { status: 500 });
+    }
+    return NextResponse.json({ blocked: false, section: curated });
+  }
+
+  // Only meal cards reach the AI path — everything else was served curated.
+  const currentContent = (plan.meal_cards as MealCardType[] | null)?.find(
+    (m) => m.meal_type === meal_type
+  );
 
   const schema = SECTION_SCHEMAS[section_name];
-  const targetDescription =
-    section_name === "meal_card"
-      ? `the ${meal_type} meal card (full meal card with ingredients, steps and approximate macros)`
-      : section_name.replace(/_/g, " ");
+  const targetDescription = `the ${meal_type} meal card (full meal card with ingredients, steps and approximate macros)`;
 
   const userPrompt = `The user has an existing daily plan and wants ONE part regenerated.
 
@@ -213,16 +246,11 @@ Return ONLY the regenerated part as a single JSON object matching the same shape
     );
   }
 
-  // Persist: meal cards replace one entry in the array; others replace the column.
-  let updatePayload: Record<string, unknown>;
-  if (section_name === "meal_card") {
-    const cards = ((plan.meal_cards as MealCardType[] | null) ?? []).map((m) =>
-      m.meal_type === meal_type ? (regenerated as MealCardType) : m
-    );
-    updatePayload = { meal_cards: cards };
-  } else {
-    updatePayload = { [column]: regenerated };
-  }
+  // Persist: replace the matching entry in the meal_cards array.
+  const cards = ((plan.meal_cards as MealCardType[] | null) ?? []).map((m) =>
+    m.meal_type === meal_type ? (regenerated as MealCardType) : m
+  );
+  const updatePayload: Record<string, unknown> = { meal_cards: cards };
 
   const { error: updateError } = await supabase
     .from("daily_plans")

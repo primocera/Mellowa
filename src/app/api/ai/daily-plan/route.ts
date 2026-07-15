@@ -11,6 +11,13 @@ import {
 } from "@/lib/safety/allergens";
 import { checkDailyPlanV2Quality } from "@/lib/ai/quality-checks";
 import { buildFallbackDailyPlan } from "@/lib/ai/fallback-plan";
+import {
+  pickBreathing,
+  pickMeditation,
+  pickRelaxation,
+  pickMovement,
+  pickEvening,
+} from "@/lib/content/wellbeing-library";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canGenerateDailyPlan } from "@/lib/stripe/subscription";
 import { guardAiRoute } from "@/lib/ai/guard";
@@ -248,6 +255,27 @@ export async function POST(request: Request) {
       );
     }
   }
+
+  // Prompts 7/8/9: calm, movement and evening content is CURATED, not invented.
+  // The AI decides WHICH blocks the day includes (mode-aware); the actual
+  // exercise content is substituted from the reviewed library — safe wording,
+  // limitation-aware movement, and zero extra provider cost. Seeded per
+  // user+day so it varies day to day.
+  const seed = `${user.id}:${today}`;
+  if (plan.breathing_exercise) plan.breathing_exercise = pickBreathing(seed);
+  if (plan.meditation_or_reflection)
+    plan.meditation_or_reflection = pickMeditation(seed);
+  if (plan.relaxation_technique) plan.relaxation_technique = pickRelaxation(seed);
+  if (plan.movement_moment)
+    plan.movement_moment = pickMovement(seed, {
+      limitations: typedProfile.movement_limitations,
+      lowEnergy: checkin.energy_level <= 2,
+    });
+  if (plan.evening_wind_down)
+    plan.evening_wind_down = pickEvening(
+      seed,
+      typedProfile.preferred_routine_length
+    );
 
   // 8. Save the plan. V2 sections map onto existing jsonb columns where they
   //    fit, plus the new v2-specific columns.
