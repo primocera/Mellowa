@@ -53,6 +53,22 @@ const TIME_OPTIONS = [
   "A fairly open day",
 ];
 
+const MODE_OPTIONS: { value: string; label: string; hint: string }[] = [
+  { value: "auto", label: "Choose for me", hint: "Based on your check-in" },
+  { value: "minimum", label: "Minimum day", hint: "Just the essentials" },
+  { value: "balanced", label: "Balanced day", hint: "A full gentle rhythm" },
+  { value: "reset", label: "Reset day", hint: "Calm and fewer commitments" },
+  { value: "custom", label: "Custom", hint: "Pick your own areas" },
+];
+
+const AREA_OPTIONS: { value: string; label: string }[] = [
+  { value: "food", label: "Food" },
+  { value: "energy", label: "Energy" },
+  { value: "calm", label: "Calm" },
+  { value: "movement", label: "Movement" },
+  { value: "sleep", label: "Sleep" },
+];
+
 export function CheckinForm() {
   const router = useRouter();
   const [energy, setEnergy] = useState(3);
@@ -63,6 +79,8 @@ export function CheckinForm() {
   const [time, setTime] = useState("");
   const [focus, setFocus] = useState("");
   const [notes, setNotes] = useState("");
+  const [mode, setMode] = useState("auto");
+  const [areas, setAreas] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [safetyMessage, setSafetyMessage] = useState<string | null>(null);
@@ -85,6 +103,8 @@ export function CheckinForm() {
           time_available: time,
           today_focus: focus,
           notes,
+          mode,
+          custom_areas: mode === "custom" ? areas : [],
         }),
       });
 
@@ -201,6 +221,62 @@ export function CheckinForm() {
           placeholder="Totally optional — whatever helps your plan fit today."
           className="w-full rounded-xl border border-[#E5E1DA] px-4 py-3 text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
         />
+      </div>
+
+      <div>
+        <p className="mb-2 text-sm font-medium text-[#1F2937]">
+          What kind of day would help?
+        </p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {MODE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setMode(opt.value)}
+              className={clsx(
+                "rounded-xl border px-3 py-2.5 text-left transition",
+                mode === opt.value
+                  ? "border-[#7C9A92] bg-[#7C9A92]/10"
+                  : "border-[#E5E1DA] bg-white hover:border-[#7C9A92]/50"
+              )}
+            >
+              <span className="block text-sm font-medium text-[#1F2937]">
+                {opt.label}
+              </span>
+              <span className="block text-xs text-[#9CA3AF]">{opt.hint}</span>
+            </button>
+          ))}
+        </div>
+        {mode === "custom" && (
+          <div className="mt-3">
+            <p className="mb-2 text-xs text-[#6B7280]">
+              Your plan will only include what you pick:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {AREA_OPTIONS.map((a) => (
+                <button
+                  key={a.value}
+                  type="button"
+                  onClick={() =>
+                    setAreas((prev) =>
+                      prev.includes(a.value)
+                        ? prev.filter((x) => x !== a.value)
+                        : [...prev, a.value]
+                    )
+                  }
+                  className={clsx(
+                    "rounded-full border px-3.5 py-1.5 text-sm transition",
+                    areas.includes(a.value)
+                      ? "border-[#7C9A92] bg-[#7C9A92] text-white"
+                      : "border-[#E5E1DA] bg-white text-[#6B7280] hover:border-[#7C9A92]/50"
+                  )}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {error && (

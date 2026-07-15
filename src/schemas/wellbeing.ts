@@ -48,6 +48,16 @@ export const DailyCheckinInput = z.object({
   time_available: z.string().optional().default(""),
   today_focus: z.string().optional().default(""),
   notes: z.string().max(2000).optional().default(""),
+  // Prompt 2: plan-mode selection. "auto" resolves from energy/stress/time.
+  mode: z
+    .enum(["auto", "minimum", "balanced", "reset", "custom"])
+    .optional()
+    .default("auto"),
+  custom_areas: z
+    .array(z.enum(["food", "energy", "calm", "movement", "sleep"]))
+    .max(5)
+    .optional()
+    .default([]),
 });
 
 export type DailyCheckinInputType = z.infer<typeof DailyCheckinInput>;

@@ -16,10 +16,12 @@ export async function generateDailyPlanV2(args: {
   checkin: DailyCheckinInputType;
   habits: string[];
   date: string;
+  /** Mode-specific block-selection instruction (Prompt 2). */
+  modeInstruction?: string;
   /** Extra corrective instruction, e.g. after a failed quality check. */
   extraInstruction?: string;
 }): Promise<DailyPlanV2OutputType> {
-  const { profile, checkin, habits, date, extraInstruction } = args;
+  const { profile, checkin, habits, date, modeInstruction, extraInstruction } = args;
 
   const profileContext = {
     primary_goal: profile.primary_goal,
@@ -47,6 +49,7 @@ export async function generateDailyPlanV2(args: {
     checkin,
     habits,
     date,
+    modeInstruction,
   });
 
   return generateStructuredJson({

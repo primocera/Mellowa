@@ -35,6 +35,7 @@ type PlanRow = {
   id: string;
   plan_summary: Summary | null;
   plan_intensity: string | null;
+  plan_mode?: string | null;
   meal_cards: MealCardType[] | null;
   hydration_plan_v2: Hydration | null;
   movement_plan: MovementMomentType | null;
@@ -53,6 +54,13 @@ const INTENSITY_LABELS: Record<string, string> = {
   low_energy: "Low-energy day",
   high_stress: "Calm day",
   busy_day: "Busy day",
+};
+
+const MODE_LABELS: Record<string, string> = {
+  minimum: "Minimum day",
+  balanced: "Balanced day",
+  reset: "Reset day",
+  custom: "Your custom day",
 };
 
 function greeting() {
@@ -243,7 +251,9 @@ export function TodayPlanV2({
           <p className="mt-1 text-sm text-white/90">{summary.short_note}</p>
         )}
         <span className="mt-3 inline-block rounded-full bg-white/20 px-3 py-0.5 text-xs font-medium">
-          {INTENSITY_LABELS[intensity] ?? "Balanced day"}
+          {(plan.plan_mode && MODE_LABELS[plan.plan_mode]) ??
+            INTENSITY_LABELS[intensity] ??
+            "Balanced day"}
         </span>
       </div>
 
@@ -413,9 +423,13 @@ export function TodayPlanV2({
       )}
 
       {/* 5. Calm reset */}
-      <h2 className="px-1 text-sm font-medium uppercase tracking-wide text-[#9CA3AF]">
-        Calm reset
-      </h2>
+      {(plan.breathing_exercise ||
+        plan.meditation_or_reflection ||
+        plan.relaxation_technique) && (
+        <h2 className="px-1 text-sm font-medium uppercase tracking-wide text-[#9CA3AF]">
+          Calm reset
+        </h2>
+      )}
       {plan.breathing_exercise && (
         <Section
           icon={<Wind className="h-4 w-4 text-[#7C9A92]" />}

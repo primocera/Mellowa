@@ -154,6 +154,17 @@ export const planIntensities = [
   "busy_day",
 ] as const;
 
+/**
+ * Daily plan modes (Prompt 2). The fixed 10-section checklist is replaced by
+ * required meal/hydration anchors plus OPTIONAL wellbeing blocks the mode
+ * decides to include. Omitted blocks are null.
+ */
+export const planModes = ["minimum", "balanced", "reset", "custom"] as const;
+export type PlanMode = (typeof planModes)[number];
+
+export const customAreas = ["food", "energy", "calm", "movement", "sleep"] as const;
+export type CustomArea = (typeof customAreas)[number];
+
 export const DailyPlanV2Output = z.object({
   plan_summary: z.object({
     main_focus: z.string(),
@@ -161,15 +172,18 @@ export const DailyPlanV2Output = z.object({
     short_note: z.string().default(""),
   }),
   plan_intensity: z.enum(planIntensities),
+  plan_mode: z.enum(planModes).default("balanced"),
+  // Required anchors — every mode keeps at least one easy meal + hydration.
   meal_cards: z.array(MealCardSchema).min(1).max(4),
   hydration_plan: HydrationSchema,
-  movement_moment: MovementMomentSchema,
-  breathing_exercise: BreathingSchema,
-  meditation_or_reflection: MeditationSchema,
-  relaxation_technique: RelaxationSchema,
-  focus_block: FocusBlockSchema,
-  evening_wind_down: EveningWindDownSchema,
-  one_small_habit: OneSmallHabitSchema,
+  // Optional wellbeing blocks — the mode decides which are present.
+  movement_moment: MovementMomentSchema.nullish(),
+  breathing_exercise: BreathingSchema.nullish(),
+  meditation_or_reflection: MeditationSchema.nullish(),
+  relaxation_technique: RelaxationSchema.nullish(),
+  focus_block: FocusBlockSchema.nullish(),
+  evening_wind_down: EveningWindDownSchema.nullish(),
+  one_small_habit: OneSmallHabitSchema.nullish(),
   encouragement: z.string(),
   safety_note: z.string().default(""),
 });

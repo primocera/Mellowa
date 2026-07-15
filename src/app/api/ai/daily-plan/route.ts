@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DailyCheckinInput } from "@/schemas/wellbeing";
 import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateDailyPlanV2 } from "@/lib/ai/generate-daily-plan-v2";
+import { resolvePlanMode, planModeInstruction } from "@/lib/ai/plan-mode";
 import { checkDailyPlanV2Quality } from "@/lib/ai/quality-checks";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canGenerateDailyPlan } from "@/lib/stripe/subscription";
@@ -113,6 +114,16 @@ export async function POST(request: Request) {
 
   const habits = (habitRows ?? []).map((h) => h.name);
   const typedProfile = profile as WellbeingProfile;
+
+  // Prompt 2: resolve the day mode and build its block-selection instruction.
+  const mode = resolvePlanMode({
+    requestedMode: checkin.mode,
+    energy_level: checkin.energy_level,
+    stress_level: checkin.stress_level,
+    time_available: checkin.time_available,
+  });
+  const modeInstruction = planModeInstruction(mode, checkin.custom_areas);
+
   let plan;
   try {
     plan = await generateDailyPlanV2({
@@ -120,6 +131,7 @@ export async function POST(request: Request) {
       checkin,
       habits,
       date: today,
+      modeInstruction,
     });
 
     // Quality gate — one safer regeneration attempt if the plan fails
@@ -136,6 +148,7 @@ export async function POST(request: Request) {
         checkin,
         habits,
         date: today,
+        modeInstruction,
         extraInstruction: `The previous plan failed quality review (${quality.reasons.join(
           "; "
         )}). Create a LIGHTER, gentler plan: simpler meals with a clear safety note, gentle movement with a caution note, short calm-reset steps, no medical or diet language, warm encouragement, and a clear minimum version for the habit.`,
@@ -169,15 +182,16 @@ export async function POST(request: Request) {
       plan_date: today,
       plan_summary: plan.plan_summary,
       plan_intensity: plan.plan_intensity,
+      plan_mode: plan.plan_mode ?? mode,
       meal_cards: plan.meal_cards,
       hydration_plan_v2: plan.hydration_plan,
-      movement_plan: plan.movement_moment,
-      breathing_exercise: plan.breathing_exercise,
-      meditation_or_reflection: plan.meditation_or_reflection,
-      relaxation_technique: plan.relaxation_technique,
-      focus_plan: plan.focus_block,
-      evening_routine: plan.evening_wind_down,
-      habit_focus: plan.one_small_habit,
+      movement_plan: plan.movement_moment ?? null,
+      breathing_exercise: plan.breathing_exercise ?? null,
+      meditation_or_reflection: plan.meditation_or_reflection ?? null,
+      relaxation_technique: plan.relaxation_technique ?? null,
+      focus_plan: plan.focus_block ?? null,
+      evening_routine: plan.evening_wind_down ?? null,
+      habit_focus: plan.one_small_habit ?? null,
       encouragement: plan.encouragement,
       safety_note: plan.safety_note,
     })

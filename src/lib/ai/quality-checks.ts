@@ -91,7 +91,8 @@ export function checkDailyPlanQuality(
 
 /**
  * Quality gate for the v2 daily plan (meal cards, movement, calm reset).
- * Same safety intent, adapted to the richer shape.
+ * Mode-aware (Prompt 2): wellbeing blocks are optional; density limits depend
+ * on the plan mode so "gentle" never becomes a checklist.
  */
 export function checkDailyPlanV2Quality(
   plan: DailyPlanV2OutputType,
@@ -105,9 +106,7 @@ export function checkDailyPlanV2Quality(
     if (pattern.test(text)) reasons.push(reason);
   }
 
-  // Allergen safety: any listed allergy must not appear as an ingredient.
-  // (Allergy checking against the profile happens in the route; here we only
-  //  ensure meals actually carry a macro safety note.)
+  // Meals must carry the macro safety note and usable steps.
   for (const meal of plan.meal_cards) {
     if (!meal.safety_note.trim()) {
       reasons.push(`meal "${meal.title}" missing macro safety note`);
@@ -117,18 +116,14 @@ export function checkDailyPlanV2Quality(
     }
   }
 
-  // Movement must carry a caution note.
-  if (!plan.movement_moment.caution_note.trim()) {
+  // Present blocks must carry their safety notes.
+  if (plan.movement_moment && !plan.movement_moment.caution_note.trim()) {
     reasons.push("movement missing caution note");
   }
-
-  // Breathing must carry a gentle note.
-  if (!plan.breathing_exercise.gentle_note.trim()) {
+  if (plan.breathing_exercise && !plan.breathing_exercise.gentle_note.trim()) {
     reasons.push("breathing missing gentle note");
   }
-
-  // Habit must include a minimum version.
-  if (!plan.one_small_habit.minimum_version.trim()) {
+  if (plan.one_small_habit && !plan.one_small_habit.minimum_version.trim()) {
     reasons.push("missing habit minimum version");
   }
 
@@ -136,13 +131,54 @@ export function checkDailyPlanV2Quality(
     reasons.push("missing encouragement");
   }
 
+  // ----- Mode density rules -----
+  const calmCount = [
+    plan.breathing_exercise,
+    plan.meditation_or_reflection,
+    plan.relaxation_technique,
+  ].filter((b) => b != null).length;
+  const optionalBlocks = [
+    plan.movement_moment,
+    plan.breathing_exercise,
+    plan.meditation_or_reflection,
+    plan.relaxation_technique,
+    plan.focus_block,
+    plan.evening_wind_down,
+    plan.one_small_habit,
+  ].filter((b) => b != null).length;
+  const totalBlocks = plan.meal_cards.length + optionalBlocks;
+
+  switch (plan.plan_mode) {
+    case "minimum":
+      if (totalBlocks > 4) {
+        reasons.push(`minimum day too full (${totalBlocks} blocks, max 4)`);
+      }
+      if (plan.focus_block) reasons.push("minimum day must not include a focus block");
+      if (calmCount > 1) reasons.push("minimum day has more than one calm practice");
+      break;
+    case "reset":
+      if (plan.focus_block) reasons.push("reset day must not include a focus block");
+      if (totalBlocks > 7) reasons.push(`reset day too full (${totalBlocks} blocks)`);
+      if (calmCount > 2) reasons.push("reset day has too many calm practices");
+      break;
+    case "balanced":
+      if (calmCount > 1) {
+        reasons.push("balanced day must include exactly one calm practice");
+      }
+      if (totalBlocks > 9) reasons.push(`balanced day too full (${totalBlocks} blocks)`);
+      break;
+    case "custom":
+      if (totalBlocks > 9) reasons.push(`custom day too full (${totalBlocks} blocks)`);
+      break;
+  }
+
   // Low-energy / high-stress days should not pile on long routines.
   const shouldBeLight = context.energy_level <= 2 || context.stress_level >= 4;
   if (shouldBeLight) {
     const longestSection = Math.max(
-      plan.movement_moment.steps.length,
-      plan.evening_wind_down.steps.length,
-      plan.breathing_exercise.steps.length
+      plan.movement_moment?.steps.length ?? 0,
+      plan.evening_wind_down?.steps.length ?? 0,
+      plan.breathing_exercise?.steps.length ?? 0
     );
     if (longestSection > 8) {
       reasons.push("routines too long for a low-energy / high-stress day");
