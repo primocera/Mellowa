@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { createClient } from "@/lib/supabase/server";
 import { PlanPreferencesForm } from "@/components/dailyflow/plan-preferences-form";
+import { AccountDataControls } from "@/components/dailyflow/account-data-controls";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
 export const metadata: Metadata = { title: "Settings — Mellowa" };
@@ -112,6 +113,8 @@ export default async function SettingsPage() {
           Go to billing
         </Link>
       </div>
+
+      <AccountDataControls />
 
       <p className="px-2 text-xs text-[#9CA3AF]">
         Mellowa is not medical care, therapy or emergency support.
