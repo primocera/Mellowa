@@ -5,7 +5,6 @@ import { AiGenerationError } from "@/lib/ai/errors";
 import { HABIT_PLAN_SYSTEM_PROMPT } from "@/prompts/habits";
 import { HabitPlanOutput } from "@/schemas/ai-output";
 import { guardAiRoute } from "@/lib/ai/guard";
-import { recordAiUsage } from "@/lib/ai/rate-limit";
 
 export async function POST() {
   const supabase = await createClient();
@@ -15,7 +14,7 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Premium-only + rate limit — protects the AI provider key.
-  const guard = await guardAiRoute(user.id, { requirePremium: true });
+  const guard = await guardAiRoute(user.id, { requirePremium: true, route: "habit-plan" });
   if (guard) return guard;
 
   const [profileRes, checkinsRes, habitsRes] = await Promise.all([
@@ -68,7 +67,6 @@ Suggest 1-3 small new habits as structured JSON.`,
     );
   }
 
-  await recordAiUsage(user.id, "habit-plan");
 
   return NextResponse.json({ suggestions: plan });
 }

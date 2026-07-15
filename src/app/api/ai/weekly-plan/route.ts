@@ -6,7 +6,7 @@ import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateWeeklyPlan } from "@/lib/ai/generate-weekly-plan";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canUsePremiumFeature, canGenerateWeeklyPlan } from "@/lib/stripe/subscription";
-import { checkAiRateLimit, recordAiUsage } from "@/lib/ai/rate-limit";
+import { claimAiGeneration } from "@/lib/ai/rate-limit";
 import type { DailyCheckin, WellbeingProfile } from "@/types/dailyflow";
 
 export async function POST(request: Request) {
@@ -40,11 +40,22 @@ export async function POST(request: Request) {
     );
   }
 
-  // Abuse guard — per-user rate limit.
-  const rate = await checkAiRateLimit(user.id);
-  if (!rate.ok) {
+  // Abuse guard — atomic per-user rate limit + global cost ceiling.
+  const claim = await claimAiGeneration(user.id, "weekly-plan");
+  if (!claim.ok) {
+    if (claim.scope === "capacity") {
+      return NextResponse.json(
+        {
+          error: "capacity",
+          user_message:
+            "Mellowa is at capacity right now. Please try again a little later.",
+          retryAfterMinutes: claim.retryAfterMinutes,
+        },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
-      { error: "rate_limited", scope: rate.scope, retryAfterMinutes: rate.retryAfterMinutes },
+      { error: "rate_limited", scope: claim.scope, retryAfterMinutes: claim.retryAfterMinutes },
       { status: 429 }
     );
   }
@@ -130,8 +141,6 @@ export async function POST(request: Request) {
   if (saveError) {
     return NextResponse.json({ error: "Failed to save weekly plan" }, { status: 500 });
   }
-
-  await recordAiUsage(user.id, "weekly-plan");
 
   return NextResponse.json({ blocked: false, plan: saved });
 }

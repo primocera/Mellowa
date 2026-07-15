@@ -6,7 +6,7 @@ import { generateStructuredJson } from "@/lib/ai/generate-json";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { JournalReflectionOutput } from "@/schemas/ai-output";
 import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
-import { checkAiRateLimit, recordAiUsage } from "@/lib/ai/rate-limit";
+import { claimAiGeneration } from "@/lib/ai/rate-limit";
 
 const JOURNAL_SYSTEM_PROMPT = `You are a gentle reflection companion for a consumer wellness app.
 You respond to short journal entries about routines, energy, meals and habits.
@@ -77,13 +77,15 @@ export async function POST(request: Request) {
       premium_required: true,
     });
   }
-  const rate = await checkAiRateLimit(user.id);
-  if (!rate.ok) {
+  // Atomically reserve the reflection call (rate limit + global ceiling).
+  const claim = await claimAiGeneration(user.id, "journal-reflection");
+  if (!claim.ok) {
     return NextResponse.json({
       blocked: false,
       saved: true,
       reflection: null,
-      rate_limited: true,
+      rate_limited: claim.scope !== "capacity",
+      capacity: claim.scope === "capacity",
     });
   }
 
@@ -102,8 +104,6 @@ export async function POST(request: Request) {
     const code = err instanceof AiGenerationError ? err.code : "provider_error";
     return NextResponse.json({ blocked: false, saved: true, reflection: null, code });
   }
-
-  await recordAiUsage(user.id, "journal-reflection");
 
   return NextResponse.json({ blocked: false, saved: true, reflection });
 }

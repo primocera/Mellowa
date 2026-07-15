@@ -10,10 +10,10 @@ import {
   ALLERGEN_DISCLAIMER,
 } from "@/lib/safety/allergens";
 import { checkDailyPlanV2Quality } from "@/lib/ai/quality-checks";
+import { buildFallbackDailyPlan } from "@/lib/ai/fallback-plan";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canGenerateDailyPlan } from "@/lib/stripe/subscription";
 import { guardAiRoute } from "@/lib/ai/guard";
-import { recordAiUsage } from "@/lib/ai/rate-limit";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
 export async function POST(request: Request) {
@@ -66,14 +66,22 @@ export async function POST(request: Request) {
   }
 
   // Abuse guard — rate limit (sample allowance already checked above).
-  const guard = await guardAiRoute(user.id, { requirePremium: false });
+  const guard = await guardAiRoute(user.id, {
+    requirePremium: false,
+    route: "daily-plan",
+  });
   if (guard) return guard;
 
   // 4. Safety check BEFORE any generation
   const freeText = [checkin.today_focus, checkin.notes, checkin.hunger_pattern]
     .filter(Boolean)
     .join("\n");
-  const safety = await checkInputSafety(user.id, "daily-plan", freeText);
+  const safety = await checkInputSafety(
+    user.id,
+    "daily-plan",
+    freeText,
+    (profile as WellbeingProfile).locale
+  );
 
   // 5. Blocked → return safety message, no plan
   if (safety.should_block_generation) {
@@ -226,10 +234,19 @@ export async function POST(request: Request) {
     }
   } catch (err) {
     const code = err instanceof AiGenerationError ? err.code : "provider_error";
-    return NextResponse.json(
-      { error: "Plan generation failed", code },
-      { status: 502 }
-    );
+    // Curated fallback (Prompt 16): rather than an error screen during a
+    // provider outage, serve a gentle pre-written Minimum Day. It is static and
+    // cannot honour an allergy list, so only offer it to users with none.
+    const hasAllergies = (typedProfile.allergies ?? []).filter(Boolean).length > 0;
+    if (!hasAllergies) {
+      console.error("[ai] daily plan generation failed, serving fallback", { code });
+      plan = buildFallbackDailyPlan();
+    } else {
+      return NextResponse.json(
+        { error: "Plan generation failed", code },
+        { status: 502 }
+      );
+    }
   }
 
   // 8. Save the plan. V2 sections map onto existing jsonb columns where they
@@ -291,9 +308,6 @@ export async function POST(request: Request) {
       }))
     );
   }
-
-  // 9. Record usage for rate-limit accounting (after success only).
-  await recordAiUsage(user.id, "daily-plan");
 
   // 10. Return the saved plan
   return NextResponse.json({ blocked: false, plan: savedPlan });

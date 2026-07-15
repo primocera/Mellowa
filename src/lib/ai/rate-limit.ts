@@ -1,11 +1,14 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { estimateRouteCostUsd, globalDailyCeilingUsd } from "@/lib/ai/cost";
 
 /**
- * AI generation rate limiting — protects the AI provider key from abuse.
- * Backed by ai_usage_events (see migration 004). Limits are per user, counted
- * over rolling windows. These are generous for genuine daily use but stop a
- * single account from hammering the provider.
+ * AI generation limits (Prompt 16) — protects the AI provider key and caps
+ * global spend. Backed by ai_usage_events. The claim is ATOMIC: a single
+ * SECURITY DEFINER RPC checks the per-user hour/day limits and the global daily
+ * cost ceiling under a per-user advisory lock, then reserves the slot by
+ * inserting a ledger row. This closes the check-then-insert race that a
+ * two-step count+insert would leave open.
  */
 export const AI_RATE_LIMITS = {
   perHour: 15,
@@ -21,53 +24,53 @@ export type AiRoute =
   | "low-energy-day"
   | "regenerate-section";
 
-export interface RateLimitResult {
+export interface ClaimResult {
   ok: boolean;
-  scope?: "hour" | "day";
+  /** Why the claim was denied. "capacity" = global ceiling reached. */
+  scope?: "hour" | "day" | "capacity";
   retryAfterMinutes?: number;
-}
-
-async function countSince(userId: string, sinceIso: string): Promise<number> {
-  const supabase = await createClient();
-  const { count } = await supabase
-    .from("ai_usage_events")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .gte("created_at", sinceIso);
-  return count ?? 0;
+  eventId?: string;
 }
 
 /**
- * Check whether the user may make another AI call right now.
- * Call this BEFORE generation. Log usage with recordAiUsage AFTER a successful
- * generation so failed provider calls don't consume the quota.
+ * Atomically reserve one AI generation for the user. Call this BEFORE
+ * generation; the slot (and its estimated cost) is recorded immediately, so a
+ * failed provider call still counts against the quota — this is intentional and
+ * abuse-resistant. Fails CLOSED (denies) if the RPC errors.
  */
-export async function checkAiRateLimit(
-  userId: string
-): Promise<RateLimitResult> {
-  const now = Date.now();
-  const hourAgo = new Date(now - 60 * 60 * 1000).toISOString();
-  const dayAgo = new Date(now - 24 * 60 * 60 * 1000).toISOString();
-
-  const [hourCount, dayCount] = await Promise.all([
-    countSince(userId, hourAgo),
-    countSince(userId, dayAgo),
-  ]);
-
-  if (hourCount >= AI_RATE_LIMITS.perHour) {
-    return { ok: false, scope: "hour", retryAfterMinutes: 60 };
-  }
-  if (dayCount >= AI_RATE_LIMITS.perDay) {
-    return { ok: false, scope: "day", retryAfterMinutes: 24 * 60 };
-  }
-  return { ok: true };
-}
-
-/** Record a successful AI generation for rate-limit accounting. */
-export async function recordAiUsage(
+export async function claimAiGeneration(
   userId: string,
   route: AiRoute
-): Promise<void> {
+): Promise<ClaimResult> {
   const supabase = await createClient();
-  await supabase.from("ai_usage_events").insert({ user_id: userId, route });
+  const { data, error } = await supabase.rpc("claim_ai_generation", {
+    p_user_id: userId,
+    p_route: route,
+    p_per_hour: AI_RATE_LIMITS.perHour,
+    p_per_day: AI_RATE_LIMITS.perDay,
+    p_est_cost: estimateRouteCostUsd(route),
+    p_global_daily_ceiling: globalDailyCeilingUsd(),
+  });
+
+  if (error || !data) {
+    console.error("[ai] claim_ai_generation failed — denying", {
+      route,
+      error: error?.message,
+    });
+    return { ok: false, scope: "capacity", retryAfterMinutes: 5 };
+  }
+
+  const result = data as { allowed: boolean; reason?: string; event_id?: string };
+  if (result.allowed) {
+    return { ok: true, eventId: result.event_id };
+  }
+
+  switch (result.reason) {
+    case "hour":
+      return { ok: false, scope: "hour", retryAfterMinutes: 60 };
+    case "day":
+      return { ok: false, scope: "day", retryAfterMinutes: 24 * 60 };
+    default:
+      return { ok: false, scope: "capacity", retryAfterMinutes: 15 };
+  }
 }

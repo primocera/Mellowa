@@ -5,7 +5,6 @@ import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateLowEnergyDay } from "@/lib/ai/generate-low-energy-day";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { guardAiRoute } from "@/lib/ai/guard";
-import { recordAiUsage } from "@/lib/ai/rate-limit";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
 export async function POST(request: Request) {
@@ -50,7 +49,7 @@ export async function POST(request: Request) {
   const input = parsed.data;
 
   // Premium/trial gate + rate limit.
-  const guard = await guardAiRoute(user.id, { requirePremium: true });
+  const guard = await guardAiRoute(user.id, { requirePremium: true, route: "low-energy-day" });
   if (guard) return guard;
 
   // 4. Safety check BEFORE any generation
@@ -105,8 +104,6 @@ export async function POST(request: Request) {
     .eq("user_id", user.id)
     .eq("plan_date", today);
 
-  // 8. Record usage after success only.
-  await recordAiUsage(user.id, "low-energy-day");
 
   return NextResponse.json({ blocked: false, plan });
 }

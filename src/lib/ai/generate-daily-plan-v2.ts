@@ -42,6 +42,12 @@ export async function generateDailyPlanV2(args: {
     macro_focus: profile.macro_focus,
     preferred_meal_prep_time: profile.preferred_meal_prep_time,
     preferred_tone: profile.preferred_tone,
+    // Prompt 4 preferences.
+    disliked_ingredients: profile.disliked_ingredients,
+    kitchen_equipment: profile.kitchen_equipment,
+    default_servings: profile.default_servings,
+    meal_pattern: profile.meal_pattern,
+    schedule_type: profile.schedule_type,
   };
 
   const basePrompt = buildDailyPlanV2UserPrompt({

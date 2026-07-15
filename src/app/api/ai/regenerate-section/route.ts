@@ -13,7 +13,6 @@ import {
 } from "@/schemas/ai-output-v2";
 import type { MealCardType } from "@/schemas/ai-output-v2";
 import { guardAiRoute } from "@/lib/ai/guard";
-import { recordAiUsage } from "@/lib/ai/rate-limit";
 import {
   findMealAllergenViolations,
   allergenExclusionInstruction,
@@ -79,7 +78,7 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Premium-only + rate limit — regeneration is a provider call.
-  const guard = await guardAiRoute(user.id, { requirePremium: true });
+  const guard = await guardAiRoute(user.id, { requirePremium: true, route: "regenerate-section" });
   if (guard) return guard;
 
   let body: unknown;
@@ -235,7 +234,6 @@ Return ONLY the regenerated part as a single JSON object matching the same shape
     return NextResponse.json({ error: "Failed to save section" }, { status: 500 });
   }
 
-  await recordAiUsage(user.id, "regenerate-section");
 
   return NextResponse.json({ blocked: false, section: regenerated });
 }

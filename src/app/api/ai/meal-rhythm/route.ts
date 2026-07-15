@@ -10,7 +10,6 @@ import {
 } from "@/prompts/meal-rhythm";
 import { MealRhythmOutput } from "@/schemas/ai-output";
 import { guardAiRoute } from "@/lib/ai/guard";
-import { recordAiUsage } from "@/lib/ai/rate-limit";
 
 const MealRhythmInput = z.object({
   challenge: z.string().max(500).optional().default(""),
@@ -34,7 +33,7 @@ export async function POST(request: Request) {
   }
 
   // Premium-only + rate limit — protects the AI provider key.
-  const guard = await guardAiRoute(user.id, { requirePremium: true });
+  const guard = await guardAiRoute(user.id, { requirePremium: true, route: "meal-rhythm" });
   if (guard) return guard;
 
   let body: unknown = {};
@@ -104,7 +103,6 @@ export async function POST(request: Request) {
     idea: ideas,
   });
 
-  await recordAiUsage(user.id, "meal-rhythm");
 
   return NextResponse.json({ blocked: false, ideas });
 }

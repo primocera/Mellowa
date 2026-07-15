@@ -2,6 +2,7 @@ import "server-only";
 import { generateStructuredJson } from "@/lib/ai/generate-json";
 import { SAFETY_SYSTEM_PROMPT } from "@/prompts/safety";
 import { SafetyCheckOutput, type SafetyCheckOutputType } from "@/schemas/safety";
+import { preClassifySafety } from "@/lib/safety/pre-classify";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const SAFE_RESULT: SafetyCheckOutputType = {
@@ -30,10 +31,19 @@ const BLOCKED_FALLBACK: SafetyCheckOutputType = {
 export async function checkInputSafety(
   userId: string,
   source: string,
-  text: string
+  text: string,
+  locale?: string | null
 ): Promise<SafetyCheckOutputType> {
   const trimmed = text.trim();
   if (!trimmed) return SAFE_RESULT;
+
+  // Deterministic pre-classifier (Prompt 17): block clear crisis language
+  // immediately — no provider call, and resilient to AI downtime.
+  const pre = preClassifySafety(trimmed, locale);
+  if (pre) {
+    await logSafetyEvent(userId, source, pre, trimmed);
+    return pre;
+  }
 
   let result: SafetyCheckOutputType;
   try {
