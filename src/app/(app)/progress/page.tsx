@@ -171,6 +171,25 @@ export default async function ProgressPage() {
         </div>
       )}
 
+      {/* Weekly reflection (Prompt 11) — supportive, never a report card */}
+      <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="font-medium text-[#1F2937]">A gentle weekly reflection</h2>
+        <p className="mt-1 text-sm text-[#6B7280]">
+          No scores, no streaks. Just three small questions, whenever you like:
+        </p>
+        <ul className="mt-3 space-y-1.5 text-sm text-[#1F2937]">
+          <li>• What felt a little easier this week than before?</li>
+          <li>• Which day felt best — and what was different about it?</li>
+          <li>• What&apos;s one small thing worth keeping next week?</li>
+        </ul>
+        <Link
+          href="/journal"
+          className="mt-4 inline-block rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm font-medium text-[#1F2937] transition hover:border-[#7C9A92]/50"
+        >
+          Reflect in your journal
+        </Link>
+      </div>
+
       <p className="px-2 text-xs text-[#9CA3AF]">
         These are gentle observations, not health conclusions. Patterns here
         could be worth exploring, nothing more.

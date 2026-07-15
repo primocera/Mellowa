@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { SaveMealButton } from "@/components/dailyflow/save-meal-button";
+import { PlanFeedback } from "@/components/dailyflow/plan-feedback";
 import type {
   MealCardType,
   MovementMomentType,
@@ -577,6 +578,9 @@ export function TodayPlanV2({
       {plan.safety_note && (
         <p className="px-2 text-xs text-[#9CA3AF]">{plan.safety_note}</p>
       )}
+
+      {/* Gentle feedback (Prompt 10) */}
+      <PlanFeedback planId={plan.id} />
 
       {/* This feels too much */}
       <button

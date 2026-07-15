@@ -154,7 +154,34 @@ export async function POST(request: Request) {
     stress_level: checkin.stress_level,
     time_available: checkin.time_available,
   });
-  const modeInstruction = planModeInstruction(mode, checkin.custom_areas);
+  let modeInstruction = planModeInstruction(mode, checkin.custom_areas);
+
+  // Prompt 10: learn gently from recent feedback. Aggregated hints only —
+  // never quotes, never pressure.
+  const { data: feedback } = await supabase
+    .from("plan_feedback")
+    .select("item_key, verdict")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(40);
+  if (feedback?.length) {
+    const tally = new Map<string, number>();
+    for (const f of feedback) {
+      const area = f.item_key.split(":")[0]; // meal:breakfast -> meal
+      tally.set(area, (tally.get(area) ?? 0) + (f.verdict === "helpful" ? 1 : -1));
+    }
+    const liked = [...tally].filter(([, v]) => v >= 2).map(([k]) => k);
+    const disliked = [...tally].filter(([, v]) => v <= -2).map(([k]) => k);
+    if (liked.length || disliked.length) {
+      modeInstruction += `\nFEEDBACK HINTS: ${
+        liked.length ? `the user found these helpful before: ${liked.join(", ")}. ` : ""
+      }${
+        disliked.length
+          ? `the user often marked these as "not for me": ${disliked.join(", ")} — keep them lighter or lean on other blocks instead.`
+          : ""
+      }`;
+    }
+  }
 
   let plan;
   try {
