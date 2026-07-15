@@ -11,6 +11,8 @@ import {
 } from "@/lib/safety/allergens";
 import { checkDailyPlanV2Quality } from "@/lib/ai/quality-checks";
 import { buildFallbackDailyPlan } from "@/lib/ai/fallback-plan";
+import { isFlagEnabled } from "@/lib/flags";
+import { trackEvent } from "@/lib/analytics";
 import {
   pickBreathing,
   pickMeditation,
@@ -272,9 +274,10 @@ export async function POST(request: Request) {
     // provider outage, serve a gentle pre-written Minimum Day. It is static and
     // cannot honour an allergy list, so only offer it to users with none.
     const hasAllergies = (typedProfile.allergies ?? []).filter(Boolean).length > 0;
-    if (!hasAllergies) {
+    if (!hasAllergies && isFlagEnabled("fallback_plan")) {
       console.error("[ai] daily plan generation failed, serving fallback", { code });
       plan = buildFallbackDailyPlan();
+      trackEvent("plan_fallback_served", user.id);
     } else {
       return NextResponse.json(
         { error: "Plan generation failed", code },
@@ -365,5 +368,7 @@ export async function POST(request: Request) {
   }
 
   // 10. Return the saved plan
+  trackEvent("checkin_completed", user.id);
+  trackEvent("plan_generated", user.id);
   return NextResponse.json({ blocked: false, plan: savedPlan });
 }
