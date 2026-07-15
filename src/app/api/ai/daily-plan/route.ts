@@ -4,6 +4,11 @@ import { DailyCheckinInput } from "@/schemas/wellbeing";
 import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateDailyPlanV2 } from "@/lib/ai/generate-daily-plan-v2";
 import { resolvePlanMode, planModeInstruction } from "@/lib/ai/plan-mode";
+import {
+  findPlanAllergenViolations,
+  allergenExclusionInstruction,
+  ALLERGEN_DISCLAIMER,
+} from "@/lib/safety/allergens";
 import { checkDailyPlanV2Quality } from "@/lib/ai/quality-checks";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canGenerateDailyPlan } from "@/lib/stripe/subscription";
@@ -175,6 +180,49 @@ export async function POST(request: Request) {
           { status: 502 }
         );
       }
+    }
+
+    // Deterministic allergen gate (Prompt 5): never trust the prompt alone.
+    // One regeneration with explicit exclusions; if it still fails, return a
+    // safe error rather than a risky recipe.
+    const allergies = (typedProfile.allergies ?? []).filter(Boolean);
+    if (allergies.length) {
+      let violations = findPlanAllergenViolations(plan.meal_cards, allergies);
+      if (violations.length) {
+        console.error("[safety] allergen violation, regenerating", {
+          categories: violations.flatMap((v) =>
+            v.violations.map((x) => x.category)
+          ),
+        });
+        plan = await generateDailyPlanV2({
+          profile: typedProfile,
+          checkin,
+          habits,
+          date: today,
+          modeInstruction,
+          extraInstruction: allergenExclusionInstruction(allergies),
+        });
+        violations = findPlanAllergenViolations(plan.meal_cards, allergies);
+        if (violations.length) {
+          console.error("[safety] allergen violation after retry, failing closed", {
+            categories: violations.flatMap((v) =>
+              v.violations.map((x) => x.category)
+            ),
+          });
+          return NextResponse.json(
+            {
+              error: "allergen_check_failed",
+              user_message:
+                "We couldn't create meals today that we're confident avoid your listed allergies, so we stopped rather than risk it. Please try again — and always double-check ingredient labels.",
+            },
+            { status: 502 }
+          );
+        }
+      }
+      // Make the limitation explicit on every plan for users with allergies.
+      plan.safety_note = plan.safety_note
+        ? `${plan.safety_note} ${ALLERGEN_DISCLAIMER}`
+        : ALLERGEN_DISCLAIMER;
     }
   } catch (err) {
     const code = err instanceof AiGenerationError ? err.code : "provider_error";

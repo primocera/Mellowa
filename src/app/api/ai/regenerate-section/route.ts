@@ -14,6 +14,10 @@ import {
 import type { MealCardType } from "@/schemas/ai-output-v2";
 import { guardAiRoute } from "@/lib/ai/guard";
 import { recordAiUsage } from "@/lib/ai/rate-limit";
+import {
+  findMealAllergenViolations,
+  allergenExclusionInstruction,
+} from "@/lib/safety/allergens";
 
 // Which daily_plans column each regeneratable section maps to.
 const SECTION_COLUMN = {
@@ -164,6 +168,44 @@ Return ONLY the regenerated part as a single JSON object matching the same shape
       temperature: 0.7,
       maxTokens: 3072,
     });
+
+    // Deterministic allergen gate for regenerated meals (Prompt 5).
+    const allergies = (profile?.allergies ?? []).filter(Boolean);
+    if (section_name === "meal_card" && allergies.length) {
+      let violations = findMealAllergenViolations(
+        regenerated as MealCardType,
+        allergies
+      );
+      if (violations.length) {
+        console.error("[safety] allergen violation in regenerated meal, retrying", {
+          categories: violations.map((v) => v.category),
+        });
+        regenerated = await generateStructuredJson({
+          systemPrompt: DAILY_PLAN_V2_SYSTEM_PROMPT,
+          userPrompt: `${userPrompt}\n\n${allergenExclusionInstruction(allergies)}`,
+          zodSchema: schema,
+          temperature: 0.5,
+          maxTokens: 3072,
+        });
+        violations = findMealAllergenViolations(
+          regenerated as MealCardType,
+          allergies
+        );
+        if (violations.length) {
+          console.error("[safety] allergen violation after retry, failing closed", {
+            categories: violations.map((v) => v.category),
+          });
+          return NextResponse.json(
+            {
+              error: "allergen_check_failed",
+              user_message:
+                "We couldn't create a replacement meal that we're confident avoids your listed allergies, so we kept your current one. Please try again.",
+            },
+            { status: 502 }
+          );
+        }
+      }
+    }
   } catch (err) {
     const code = err instanceof AiGenerationError ? err.code : "provider_error";
     return NextResponse.json(
