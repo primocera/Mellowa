@@ -4,14 +4,15 @@ import { serverEnv } from "@/lib/env";
 import { sendEmail } from "@/lib/email/send";
 
 /**
- * Hourly cron (Prompt 12) — opt-in, timezone-aware daily reminder email.
+ * Daily cron (Prompt 12) — opt-in daily reminder email.
  *
- * For each profile with reminders_opt_in and a reminder_time, we compute the
- * user's LOCAL time from their stored IANA timezone. If the local hour matches
- * their chosen hour, the local time is outside their quiet hours, and we
- * haven't sent one on this local date yet, we send a gentle nudge.
- * At most one per local day (last_reminder_sent_date). Skipped silently when
- * RESEND_API_KEY is not configured.
+ * Vercel Hobby allows only one run per day, so exact reminder_time delivery
+ * isn't possible; we send on the daily run instead, still respecting the
+ * user's LOCAL quiet hours (from their stored IANA timezone) and at most one
+ * email per local day (last_reminder_sent_date). If the run lands inside a
+ * user's quiet hours they're skipped that day, never woken. Skipped silently
+ * when RESEND_API_KEY is not configured. (On a paid plan: switch the schedule
+ * back to hourly and re-enable the reminder_time window check.)
  */
 export async function GET(request: Request) {
   const secret = serverEnv.cronSecret;
@@ -54,11 +55,6 @@ export async function GET(request: Request) {
     }
 
     if (p.last_reminder_sent_date === localDate) continue;
-
-    const target = toMinutes(p.reminder_time);
-    if (target === null) continue;
-    // Send within the hour that follows the chosen time.
-    if (localMinutes < target || localMinutes >= target + 60) continue;
 
     if (inQuietHours(localMinutes, p.quiet_hours_start, p.quiet_hours_end)) {
       continue;
