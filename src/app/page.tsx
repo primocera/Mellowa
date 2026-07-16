@@ -295,6 +295,9 @@ export default function LandingPage() {
           <Link href="/refund" className="hover:text-[#6D8C7D]">
             Refunds
           </Link>
+          <a href="mailto:support@mellowa.app" className="hover:text-[#6D8C7D]">
+            Support
+          </a>
         </div>
         © {new Date().getFullYear()} Mellowa. Not medical care, therapy or
         emergency support.
