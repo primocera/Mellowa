@@ -7,6 +7,7 @@ import { generateWeeklyPlan } from "@/lib/ai/generate-weekly-plan";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canUsePremiumFeature, canGenerateWeeklyPlan } from "@/lib/stripe/subscription";
 import { claimAiGeneration } from "@/lib/ai/rate-limit";
+import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
 import type { DailyCheckin, WellbeingProfile } from "@/types/dailyflow";
 
 export async function POST(request: Request) {
@@ -25,6 +26,10 @@ export async function POST(request: Request) {
   if (!profile) {
     return NextResponse.json({ error: "onboarding_required" }, { status: 400 });
   }
+
+  // Severe allergies: no specific meal generation (Prompt 8).
+  const severeBlock = severeAllergyBlock(profile);
+  if (severeBlock) return NextResponse.json(severeBlock, { status: 200 });
 
   // Weekly plans are a premium feature; also enforce the monthly cap.
   if (!(await canUsePremiumFeature(user.id, "weekly_plan"))) {

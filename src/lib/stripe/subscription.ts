@@ -3,7 +3,8 @@ import { startOfMonth, format, differenceInCalendarDays } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import {
   PLAN_LIMITS,
-  ACTIVE_STATUSES,
+  entitlementFor,
+  type Entitlement,
   type PlanTier,
   type PremiumFeature,
 } from "./plans";
@@ -27,6 +28,8 @@ export interface UserSubscriptionStatus {
   shouldShowTrialBanner: boolean;
   cancelAtPeriodEnd: boolean;
   planName: string | null;
+  /** Canonical access matrix for this status (Prompt 3). */
+  entitlement: Entitlement;
 }
 
 /**
@@ -44,7 +47,8 @@ export async function getUserSubscriptionStatus(
     .maybeSingle();
 
   const status = (data?.status as SubscriptionStatus) ?? "none";
-  const isPremium = ACTIVE_STATUSES.includes(status);
+  const entitlement = entitlementFor(status);
+  const isPremium = entitlement.generate;
   const trialEndsAt = data?.trial_end ?? null;
 
   let daysLeftInTrial: number | null = null;
@@ -65,6 +69,7 @@ export async function getUserSubscriptionStatus(
     shouldShowTrialBanner: status === "trialing",
     cancelAtPeriodEnd: data?.cancel_at_period_end ?? false,
     planName: data?.plan_name ?? null,
+    entitlement,
   };
 }
 

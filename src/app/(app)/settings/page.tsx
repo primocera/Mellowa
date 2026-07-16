@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/get-current-user";
 import { createClient } from "@/lib/supabase/server";
 import { PlanPreferencesForm } from "@/components/dailyflow/plan-preferences-form";
 import { AccountDataControls } from "@/components/dailyflow/account-data-controls";
+import { MellowaLearned } from "@/components/dailyflow/mellowa-learned";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
 export const metadata: Metadata = { title: "Settings — Mellowa" };
@@ -114,7 +115,25 @@ export default async function SettingsPage() {
         </Link>
       </div>
 
-      <AccountDataControls />
+      <MellowaLearned />
+
+      <div id="data">
+        <AccountDataControls />
+      </div>
+
+      <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="font-medium text-[#1F2937]">Support</h2>
+        <p className="mt-1 text-sm text-[#6B7280]">
+          Questions, billing issues or feedback? We usually reply within two
+          business days.
+        </p>
+        <a
+          href="mailto:support@mellowa.app"
+          className="mt-4 inline-block rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm font-medium text-[#1F2937] transition hover:border-[#7C9A92]/50"
+        >
+          Email support@mellowa.app
+        </a>
+      </div>
 
       <p className="px-2 text-xs text-[#9CA3AF]">
         Mellowa is not medical care, therapy or emergency support.

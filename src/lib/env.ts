@@ -50,8 +50,14 @@ export const serverEnv = {
   get emailFrom() {
     return process.env.EMAIL_FROM ?? "Mellowa <onboarding@resend.dev>";
   },
-  // Optional — shared secret for Vercel Cron endpoints.
+  // Shared secret for Vercel Cron endpoints. Routes fail closed (503) when
+  // unset — required in production deployments (see lib/cron-auth.ts).
   get cronSecret() {
     return process.env.CRON_SECRET ?? null;
+  },
+  // Shared secret for the read-only ops stats endpoint. Fail-closed like
+  // cronSecret.
+  get adminStatsSecret() {
+    return process.env.ADMIN_STATS_SECRET ?? null;
   },
 };

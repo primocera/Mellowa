@@ -1,4 +1,5 @@
-import "server-only";
+// Pure validation logic (no secrets) — shared by server routes and the
+// onboarding UI, which flags unrecognized allergy terms live (Prompt 8).
 import type { MealCardType } from "@/schemas/ai-output-v2";
 
 /**
@@ -194,6 +195,29 @@ export function allergenExclusionInstruction(allergies: string[]): string {
     ", "
   )}. Every meal, ingredient, swap suggestion, grocery item and preparation step must completely avoid these allergens and ALL their derivatives (e.g. dairy includes whey, casein, butter, cheese; gluten includes wheat flour, bread, pasta, soy sauce). Do not even mention them as things to avoid — simply build meals without them.`;
 }
+
+/**
+ * Detects a severe / life-threatening allergy signal (Prompt 8). When true,
+ * Mellowa must not generate specific meals — deterministic text matching
+ * cannot guarantee product-label or cross-contamination safety.
+ */
+export function detectSevereAllergySignal(texts: (string | null | undefined)[]): boolean {
+  const combined = texts.filter(Boolean).join(" ").toLowerCase();
+  if (!combined) return false;
+  return [
+    /anaphyla/i,
+    /epi[-\s]?pen/i,
+    /life[-\s]threatening/i,
+    /severe(ly)? allergic/i,
+    /severe allerg/i,
+    /deadly allerg/i,
+    /airborne allerg/i,
+    /hospitali[sz]ed .*allerg/i,
+  ].some((re) => re.test(combined));
+}
+
+export const SEVERE_ALLERGY_MESSAGE =
+  "Because you've told us about a severe or life-threatening allergy, Mellowa doesn't suggest specific meals or recipes — automated checks can't guarantee ingredient, label or cross-contamination safety at that level. A registered dietitian or allergy specialist can help you build a safe meal routine. Everything else in Mellowa is still here for you.";
 
 export const ALLERGEN_DISCLAIMER =
   "Meals are checked against your listed allergies, but Mellowa cannot guarantee allergy safety — always verify product labels, especially for severe allergies.";

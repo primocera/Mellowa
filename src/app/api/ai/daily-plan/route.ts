@@ -11,6 +11,11 @@ import {
 } from "@/lib/safety/allergens";
 import { checkDailyPlanV2Quality } from "@/lib/ai/quality-checks";
 import { buildFallbackDailyPlan } from "@/lib/ai/fallback-plan";
+import {
+  deriveLearned,
+  learnedToPromptHints,
+  type FeedbackRow,
+} from "@/lib/feedback/learned";
 import { isFlagEnabled } from "@/lib/flags";
 import { trackEvent } from "@/lib/analytics";
 import {
@@ -22,6 +27,8 @@ import {
 } from "@/lib/content/wellbeing-library";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canGenerateDailyPlan } from "@/lib/stripe/subscription";
+import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
+import { resolvePlanDate } from "@/lib/dates/local-day";
 import { guardAiRoute } from "@/lib/ai/guard";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
@@ -48,6 +55,10 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  // Severe allergies: plans with specific meals are not generated (Prompt 8).
+  const severeBlock = severeAllergyBlock(profile);
+  if (severeBlock) return NextResponse.json(severeBlock, { status: 200 });
 
   // 3. Validate check-in input
   let body: unknown;
@@ -100,17 +111,12 @@ export async function POST(request: Request) {
     );
   }
 
-  // Prompt 3: prefer the client's local date so late-evening check-ins land
-  // on the user's day, but only accept it within ±1 day of server time.
-  const serverToday = new Date().toISOString().slice(0, 10);
-  let today = serverToday;
-  if (checkin.local_date) {
-    const diffDays = Math.abs(
-      (new Date(checkin.local_date).getTime() - new Date(serverToday).getTime()) /
-        (24 * 60 * 60 * 1000)
-    );
-    if (diffDays <= 1) today = checkin.local_date;
-  }
+  // Prompt 9: the plan date is the user's LOCAL date from their stored IANA
+  // timezone (server-side truth); client date only as a bounded fallback.
+  const today = resolvePlanDate({
+    storedTimezone: (profile as WellbeingProfile).timezone,
+    clientDate: checkin.local_date,
+  });
 
   // 6. Save the check-in
   const { data: savedCheckin, error: checkinError } = await supabase
@@ -158,32 +164,19 @@ export async function POST(request: Request) {
   });
   let modeInstruction = planModeInstruction(mode, checkin.custom_areas);
 
-  // Prompt 10: learn gently from recent feedback. Aggregated hints only —
-  // never quotes, never pressure.
+  // Prompt 14: learn gently from recent feedback. Only canonical, bounded
+  // hints derived from the fixed verdict allow-list ever reach the model —
+  // free-text notes are never injected (injection-safe).
   const { data: feedback } = await supabase
     .from("plan_feedback")
     .select("item_key, verdict")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
-    .limit(40);
-  if (feedback?.length) {
-    const tally = new Map<string, number>();
-    for (const f of feedback) {
-      const area = f.item_key.split(":")[0]; // meal:breakfast -> meal
-      tally.set(area, (tally.get(area) ?? 0) + (f.verdict === "helpful" ? 1 : -1));
-    }
-    const liked = [...tally].filter(([, v]) => v >= 2).map(([k]) => k);
-    const disliked = [...tally].filter(([, v]) => v <= -2).map(([k]) => k);
-    if (liked.length || disliked.length) {
-      modeInstruction += `\nFEEDBACK HINTS: ${
-        liked.length ? `the user found these helpful before: ${liked.join(", ")}. ` : ""
-      }${
-        disliked.length
-          ? `the user often marked these as "not for me": ${disliked.join(", ")} — keep them lighter or lean on other blocks instead.`
-          : ""
-      }`;
-    }
-  }
+    .limit(60);
+  const learnedHints = learnedToPromptHints(
+    deriveLearned((feedback ?? []) as FeedbackRow[])
+  );
+  if (learnedHints) modeInstruction += `\n${learnedHints}`;
 
   let plan;
   try {

@@ -7,7 +7,12 @@ import { useForm } from "react-hook-form";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-type AuthValues = { email: string; password: string };
+type AuthValues = {
+  email: string;
+  password: string;
+  age18: boolean;
+  policies: boolean;
+};
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
@@ -36,8 +41,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       return;
     }
 
-    // Best-effort welcome email on signup — never blocks the redirect.
     if (!isLogin) {
+      // Record the explicit age + policy consents (Prompt 6). If the session
+      // isn't live yet (email confirmation flows), the in-app consent
+      // checkpoint collects them before any generation instead.
+      void fetch("/api/consent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ age_18_plus: true, terms_and_privacy: true }),
+      }).catch(() => {});
+      // Best-effort welcome email — never blocks the redirect.
       void fetch("/api/email/welcome", { method: "POST" }).catch(() => {});
     }
 
@@ -93,6 +106,45 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           </div>
         )}
       </div>
+
+      {!isLogin && (
+        <fieldset className="space-y-2.5">
+          <legend className="sr-only">Required confirmations</legend>
+          <label className="flex items-start gap-2.5 text-sm text-[#1F2937]">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-[#E5E1DA] accent-[#7C9A92]"
+              {...register("age18", { required: "Please confirm you are 18 or older" })}
+            />
+            <span>I am at least 18 years old</span>
+          </label>
+          {errors.age18 && (
+            <p className="text-sm text-red-500">{errors.age18.message}</p>
+          )}
+          <label className="flex items-start gap-2.5 text-sm text-[#1F2937]">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-[#E5E1DA] accent-[#7C9A92]"
+              {...register("policies", {
+                required: "Please accept the Terms and Privacy Policy",
+              })}
+            />
+            <span>
+              I agree to the{" "}
+              <Link href="/terms" className="text-[#7C9A92] underline" target="_blank">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="text-[#7C9A92] underline" target="_blank">
+                Privacy Policy
+              </Link>
+            </span>
+          </label>
+          {errors.policies && (
+            <p className="text-sm text-red-500">{errors.policies.message}</p>
+          )}
+        </fieldset>
+      )}
 
       {error && (
         <div className="rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]">

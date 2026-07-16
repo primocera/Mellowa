@@ -17,11 +17,13 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { SaveMealButton } from "@/components/dailyflow/save-meal-button";
+import { createClient } from "@/lib/supabase/client";
 import { PlanFeedback } from "@/components/dailyflow/plan-feedback";
 import type {
   MealCardType,
   MovementMomentType,
 } from "@/schemas/ai-output-v2";
+import { isLighterDay, pickCalmReset } from "@/lib/today/disclosure";
 
 // ---- shapes stored on the plan row (jsonb) ----
 type Summary = { main_focus: string; energy_match?: string; short_note?: string };
@@ -131,6 +133,26 @@ export function TodayPlanV2({
   completedKeys?: string[];
 }) {
   const [meals, setMeals] = useState<MealCardType[]>(plan.meal_cards ?? []);
+  // Per-card hide control (Prompt 7): hiding persists as the account-wide
+  // opt-out; estimates never reappear without an explicit opt-in.
+  const [macrosVisible, setMacrosVisible] = useState(showMacros);
+  async function hideMacros() {
+    setMacrosVisible(false);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("wellbeing_profiles")
+          .update({ show_macros: false })
+          .eq("user_id", user.id);
+      }
+    } catch {
+      // UI already hidden; preference retry available in Settings.
+    }
+  }
   const [movement, setMovement] = useState<MovementMomentType | null>(
     plan.movement_plan
   );
@@ -143,6 +165,18 @@ export function TodayPlanV2({
 
   const summary = plan.plan_summary;
   const intensity = plan.plan_intensity ?? "normal";
+
+  // Prompt 11: progressive disclosure by mode. On lighter days we don't push
+  // a productivity "focus block" — the plan should feel calmer, not busier.
+  const mode = plan.plan_mode ?? intensity;
+  const showFocus = !!plan.focus_plan && !isLighterDay(mode);
+
+  // Prompt 11: offer ONE calm reset, not all three at once.
+  const calmReset = pickCalmReset({
+    breathing: plan.breathing_exercise,
+    meditation: plan.meditation_or_reflection,
+    relaxation: plan.relaxation_technique,
+  });
 
   // Optimistic toggle + persist to plan_completions. Reverts on failure.
   const toggleDone = (key: string) => {
@@ -260,7 +294,11 @@ export function TodayPlanV2({
       </div>
 
       {message && (
-        <div className="rounded-xl bg-[#EEF2FF] px-4 py-3 text-sm text-[#1F2937]">
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-xl bg-[#EEF2FF] px-4 py-3 text-sm text-[#1F2937]"
+        >
           {message}
         </div>
       )}
@@ -295,7 +333,17 @@ export function TodayPlanV2({
               </div>
             </div>
 
-            {showMacros && <MacroPills macros={meal.approximate_macros} />}
+            {macrosVisible && (
+              <div className="flex items-center gap-2">
+                <MacroPills macros={meal.approximate_macros} />
+                <button
+                  onClick={hideMacros}
+                  className="text-xs text-[#9CA3AF] underline hover:text-[#6B7280]"
+                >
+                  Hide
+                </button>
+              </div>
+            )}
 
             <details className="group mt-3">
               <summary className="flex cursor-pointer list-none items-center gap-1 text-sm font-medium text-[#7C9A92]">
@@ -427,15 +475,13 @@ export function TodayPlanV2({
         </Section>
       )}
 
-      {/* 5. Calm reset */}
-      {(plan.breathing_exercise ||
-        plan.meditation_or_reflection ||
-        plan.relaxation_technique) && (
+      {/* 5. One calm reset (Prompt 11) — a single option, never all three */}
+      {calmReset && (
         <h2 className="px-1 text-sm font-medium uppercase tracking-wide text-[#9CA3AF]">
-          Calm reset
+          One calm reset
         </h2>
       )}
-      {plan.breathing_exercise && (
+      {calmReset === "breathing" && plan.breathing_exercise && (
         <Section
           icon={<Wind className="h-4 w-4 text-[#7C9A92]" />}
           title={plan.breathing_exercise.name}
@@ -463,7 +509,7 @@ export function TodayPlanV2({
           />
         </Section>
       )}
-      {plan.meditation_or_reflection && (
+      {calmReset === "meditation" && plan.meditation_or_reflection && (
         <Section
           icon={<Brain className="h-4 w-4 text-[#7C9A92]" />}
           title={plan.meditation_or_reflection.name}
@@ -485,7 +531,7 @@ export function TodayPlanV2({
           )}
         </Section>
       )}
-      {plan.relaxation_technique && (
+      {calmReset === "relaxation" && plan.relaxation_technique && (
         <Section
           icon={<Sparkles className="h-4 w-4 text-[#7C9A92]" />}
           title={plan.relaxation_technique.name}
@@ -505,8 +551,8 @@ export function TodayPlanV2({
         </Section>
       )}
 
-      {/* 6. Focus block */}
-      {plan.focus_plan && (
+      {/* 6. Focus block — hidden on lighter days (Prompt 11) */}
+      {showFocus && plan.focus_plan && (
         <Section
           icon={<Target className="h-4 w-4 text-[#7C9A92]" />}
           title="Focus block"

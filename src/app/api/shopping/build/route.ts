@@ -2,9 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { MealCardSchema } from "@/schemas/ai-output-v2";
+import { findMealAllergenViolations } from "@/lib/safety/allergens";
+import { aggregateShopping, formatItem } from "@/lib/shopping/aggregate";
 
 const Input = z.object({
   meal_ids: z.array(z.string().uuid()).min(1).max(30),
+  // Prompt 13: optional servings multiplier, safely bounded.
+  servings_scale: z.number().min(0.25).max(8).optional(),
 });
 
 /**
@@ -39,17 +43,43 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to read meals" }, { status: 500 });
   }
 
-  // Merge grocery items, keeping first-seen casing, de-duped by lowercase.
-  const seen = new Map<string, string>();
+  // Allergen re-validation when building a list (Prompt 8): favourites saved
+  // before an allergy list changed must not flow into shopping items.
+  const { data: profile } = await supabase
+    .from("wellbeing_profiles")
+    .select("allergies")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const allergies = (profile?.allergies ?? []).filter(Boolean);
+
+  // Collect safe meals, then aggregate: merge unit-compatible lines, group by
+  // category, keep recipe traceability and scale by servings (Prompt 13).
+  const safeMeals: { title: string; grocery_items: string[] }[] = [];
+  const excludedMeals: string[] = [];
   for (const row of rows ?? []) {
     const meal = MealCardSchema.safeParse(row.meal);
     if (!meal.success) continue;
-    for (const item of meal.data.grocery_items) {
-      const key = item.trim().toLowerCase();
-      if (key && !seen.has(key)) seen.set(key, item.trim());
+    if (
+      allergies.length &&
+      findMealAllergenViolations(meal.data, allergies).length > 0
+    ) {
+      excludedMeals.push(meal.data.title);
+      continue;
     }
+    safeMeals.push({
+      title: meal.data.title,
+      grocery_items: meal.data.grocery_items,
+    });
   }
-  const items = [...seen.values()].sort((a, b) => a.localeCompare(b));
+
+  const categories = aggregateShopping(
+    safeMeals,
+    parsed.data.servings_scale ?? 1
+  );
+  // Flat, sorted string list kept for backward compatibility + persistence.
+  const items = categories
+    .flatMap((c) => c.items.map(formatItem))
+    .sort((a, b) => a.localeCompare(b));
 
   const { data: saved, error: saveError } = await supabase
     .from("shopping_lists")
@@ -60,5 +90,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to save list" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, list: saved, items });
+  return NextResponse.json({
+    ok: true,
+    list: saved,
+    items,
+    // Grouped, traceable view for the UI.
+    categories,
+    // Surfaced in the UI so exclusions are never silent.
+    excluded_meals: excludedMeals,
+  });
 }

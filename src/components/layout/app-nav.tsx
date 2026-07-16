@@ -3,32 +3,25 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard,
   Sun,
   CalendarDays,
-  Wind,
-  Footprints,
-  Repeat,
-  BookOpen,
-  Heart,
+  BookHeart,
   TrendingUp,
-  Settings,
+  User,
   LogOut,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import clsx from "clsx";
 
+// Prompt 10: five calm top-level destinations. Detail pages (weekly plan,
+// meal rhythm, shopping, movement, calm, habits, journal, billing, settings)
+// live inside these hubs and are still reachable by their original URLs.
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/today", label: "Today", icon: Sun },
-  { href: "/weekly-plan", label: "Weekly Plan", icon: CalendarDays },
-  { href: "/stress-reset", label: "Stress Reset", icon: Wind },
-  { href: "/movement", label: "Movement", icon: Footprints },
-  { href: "/habits", label: "Habits", icon: Repeat },
-  { href: "/journal", label: "Journal", icon: BookOpen },
-  { href: "/favourites", label: "Favourites", icon: Heart },
+  { href: "/plan", label: "Plan", icon: CalendarDays },
+  { href: "/library", label: "Library", icon: BookHeart },
   { href: "/progress", label: "Progress", icon: TrendingUp },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/you", label: "You", icon: User },
 ];
 
 export function AppNav() {
@@ -46,7 +39,7 @@ export function AppNav() {
     <>
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-56 flex-col border-r border-[#EDE9E2] bg-white px-4 py-6 md:flex">
-        <Link href="/dashboard" className="mb-8 px-2 text-lg font-semibold tracking-tight text-[#1F2937]">
+        <Link href="/today" className="mb-8 px-2 text-lg font-semibold tracking-tight text-[#1F2937]">
           Mellowa
         </Link>
         <nav className="flex flex-1 flex-col gap-1">
@@ -75,14 +68,15 @@ export function AppNav() {
         </button>
       </aside>
 
-      {/* Mobile bottom nav — horizontally scrollable */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex gap-1 overflow-x-auto border-t border-[#EDE9E2] bg-white px-2 py-2 md:hidden">
+      {/* Mobile bottom nav — five evenly spaced destinations */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-[#EDE9E2] bg-white px-2 py-2 md:hidden">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}
+            aria-current={pathname.startsWith(href) ? "page" : undefined}
             className={clsx(
-              "flex shrink-0 flex-col items-center gap-0.5 rounded-lg px-3 py-1 text-[11px]",
+              "flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1 text-[11px]",
               pathname.startsWith(href) ? "text-[#6D8C7D]" : "text-[#6B7280]"
             )}
           >

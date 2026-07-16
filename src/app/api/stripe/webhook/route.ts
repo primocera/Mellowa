@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
-import { sendEmail } from "@/lib/email/send";
+import { deliverEmail } from "@/lib/email/deliver";
 import {
   trialStartedEmail,
   trialEndedEmail,
@@ -141,8 +141,18 @@ export async function POST(request: Request) {
     const item = subscription.items.data[0];
     const periodEnd = item?.current_period_end;
     const priceId = item?.price.id;
-    const planName =
-      priceId === serverEnv.stripePriceProYearly ? "pro_yearly" : "pro_monthly";
+    // An unrecognized price is a configuration error — never silently treat
+    // it as monthly. The event is marked failed and stays visible to ops.
+    let planName: "pro_monthly" | "pro_yearly";
+    if (priceId === serverEnv.stripePriceProYearly) {
+      planName = "pro_yearly";
+    } else if (priceId === serverEnv.stripePriceProMonthly) {
+      planName = "pro_monthly";
+    } else {
+      throw new Error(
+        `configuration error: unknown Stripe price ${priceId ?? "<missing>"} on subscription ${subscription.id}`
+      );
+    }
 
     const toIso = (unix: number | null | undefined) =>
       unix ? new Date(unix * 1000).toISOString() : null;
@@ -150,18 +160,20 @@ export async function POST(request: Request) {
     // Existing row for trial-lock preservation and out-of-order guarding.
     const { data: existing } = await admin
       .from("subscriptions")
-      .select("trial_used_at, first_trial_subscription_id, current_period_end")
+      .select(
+        "trial_used_at, first_trial_subscription_id, current_period_end, last_stripe_event_created"
+      )
       .eq("user_id", targetUserId)
       .maybeSingle();
 
-    // Out-of-order protection: ignore a stale event whose period end predates
-    // what we already stored (Stripe can deliver events out of order).
+    // Out-of-order protection (Prompt 3): Stripe can deliver events out of
+    // order, so we apply syncs strictly by the event's `created` timestamp.
+    // An event older than the last applied one is ignored for every state
+    // transition — period_end comparison alone is not sufficient.
     const nextPeriodEnd = toIso(periodEnd);
     if (
-      existing?.current_period_end &&
-      nextPeriodEnd &&
-      new Date(nextPeriodEnd) < new Date(existing.current_period_end) &&
-      subscription.status !== "canceled"
+      typeof existing?.last_stripe_event_created === "number" &&
+      event.created < existing.last_stripe_event_created
     ) {
       return;
     }
@@ -179,6 +191,7 @@ export async function POST(request: Request) {
         trial_start: toIso(subscription.trial_start),
         trial_end: toIso(subscription.trial_end),
         cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+        last_stripe_event_created: event.created,
         trial_used_at:
           existing?.trial_used_at ??
           (hasTrial ? toIso(subscription.trial_start) : null),
@@ -221,7 +234,13 @@ export async function POST(request: Request) {
                 )
               : 3;
             const { subject, html } = trialStartedEmail(daysLeft);
-            await sendEmail({ to: email, subject, html });
+            await deliverEmail({
+              eventKey: `trial_started:${subscription.id}`,
+              template: "trial_started",
+              to: email,
+              subject,
+              html,
+            });
           }
         }
         break;
@@ -236,7 +255,13 @@ export async function POST(request: Request) {
           const email = await emailForCustomer(subscription);
           if (email) {
             const { subject, html } = trialEndedEmail();
-            await sendEmail({ to: email, subject, html });
+            await deliverEmail({
+              eventKey: `trial_ended:${subscription.id}`,
+              template: "trial_ended",
+              to: email,
+              subject,
+              html,
+            });
           }
         }
         break;
@@ -259,7 +284,13 @@ export async function POST(request: Request) {
           const email = await emailForCustomerId(customerId);
           if (email) {
             const { subject, html } = paymentFailedEmail();
-            await sendEmail({ to: email, subject, html });
+            await deliverEmail({
+              eventKey: `payment_failed:${invoice.id}`,
+              template: "payment_failed",
+              to: email,
+              subject,
+              html,
+            });
           }
         }
         break;

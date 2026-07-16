@@ -1,0 +1,54 @@
+# CI (Prompt 18, audit v5). Clean-install pipeline on pinned Node.
+# Free-tier aware: no live Supabase/Stripe/Anthropic calls — unit tests are
+# hermetic and the E2E public suite runs against a build with placeholder env.
+name: CI
+
+on:
+  push:
+    branches: [main, v5]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Placeholder env so `next build` and the started server boot without
+  # real services. Server code reads secrets lazily per request.
+  NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+  SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role
+  AI_PROVIDER_API_KEY: placeholder
+  STRIPE_SECRET_KEY: sk_test_placeholder
+  STRIPE_WEBHOOK_SECRET: whsec_placeholder
+  STRIPE_PRICE_PRO_MONTHLY: price_placeholder_m
+  STRIPE_PRICE_PRO_YEARLY: price_placeholder_y
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.12.0"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - name: Install Playwright (chromium only)
+        run: npx playwright install --with-deps chromium
+      - name: E2E public suite (single worker)
+        run: npx playwright test e2e/public.spec.ts
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-artifacts
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7

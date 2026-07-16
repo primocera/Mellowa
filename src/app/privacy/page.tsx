@@ -66,11 +66,36 @@ export default function PrivacyPage() {
         </p>
       </LegalSection>
 
+      <LegalSection heading="Service providers">
+        <ul className="list-disc space-y-1 pl-5">
+          <li><strong>Anthropic</strong> — AI plan generation (profile and check-in excerpts per request; not used to train third-party models).</li>
+          <li><strong>Stripe</strong> — subscription payments (we never see your full card number).</li>
+          <li><strong>Resend</strong> — transactional email (your email address and message content only; never your wellbeing entries).</li>
+          <li><strong>Supabase</strong> — database and authentication.</li>
+          <li><strong>Vercel</strong> — hosting.</li>
+        </ul>
+        <p className="mt-2">
+          These providers may process data outside your country; where they do,
+          transfers rely on their standard contractual safeguards.
+        </p>
+      </LegalSection>
+
+      <LegalSection heading="Retention">
+        <ul className="list-disc space-y-1 pl-5">
+          <li>Your profile, check-ins, plans, journal and habits: kept until you delete them or your account.</li>
+          <li>Safety-event excerpts (short, redacted): up to 180 days, for safety-system quality only.</li>
+          <li>Product analytics events: up to 12 months.</li>
+          <li>Undelivered email records: up to 90 days.</li>
+        </ul>
+      </LegalSection>
+
       <LegalSection heading="Your rights">
         <p>
-          You can access, correct or delete your data at any time from your
-          settings, or by contacting us. Deleting your account removes your
-          profile, check-ins and generated plans.
+          You can export a full machine-readable copy of your data, correct it,
+          or delete your account at any time from Settings, or by contacting us.
+          Deleting your account cancels any active subscription and removes every
+          record linked to you — profile, check-ins, plans, meals, journal,
+          habits, feedback and analytics links.
         </p>
       </LegalSection>
 

@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mellowa
 
-## Getting Started
+A gentle daily wellbeing planner for adults with inconsistent routines. One
+realistic plan for food, energy, mood and habits — adapted to how the day
+actually feels. Not a diet app, macro tracker, therapy tool or medical
+service.
 
-First, run the development server:
+## Stack
+
+Next.js App Router · TypeScript (strict) · Tailwind CSS · Supabase (Auth +
+Postgres with RLS) · Anthropic API (plan generation with mandatory safety
+classification) · Stripe Billing · Resend (transactional email) · Vercel.
+
+## Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
+npm run lint
+npm run typecheck
+npm run test       # Vitest unit tests
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy `.env.example` (or see below) into `.env.local`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase client |
+| `SUPABASE_SERVICE_ROLE_KEY` | server-only admin access |
+| `AI_PROVIDER_API_KEY` / `AI_PROVIDER_MODEL` | plan generation |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | billing |
+| `STRIPE_PRICE_PRO_MONTHLY` / `STRIPE_PRICE_PRO_YEARLY` | price ids |
+| `RESEND_API_KEY` / `EMAIL_FROM` | transactional email |
+| `CRON_SECRET` / `ADMIN_STATS_SECRET` | cron/ops auth — **required in production** (fail-closed, see `docs/ops-cron.md`) |
+| `NEXT_PUBLIC_APP_URL` | canonical URL |
+| `LEGAL_ENTITY_NAME`, `LEGAL_REGISTERED_ADDRESS`, `LEGAL_GOVERNING_LAW`, `SUPPORT_EMAIL`, `PRIVACY_EMAIL` | legal identity (required for `LAUNCH_MODE=paid`) |
+| `LAUNCH_MODE` | set to `paid` only when legal config is production-ready — startup refuses placeholders |
 
-## Learn More
+## Database
 
-To learn more about Next.js, take a look at the following resources:
+Migrations live in `supabase/migrations/` (apply in order in the Supabase SQL
+editor or CLI). Every user-owned table must be registered in
+`src/lib/privacy/registry.ts` — a contract test fails otherwise.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Safety rules (non-negotiable)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Every AI generation route runs safety classification first (deterministic
+pre-filter + AI classifier, failing closed). No medical/diagnostic advice, no
+restrictive diets, no disease-specific meal plans, no crisis counseling —
+crisis input gets region-aware support pointers and generation stops. See
+`AGENTS.md` for the full product rules.
 
-## Deploy on Vercel
+## Deployment (Vercel Hobby)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Crons are daily-only on Hobby (`vercel.json`).
+- `CRON_SECRET`/`ADMIN_STATS_SECRET` must be set or production refuses to boot.
+- Timed reminder delivery uses Resend scheduled sending from the daily cron.

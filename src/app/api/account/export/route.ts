@@ -2,25 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// Every table that holds this user's personal data, keyed by their user column.
-// stripe_events is global infrastructure (no user data) and is intentionally
-// excluded.
-const USER_TABLES: { table: string; column: string }[] = [
-  { table: "wellbeing_profiles", column: "user_id" },
-  { table: "daily_checkins", column: "user_id" },
-  { table: "daily_plans", column: "user_id" },
-  { table: "generated_meal_cards", column: "user_id" },
-  { table: "habits", column: "user_id" },
-  { table: "habit_logs", column: "user_id" },
-  { table: "journal_entries", column: "user_id" },
-  { table: "meal_ideas", column: "user_id" },
-  { table: "plan_completions", column: "user_id" },
-  { table: "shopping_lists", column: "user_id" },
-  { table: "weekly_plans", column: "user_id" },
-  { table: "safety_events", column: "user_id" },
-  { table: "ai_usage_events", column: "user_id" },
-  { table: "subscriptions", column: "user_id" },
-];
+import { USER_DATA_REGISTRY } from "@/lib/privacy/registry";
 
 /**
  * GDPR-style data export (Prompt 18). Returns everything Mellowa holds about
@@ -47,14 +29,9 @@ export async function GET() {
     },
   };
 
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .maybeSingle();
-  data.profile = profile ?? null;
-
-  for (const { table, column } of USER_TABLES) {
+  // Single authoritative registry (Prompt 4) — includes every user-owned
+  // table (favourite_meals, plan_feedback, user-linked app_events, ...).
+  for (const { table, column } of USER_DATA_REGISTRY) {
     const { data: rows, error } = await admin
       .from(table)
       .select("*")

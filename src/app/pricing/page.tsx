@@ -3,8 +3,28 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { PRICING } from "@/lib/stripe/plans";
 import { UpgradeButton } from "@/components/dailyflow/upgrade-button";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Pricing — Mellowa" };
+
+/**
+ * A user who already consumed their one trial must see "Pay today" copy, not
+ * trial copy (Prompt 3). Anonymous visitors see trial copy; the checkout
+ * route re-checks eligibility server-side either way.
+ */
+async function isTrialEligible(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return true;
+  const { data } = await supabase
+    .from("subscriptions")
+    .select("trial_used_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  return !data?.trial_used_at;
+}
 
 function FeatureList({ features }: { features: readonly string[] }) {
   return (
@@ -19,7 +39,8 @@ function FeatureList({ features }: { features: readonly string[] }) {
   );
 }
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const trialEligible = await isTrialEligible();
   return (
     <div className="min-h-screen bg-[#FAF7F2] px-6 py-12">
       <div className="mx-auto max-w-3xl">
@@ -28,10 +49,12 @@ export default function PricingPage() {
             Mellowa
           </Link>
           <h1 className="mt-6 text-3xl font-semibold tracking-tight text-[#1F2937]">
-            Start with 3 days free
+            {trialEligible ? "Start with 3 days free" : "Choose your plan"}
           </h1>
           <p className="mt-2 text-[#6B7280]">
-            Both plans unlock everything. Cancel anytime before your trial ends.
+            {trialEligible
+              ? "Both plans unlock everything. Cancel anytime before your trial ends."
+              : "You've already used your free trial — your subscription starts today."}
           </p>
         </div>
 
@@ -50,14 +73,17 @@ export default function PricingPage() {
                 {PRICING.monthly.cadence}
               </span>
             </p>
-            <p className="mt-1 text-sm text-[#7C9A92]">3 days free, then billed monthly</p>
+            <p className="mt-1 text-sm text-[#7C9A92]">
+              {trialEligible ? "3 days free, then billed monthly" : "Billed monthly, starting today"}
+            </p>
             <FeatureList features={PRICING.monthly.features} />
             <div className="mt-6">
               <UpgradeButton
                 interval="monthly"
-                label="Start 3-day free trial"
+                label={trialEligible ? "Start 3-day free trial" : "Subscribe — pay today"}
                 amount={PRICING.monthly.price}
                 cadence={PRICING.monthly.cadence}
+                trialEligible={trialEligible}
                 highlight
               />
             </div>
@@ -77,22 +103,27 @@ export default function PricingPage() {
                 {PRICING.yearly.cadence}
               </span>
             </p>
-            <p className="mt-1 text-sm text-[#7C9A92]">3 days free, then billed yearly</p>
+            <p className="mt-1 text-sm text-[#7C9A92]">
+              {trialEligible ? "3 days free, then billed yearly" : "Billed yearly, starting today"}
+            </p>
             <FeatureList features={PRICING.yearly.features} />
             <div className="mt-6">
               <UpgradeButton
                 interval="yearly"
-                label="Start 3-day free trial"
+                label={trialEligible ? "Start 3-day free trial" : "Subscribe — pay today"}
                 amount={PRICING.yearly.price}
                 cadence={PRICING.yearly.cadence}
+                trialEligible={trialEligible}
               />
             </div>
           </div>
         </div>
 
         <p className="mt-8 text-center text-xs text-[#9CA3AF]">
-          Cancel anytime before your trial ends. Mellowa is not medical care,
-          therapy or emergency support.
+          {trialEligible
+            ? "Payment method required. Your subscription renews automatically after the trial unless you cancel before it ends."
+            : "Your subscription renews automatically. Cancel anytime from your billing settings."}{" "}
+          Mellowa is not medical care, therapy or emergency support.
         </p>
       </div>
     </div>

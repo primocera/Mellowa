@@ -1,27 +1,29 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
-import { sendEmail } from "@/lib/email/send";
+import { requireBearerSecret } from "@/lib/cron-auth";
+import { pruneExpiredData } from "@/lib/privacy/retention";
+import { deliverEmail } from "@/lib/email/deliver";
+import {
+  isValidTimeZone,
+  localDateFor,
+  localMinutesFor,
+  instantForLocalTime,
+} from "@/lib/dates/local-day";
 
 /**
- * Daily cron (Prompt 12) — opt-in daily reminder email.
+ * Daily cron (Prompts 9 + 12) — opt-in daily reminder email.
  *
- * Vercel Hobby allows only one run per day, so exact reminder_time delivery
- * isn't possible; we send on the daily run instead, still respecting the
- * user's LOCAL quiet hours (from their stored IANA timezone) and at most one
- * email per local day (last_reminder_sent_date). If the run lands inside a
- * user's quiet hours they're skipped that day, never woken. Skipped silently
- * when RESEND_API_KEY is not configured. (On a paid plan: switch the schedule
- * back to hourly and re-enable the reminder_time window check.)
+ * Vercel Hobby allows only one cron run per day, so exact-time delivery is
+ * handed to Resend scheduled sending: the run computes each user's local
+ * reminder_time as a UTC instant and schedules the email for it (or sends
+ * immediately when the time already passed and we're outside quiet hours).
+ * Users with an invalid timezone are skipped and counted — the app shows
+ * them a repair prompt (TimezoneRepair) rather than failing silently.
  */
 export async function GET(request: Request) {
-  const secret = serverEnv.cronSecret;
-  if (secret) {
-    const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const denied = requireBearerSecret(request, serverEnv.cronSecret);
+  if (denied) return denied;
 
   const admin = createAdminClient();
   const { data: profiles } = await admin
@@ -33,30 +35,30 @@ export async function GET(request: Request) {
     .not("reminder_time", "is", null);
 
   let sent = 0;
+  let invalidTimezones = 0;
   for (const p of profiles ?? []) {
     const tz = p.timezone || "UTC";
-    let localDate: string;
-    let localMinutes: number;
-    try {
-      const parts = new Intl.DateTimeFormat("en-CA", {
-        timeZone: tz,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).formatToParts(new Date());
-      const get = (t: string) => parts.find((x) => x.type === t)?.value ?? "";
-      localDate = `${get("year")}-${get("month")}-${get("day")}`;
-      localMinutes = Number(get("hour")) * 60 + Number(get("minute"));
-    } catch {
-      continue; // invalid timezone — skip rather than mis-time
+    if (!isValidTimeZone(tz)) {
+      invalidTimezones += 1;
+      continue; // repair prompt in-app; never mis-time an email
     }
+    const now = new Date();
+    const localDate = localDateFor(tz, now);
+    const localMinutes = localMinutesFor(tz, now);
 
     if (p.last_reminder_sent_date === localDate) continue;
 
-    if (inQuietHours(localMinutes, p.quiet_hours_start, p.quiet_hours_end)) {
+    // Preferred reminder time still ahead today → schedule with the provider.
+    let scheduledAt: string | undefined;
+    const remMinutes = toMinutes(p.reminder_time);
+    if (remMinutes !== null && remMinutes > localMinutes) {
+      scheduledAt = instantForLocalTime(
+        tz,
+        localDate,
+        p.reminder_time.slice(0, 5)
+      ).toISOString();
+    } else if (inQuietHours(localMinutes, p.quiet_hours_start, p.quiet_hours_end)) {
+      // Time already passed and we're inside quiet hours — skip today.
       continue;
     }
 
@@ -64,8 +66,12 @@ export async function GET(request: Request) {
     const email = userData.user?.email;
     if (!email) continue;
 
-    const result = await sendEmail({
+    const result = await deliverEmail({
+      eventKey: `daily_reminder:${p.user_id}:${localDate}`,
+      userId: p.user_id,
+      template: "daily_reminder",
       to: email,
+      scheduledAt,
       subject: "A gentle nudge from Mellowa",
       html: `<div style="font-family:sans-serif;color:#1F2937;line-height:1.6">
         <p>Hi,</p>
@@ -77,16 +83,27 @@ export async function GET(request: Request) {
       </div>`,
     });
 
-    // Mark the local date even when the provider is unconfigured so we never
-    // spam once it is configured.
-    await admin
-      .from("wellbeing_profiles")
-      .update({ last_reminder_sent_date: localDate })
-      .eq("user_id", p.user_id);
+    // Only record the local date after real delivery. Duplicate protection
+    // within a day comes from the delivery ledger's unique event key, so an
+    // unconfigured provider stays retryable without ever double-sending.
+    if (result.sent || result.status === "duplicate") {
+      await admin
+        .from("wellbeing_profiles")
+        .update({ last_reminder_sent_date: localDate })
+        .eq("user_id", p.user_id);
+    }
     if (result.sent) sent += 1;
   }
 
-  return NextResponse.json({ ok: true, sent });
+  // Data-retention pruning piggybacks on the daily run (Prompt 4).
+  const pruned = await pruneExpiredData();
+
+  return NextResponse.json({
+    ok: true,
+    sent,
+    invalid_timezones: invalidTimezones,
+    pruned,
+  });
 }
 
 function toMinutes(hhmm: string | null): number | null {

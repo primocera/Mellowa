@@ -78,7 +78,8 @@ export type WellbeingProfileInputType = z.infer<typeof WellbeingProfileInput>;
 
 // Advanced plan preferences (Settings). All optional — sensible defaults apply.
 export const PlanPreferencesInput = z.object({
-  show_macros: z.boolean().default(true),
+  // Explicit opt-in (Prompt 7): nutrition estimates default to hidden.
+  show_macros: z.boolean().default(false),
   macro_focus: z.string().optional().default(""),
   preferred_meal_prep_time: z.string().optional().default(""),
   cooking_skill: z.string().optional().default(""),

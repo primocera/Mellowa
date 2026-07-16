@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { MealCardSchema } from "@/schemas/ai-output-v2";
+import { findMealAllergenViolations } from "@/lib/safety/allergens";
+import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
 
 const Input = z.object({
   action: z.enum(["save", "unsave"]),
@@ -46,6 +48,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to remove" }, { status: 500 });
     }
     return NextResponse.json({ ok: true, saved: false });
+  }
+
+  // Allergen re-validation on save (Prompt 8): a favourite must never store
+  // a meal that conflicts with the user's current allergy list.
+  const { data: profile } = await supabase
+    .from("wellbeing_profiles")
+    .select("allergies, allergies_severe")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (profile) {
+    const severe = severeAllergyBlock(profile);
+    if (severe) return NextResponse.json(severe, { status: 200 });
+    const violations = findMealAllergenViolations(
+      meal,
+      (profile.allergies ?? []).filter(Boolean)
+    );
+    if (violations.length) {
+      return NextResponse.json(
+        {
+          error: "allergen_conflict",
+          user_message:
+            "This meal may contain one of your listed allergens, so we didn't save it. Please double-check the ingredients.",
+        },
+        { status: 400 }
+      );
+    }
   }
 
   // Upsert so re-saving the same meal is idempotent.

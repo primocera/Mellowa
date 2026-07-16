@@ -5,6 +5,7 @@ import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateLowEnergyDay } from "@/lib/ai/generate-low-energy-day";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { guardAiRoute } from "@/lib/ai/guard";
+import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
 export async function POST(request: Request) {
@@ -30,6 +31,10 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  // Severe allergies: no specific meal generation (Prompt 8).
+  const severeBlock = severeAllergyBlock(profile);
+  if (severeBlock) return NextResponse.json(severeBlock, { status: 200 });
 
   // 3. Validate input
   let body: unknown;

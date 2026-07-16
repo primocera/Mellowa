@@ -46,3 +46,8 @@ next-env.d.ts
 # local working files
 *.docx
 PROGRESS.md
+
+# Playwright
+/test-results/
+/playwright-report/
+

@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
 import { claimAiGeneration, type AiRoute } from "@/lib/ai/rate-limit";
+import { getConsentStatus } from "@/lib/consent/status";
 
 /**
  * Shared gate for AI generation routes. Protects the AI provider key by:
@@ -20,6 +21,16 @@ export async function guardAiRoute(
   userId: string,
   opts: { requirePremium: boolean; route: AiRoute }
 ): Promise<NextResponse | null> {
+  // Consent checkpoint (Prompt 6): existing users without current-version
+  // age/terms/privacy consent must complete it before any new generation.
+  const consent = await getConsentStatus(userId);
+  if (!consent.complete) {
+    return NextResponse.json(
+      { error: "consent_required", missing: consent.missing },
+      { status: 403 }
+    );
+  }
+
   if (opts.requirePremium) {
     const sub = await getUserSubscriptionStatus(userId);
     if (!sub.isPremium) {
