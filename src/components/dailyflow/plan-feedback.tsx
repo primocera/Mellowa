@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
-import clsx from "clsx";
+import type { Verdict } from "@/lib/feedback/learned";
 
 /**
- * Gentle plan feedback (Prompt 10). One tap — "Helpful" or "Not for me".
- * Verdicts quietly shape future plans; no scores, no pressure.
+ * Gentle plan feedback (Prompt 14). One tap for "Helpful"; "Not for me" opens
+ * a few specific, optional reasons so Mellowa can learn *why*. No scores, no
+ * pressure — and free-text is never fed to the AI.
  */
 export function PlanFeedback({
   planId,
@@ -15,10 +16,12 @@ export function PlanFeedback({
   planId: string;
   itemKey?: string;
 }) {
-  const [verdict, setVerdict] = useState<string | null>(null);
+  const [verdict, setVerdict] = useState<Verdict | null>(null);
+  const [showReasons, setShowReasons] = useState(false);
 
-  async function send(v: "helpful" | "not_for_me") {
+  async function send(v: Verdict) {
     setVerdict(v);
+    setShowReasons(false);
     try {
       await fetch("/api/plan/feedback", {
         method: "POST",
@@ -40,27 +43,49 @@ export function PlanFeedback({
     );
   }
 
+  const REASONS: { v: Verdict; label: string }[] = [
+    { v: "too_much", label: "Too much" },
+    { v: "too_little_time", label: "Too little time" },
+    { v: "didnt_fit_food", label: "Didn't fit food" },
+    { v: "not_for_me", label: "Just not for me" },
+  ];
+
   return (
-    <div className="flex items-center justify-center gap-2">
-      <span className="text-xs text-[#9CA3AF]">How was today&apos;s plan?</span>
-      {(
-        [
-          { v: "helpful", label: "Helpful", icon: ThumbsUp },
-          { v: "not_for_me", label: "Not for me", icon: ThumbsDown },
-        ] as const
-      ).map(({ v, label, icon: Icon }) => (
+    <div className="flex flex-col items-center gap-2">
+      <div className="flex items-center justify-center gap-2">
+        <span className="text-xs text-[#9CA3AF]">How was today&apos;s plan?</span>
         <button
-          key={v}
           type="button"
-          onClick={() => send(v)}
-          className={clsx(
-            "flex items-center gap-1.5 rounded-full border border-[#E5E1DA] bg-white px-3 py-1.5 text-xs text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937]"
-          )}
+          onClick={() => send("helpful")}
+          className="flex items-center gap-1.5 rounded-full border border-[#E5E1DA] bg-white px-3 py-1.5 text-xs text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937]"
         >
-          <Icon className="h-3.5 w-3.5" />
-          {label}
+          <ThumbsUp className="h-3.5 w-3.5" />
+          Helpful
         </button>
-      ))}
+        <button
+          type="button"
+          onClick={() => setShowReasons((s) => !s)}
+          aria-expanded={showReasons}
+          className="flex items-center gap-1.5 rounded-full border border-[#E5E1DA] bg-white px-3 py-1.5 text-xs text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937]"
+        >
+          <ThumbsDown className="h-3.5 w-3.5" />
+          Not for me
+        </button>
+      </div>
+      {showReasons && (
+        <div className="flex flex-wrap items-center justify-center gap-1.5">
+          {REASONS.map(({ v, label }) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => send(v)}
+              className="rounded-full bg-[#FAF7F2] px-3 py-1.5 text-xs text-[#6B7280] transition hover:bg-[#7C9A92]/10 hover:text-[#1F2937]"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

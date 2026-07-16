@@ -11,6 +11,11 @@ import {
 } from "@/lib/safety/allergens";
 import { checkDailyPlanV2Quality } from "@/lib/ai/quality-checks";
 import { buildFallbackDailyPlan } from "@/lib/ai/fallback-plan";
+import {
+  deriveLearned,
+  learnedToPromptHints,
+  type FeedbackRow,
+} from "@/lib/feedback/learned";
 import { isFlagEnabled } from "@/lib/flags";
 import { trackEvent } from "@/lib/analytics";
 import {
@@ -159,32 +164,19 @@ export async function POST(request: Request) {
   });
   let modeInstruction = planModeInstruction(mode, checkin.custom_areas);
 
-  // Prompt 10: learn gently from recent feedback. Aggregated hints only —
-  // never quotes, never pressure.
+  // Prompt 14: learn gently from recent feedback. Only canonical, bounded
+  // hints derived from the fixed verdict allow-list ever reach the model —
+  // free-text notes are never injected (injection-safe).
   const { data: feedback } = await supabase
     .from("plan_feedback")
     .select("item_key, verdict")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
-    .limit(40);
-  if (feedback?.length) {
-    const tally = new Map<string, number>();
-    for (const f of feedback) {
-      const area = f.item_key.split(":")[0]; // meal:breakfast -> meal
-      tally.set(area, (tally.get(area) ?? 0) + (f.verdict === "helpful" ? 1 : -1));
-    }
-    const liked = [...tally].filter(([, v]) => v >= 2).map(([k]) => k);
-    const disliked = [...tally].filter(([, v]) => v <= -2).map(([k]) => k);
-    if (liked.length || disliked.length) {
-      modeInstruction += `\nFEEDBACK HINTS: ${
-        liked.length ? `the user found these helpful before: ${liked.join(", ")}. ` : ""
-      }${
-        disliked.length
-          ? `the user often marked these as "not for me": ${disliked.join(", ")} — keep them lighter or lean on other blocks instead.`
-          : ""
-      }`;
-    }
-  }
+    .limit(60);
+  const learnedHints = learnedToPromptHints(
+    deriveLearned((feedback ?? []) as FeedbackRow[])
+  );
+  if (learnedHints) modeInstruction += `\n${learnedHints}`;
 
   let plan;
   try {

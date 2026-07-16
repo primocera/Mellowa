@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/get-current-user";
 import { createClient } from "@/lib/supabase/server";
 import { PlanPreferencesForm } from "@/components/dailyflow/plan-preferences-form";
 import { AccountDataControls } from "@/components/dailyflow/account-data-controls";
+import { MellowaLearned } from "@/components/dailyflow/mellowa-learned";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
 export const metadata: Metadata = { title: "Settings — Mellowa" };
@@ -114,7 +115,11 @@ export default async function SettingsPage() {
         </Link>
       </div>
 
-      <AccountDataControls />
+      <MellowaLearned />
+
+      <div id="data">
+        <AccountDataControls />
+      </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="font-medium text-[#1F2937]">Support</h2>
