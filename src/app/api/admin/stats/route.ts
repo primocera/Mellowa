@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { serverEnv } from "@/lib/env";
+import { requireBearerSecret } from "@/lib/cron-auth";
 
 /**
  * Ops/beta stats (Prompts 19 + 20). Read-only daily numbers for go/no-go
@@ -8,13 +10,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Returns aggregate counts only — no user content.
  */
 export async function GET(request: Request) {
-  const secret = process.env.ADMIN_STATS_SECRET;
-  if (!secret) {
-    return NextResponse.json({ error: "not_configured" }, { status: 404 });
-  }
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireBearerSecret(request, serverEnv.adminStatsSecret);
+  if (denied) return denied;
 
   const admin = createAdminClient();
   const dayStart = new Date();
@@ -22,13 +19,23 @@ export async function GET(request: Request) {
   const since = dayStart.toISOString();
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+  // Minimal structural type for the filter chain — the Supabase builder
+  // generics are too deep to name directly here.
+  interface CountQuery {
+    gte(column: string, value: string): CountQuery;
+    eq(column: string, value: string): CountQuery;
+    in(column: string, values: string[]): CountQuery;
+    then<T>(onfulfilled: (value: { count: number | null }) => T): Promise<T>;
+  }
   const count = async (
     table: string,
-    build?: (q: ReturnType<typeof admin.from> extends infer _ ? any : never) => any
+    build?: (q: CountQuery) => CountQuery
   ) => {
-    let q = admin.from(table).select("id", { count: "exact", head: true });
+    let q = admin
+      .from(table)
+      .select("id", { count: "exact", head: true }) as unknown as CountQuery;
     if (build) q = build(q);
-    const { count: c } = await q;
+    const { count: c } = await q.then((r) => r);
     return c ?? 0;
   };
 

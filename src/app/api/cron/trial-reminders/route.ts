@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
+import { requireBearerSecret } from "@/lib/cron-auth";
 import { sendEmail } from "@/lib/email/send";
 import { trialEndingEmail } from "@/lib/email/templates";
 
@@ -13,13 +14,8 @@ import { trialEndingEmail } from "@/lib/email/templates";
  * a Bearer token in the Authorization header).
  */
 export async function GET(request: Request) {
-  const secret = serverEnv.cronSecret;
-  if (secret) {
-    const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const denied = requireBearerSecret(request, serverEnv.cronSecret);
+  if (denied) return denied;
 
   const admin = createAdminClient();
   const now = new Date();
