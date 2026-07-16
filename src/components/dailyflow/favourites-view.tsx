@@ -21,6 +21,7 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [building, setBuilding] = useState(false);
   const [list, setList] = useState<string[] | null>(null);
+  const [excluded, setExcluded] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const chosenIds = Object.keys(selected).filter((id) => selected[id]);
@@ -58,6 +59,7 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
       const data = await res.json();
       if (!res.ok) throw new Error("failed");
       setList(data.items as string[]);
+      setExcluded((data.excluded_meals as string[]) ?? []);
     } catch {
       setError("Couldn't build the shopping list. Please try again.");
     }
@@ -139,6 +141,12 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
       {list && (
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="font-medium text-[#1F2937]">Your shopping list</h2>
+          {excluded.length > 0 && (
+            <p className="mt-2 rounded-xl bg-[#FEF3C7] px-3 py-2 text-xs text-[#92400E]">
+              Skipped {excluded.join(", ")} — these saved meals may conflict
+              with your current allergy list.
+            </p>
+          )}
           {list.length === 0 ? (
             <p className="mt-2 text-sm text-[#6B7280]">
               These meals had no grocery items listed.
@@ -153,6 +161,11 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
               ))}
             </ul>
           )}
+          <p className="mt-3 text-xs text-[#6B7280]">
+            Meals are checked against your listed allergies, but Mellowa cannot
+            guarantee allergy safety — always verify product labels, especially
+            for severe allergies or cross-contamination risks.
+          </p>
         </div>
       )}
     </div>

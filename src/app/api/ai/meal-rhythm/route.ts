@@ -10,6 +10,7 @@ import {
 } from "@/prompts/meal-rhythm";
 import { MealRhythmOutput } from "@/schemas/ai-output";
 import { guardAiRoute } from "@/lib/ai/guard";
+import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
 
 const MealRhythmInput = z.object({
   challenge: z.string().max(500).optional().default(""),
@@ -31,6 +32,10 @@ export async function POST(request: Request) {
   if (!profile) {
     return NextResponse.json({ error: "onboarding_required" }, { status: 400 });
   }
+
+  // Severe allergies: no specific meal generation (Prompt 8).
+  const severeBlock = severeAllergyBlock(profile);
+  if (severeBlock) return NextResponse.json(severeBlock, { status: 200 });
 
   // Premium-only + rate limit — protects the AI provider key.
   const guard = await guardAiRoute(user.id, { requirePremium: true, route: "meal-rhythm" });

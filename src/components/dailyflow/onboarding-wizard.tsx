@@ -10,6 +10,7 @@ import {
   type WellbeingProfileInputType,
 } from "@/schemas/wellbeing";
 import clsx from "clsx";
+import { normalizeAllergies } from "@/lib/safety/allergens";
 
 const STEPS = [
   "Your rhythm",
@@ -73,6 +74,7 @@ type Draft = {
   preferred_tone: string;
   safety_acknowledged: boolean;
   is_adult: boolean;
+  allergies_severe: boolean;
 };
 
 const INITIAL: Draft = {
@@ -92,6 +94,7 @@ const INITIAL: Draft = {
   preferred_tone: "",
   safety_acknowledged: false,
   is_adult: false,
+  allergies_severe: false,
 };
 
 function Scale({
@@ -246,6 +249,7 @@ export function OnboardingWizard() {
         preferred_tone: d.preferred_tone,
         safety_acknowledged: d.safety_acknowledged,
         is_adult: d.is_adult,
+        allergies_severe: draft.allergies_severe,
         timezone: d.timezone || null,
         locale: d.locale || null,
         consent_version: CONSENT_VERSION,
@@ -366,6 +370,35 @@ export function OnboardingWizard() {
                 Allergies are a safety limit — we build meals without them. For a
                 severe allergy, always double-check product labels.
               </p>
+              {(() => {
+                const { customTerms } = normalizeAllergies(
+                  draft.allergies.split(",").map((s) => s.trim()).filter(Boolean)
+                );
+                return customTerms.length > 0 ? (
+                  <p className="mt-1 text-xs text-[#B45309]">
+                    We don&apos;t recognise{" "}
+                    <strong>{customTerms.join(", ")}</strong> as a common allergen
+                    category — we&apos;ll still exclude these exact words from
+                    meals, but please double-check ingredient lists yourself.
+                  </p>
+                ) : null;
+              })()}
+              <label className="mt-2 flex items-start gap-2.5 text-sm text-[#1F2937]">
+                <input
+                  type="checkbox"
+                  checked={draft.allergies_severe}
+                  onChange={(e) => set("allergies_severe", e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-[#E5E1DA] accent-[#7C9A92]"
+                />
+                <span>
+                  One of these is severe or life-threatening (e.g. anaphylaxis).
+                  <span className="block text-xs text-[#6B7280]">
+                    If checked, Mellowa won&apos;t suggest specific meals or
+                    recipes — automated checks can&apos;t guarantee label or
+                    cross-contamination safety at that level.
+                  </span>
+                </span>
+              </label>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-[#1F2937]">

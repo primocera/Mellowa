@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { MealCardSchema } from "@/schemas/ai-output-v2";
+import { findMealAllergenViolations } from "@/lib/safety/allergens";
 
 const Input = z.object({
   meal_ids: z.array(z.string().uuid()).min(1).max(30),
@@ -39,11 +40,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to read meals" }, { status: 500 });
   }
 
+  // Allergen re-validation when building a list (Prompt 8): favourites saved
+  // before an allergy list changed must not flow into shopping items.
+  const { data: profile } = await supabase
+    .from("wellbeing_profiles")
+    .select("allergies")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const allergies = (profile?.allergies ?? []).filter(Boolean);
+
   // Merge grocery items, keeping first-seen casing, de-duped by lowercase.
   const seen = new Map<string, string>();
+  const excludedMeals: string[] = [];
   for (const row of rows ?? []) {
     const meal = MealCardSchema.safeParse(row.meal);
     if (!meal.success) continue;
+    if (
+      allergies.length &&
+      findMealAllergenViolations(meal.data, allergies).length > 0
+    ) {
+      excludedMeals.push(meal.data.title);
+      continue;
+    }
     for (const item of meal.data.grocery_items) {
       const key = item.trim().toLowerCase();
       if (key && !seen.has(key)) seen.set(key, item.trim());
@@ -60,5 +78,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to save list" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, list: saved, items });
+  return NextResponse.json({
+    ok: true,
+    list: saved,
+    items,
+    // Surfaced in the UI so exclusions are never silent.
+    excluded_meals: excludedMeals,
+  });
 }

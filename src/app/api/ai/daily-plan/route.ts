@@ -22,6 +22,7 @@ import {
 } from "@/lib/content/wellbeing-library";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canGenerateDailyPlan } from "@/lib/stripe/subscription";
+import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
 import { guardAiRoute } from "@/lib/ai/guard";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
@@ -48,6 +49,10 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  // Severe allergies: plans with specific meals are not generated (Prompt 8).
+  const severeBlock = severeAllergyBlock(profile);
+  if (severeBlock) return NextResponse.json(severeBlock, { status: 200 });
 
   // 3. Validate check-in input
   let body: unknown;
