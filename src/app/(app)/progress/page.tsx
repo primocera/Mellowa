@@ -4,6 +4,7 @@ import { format, subDays } from "date-fns";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { createClient } from "@/lib/supabase/server";
 import type { DailyCheckin, Habit, HabitLog } from "@/types/dailyflow";
+import { metricTextSummary } from "@/lib/progress/neutral";
 
 export const metadata: Metadata = { title: "Progress — Mellowa" };
 
@@ -23,10 +24,18 @@ function MetricRow({
   checkins: DailyCheckin[];
   metric: (typeof METRICS)[number]["key"];
 }) {
+  const summary = metricTextSummary({
+    label,
+    values: checkins.map((c) => c[metric]),
+  });
   return (
     <div>
       <p className="mb-1.5 text-xs font-medium text-[#6B7280]">{label}</p>
-      <div className="flex items-end gap-1">
+      <div
+        className="flex items-end gap-1"
+        role="img"
+        aria-label={summary}
+      >
         {checkins.map((c) => {
           const v = c[metric];
           return (
@@ -39,6 +48,7 @@ function MetricRow({
           );
         })}
       </div>
+      <p className="mt-1 text-[11px] text-[#9CA3AF]">{summary}</p>
     </div>
   );
 }
@@ -80,7 +90,7 @@ export default async function ProgressPage() {
         <h1 className="text-xl font-semibold text-[#1F2937]">Nothing here yet</h1>
         <p className="mx-auto mt-2 max-w-sm text-sm text-[#6B7280]">
           After a few check-ins, this page will gently show how your energy,
-          mood and habits are moving — no scores, no pressure.
+          mood and habits are moving — gently, with no pressure.
         </p>
         <Link
           href="/check-in"
@@ -92,20 +102,25 @@ export default async function ProgressPage() {
     );
   }
 
-  // Gentle observations — carefully worded, never conclusive
+  // Prompt 15: neutral counts of what the user self-reported — no causal
+  // claims, no scores, no streaks, no health language.
   const wins: string[] = [];
-  if (checkins.length >= 3) {
-    wins.push(`You checked in ${checkins.length} times in the last two weeks — that's you showing up.`);
-  } else if (checkins.length > 0) {
-    wins.push("You've started checking in — that's already a step.");
+  if (checkins.length > 0) {
+    wins.push(
+      `You recorded ${checkins.length} check-in${checkins.length === 1 ? "" : "s"} in the last two weeks.`
+    );
   }
   const doneCount = logs.length;
   if (doneCount > 0) {
-    wins.push(`You completed a habit ${doneCount} ${doneCount === 1 ? "time" : "times"} this week.`);
+    wins.push(
+      `You marked a habit done ${doneCount} ${doneCount === 1 ? "time" : "times"} this week.`
+    );
   }
   const goodSleepDays = checkins.filter((c) => (c.sleep_quality ?? 0) >= 4).length;
-  if (goodSleepDays >= 2) {
-    wins.push(`You had ${goodSleepDays} nights of solid sleep recently — you may notice those days feel a little lighter.`);
+  if (goodSleepDays > 0) {
+    wins.push(
+      `You rated your sleep 4 or 5 out of 5 on ${goodSleepDays} ${goodSleepDays === 1 ? "day" : "days"}.`
+    );
   }
 
   return (
@@ -189,7 +204,7 @@ export default async function ProgressPage() {
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="font-medium text-[#1F2937]">A gentle weekly reflection</h2>
         <p className="mt-1 text-sm text-[#6B7280]">
-          No scores, no streaks. Just three small questions, whenever you like:
+          No numbers, no pressure. Just three small questions, whenever you like:
         </p>
         <ul className="mt-3 space-y-1.5 text-sm text-[#1F2937]">
           <li>• What felt a little easier this week than before?</li>
