@@ -1,5 +1,6 @@
 import "server-only";
 import type { SafetyCheckOutputType } from "@/schemas/safety";
+import { crisisGuidanceFor } from "@/lib/safety/crisis-resources";
 
 /**
  * Deterministic safety pre-classifier (Prompt 17).
@@ -146,8 +147,7 @@ export function preClassifySafety(
  * Locale is a BCP-47 tag (e.g. "en-US"); we key off the region subtag.
  */
 export function crisisMessage(category: string, locale?: string | null): string {
-  const region = regionFrom(locale);
-  const help = HELPLINES[region] ?? HELPLINES.DEFAULT;
+  const help = crisisGuidanceFor(locale);
 
   if (category === "eating_disorder") {
     return `It sounds like you may be going through something really hard around food and eating. Mellowa isn't the right tool for this, and you deserve real support. ${help} You don't have to face this alone.`;
@@ -171,21 +171,3 @@ export function crisisMessage(category: string, locale?: string | null): string 
   return `I'm really sorry you're feeling this way. Mellowa can't help with this, but please reach out to someone who can — you matter. ${help}`;
 }
 
-// Region subtag -> a short, safe pointer to local support.
-const HELPLINES: Record<string, string> = {
-  US: "In the US you can call or text 988 (Suicide & Crisis Lifeline), any time.",
-  CA: "In Canada you can call or text 988, any time.",
-  GB: "In the UK you can call Samaritans on 116 123, any time.",
-  IE: "In Ireland you can call Samaritans on 116 123, any time.",
-  AU: "In Australia you can call Lifeline on 13 11 14, any time.",
-  NZ: "In New Zealand you can call or text 1737, any time.",
-  DEFAULT:
-    "Please contact a local crisis helpline or your local emergency services — if you're in immediate danger, call your emergency number now.",
-};
-
-function regionFrom(locale?: string | null): string {
-  if (!locale) return "DEFAULT";
-  const parts = locale.split(/[-_]/);
-  const region = parts[1]?.toUpperCase();
-  return region && HELPLINES[region] ? region : "DEFAULT";
-}
