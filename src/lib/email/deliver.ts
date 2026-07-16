@@ -45,7 +45,13 @@ export interface DeliverDeps {
     sentAt?: string | null;
     lastError?: string | null;
   }): Promise<void>;
-  send(args: { to: string; subject: string; html: string; text?: string }): Promise<SendResult>;
+  send(args: {
+    to: string;
+    subject: string;
+    html: string;
+    text?: string;
+    scheduledAt?: string;
+  }): Promise<SendResult>;
 }
 
 function defaultDeps(): DeliverDeps {
@@ -93,6 +99,8 @@ export async function deliverEmail(
     subject: string;
     html: string;
     text?: string;
+    /** Hand delivery timing to the provider (Resend scheduled send). */
+    scheduledAt?: string;
   },
   deps: DeliverDeps = defaultDeps()
 ): Promise<DeliverResult> {
@@ -116,6 +124,7 @@ export async function deliverEmail(
     subject: args.subject,
     html: args.html,
     text: args.text ?? htmlToText(args.html),
+    scheduledAt: args.scheduledAt,
   });
 
   if (result.sent) {

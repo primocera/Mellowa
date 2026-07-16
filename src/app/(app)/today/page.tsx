@@ -4,42 +4,65 @@ import { requireUser } from "@/lib/auth/get-current-user";
 import { createClient } from "@/lib/supabase/server";
 import { TodayPlanV2 } from "@/components/dailyflow/today-plan-v2";
 import { LowEnergyDayCard } from "@/components/dailyflow/low-energy-day-card";
+import { isValidTimeZone, localDateFor } from "@/lib/dates/local-day";
+import { TimezoneRepair } from "@/components/dailyflow/timezone-repair";
 
 export const metadata: Metadata = { title: "Today — Mellowa" };
+
+function ninetyDaysAgoIso(): string {
+  return new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+}
 
 export default async function TodayPage() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  // Client-local dates can differ from server UTC by a day (Prompt 3), so
-  // show the newest plan dated within the last day rather than an exact match.
-  const now = new Date();
-  now.setDate(now.getDate() - 1);
-  const yesterday = now.toISOString().slice(0, 10);
+  // Prompt 9: Today means the user's LOCAL date, computed server-side from
+  // their stored IANA timezone. Only profiles without a valid timezone fall
+  // back to the old rolling-day window.
+  const { data: profileRow } = await supabase
+    .from("wellbeing_profiles")
+    .select("show_macros, timezone")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
-  const [planRes, profileRes] = await Promise.all([
-    supabase
-      .from("daily_plans")
-      .select("*")
-      .eq("user_id", user.id)
-      .gte("plan_date", yesterday)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("wellbeing_profiles")
-      .select("show_macros")
-      .eq("user_id", user.id)
-      .maybeSingle(),
-  ]);
+  let planQuery = supabase
+    .from("daily_plans")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (isValidTimeZone(profileRow?.timezone)) {
+    planQuery = planQuery.eq("plan_date", localDateFor(profileRow!.timezone!));
+  } else {
+    const now = new Date();
+    now.setDate(now.getDate() - 1);
+    planQuery = planQuery.gte("plan_date", now.toISOString().slice(0, 10));
+  }
+  const planRes = await planQuery.maybeSingle();
+  const profileRes = { data: profileRow };
+  const timezoneNeedsRepair =
+    !!profileRow && !isValidTimeZone(profileRow.timezone);
 
   const plan = planRes.data;
-  const showMacros = profileRes.data?.show_macros ?? true;
+  // Opt-in only (Prompt 7); a recent eating-disorder safety signal overrides
+  // the preference so estimates never show to someone at risk.
+  let showMacros = profileRes.data?.show_macros ?? false;
+  if (showMacros) {
+    const { count: edSignals } = await supabase
+      .from("safety_events")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .ilike("risk_type", "%eating_disorder%")
+      .gte("created_at", ninetyDaysAgoIso());
+    if ((edSignals ?? 0) > 0) showMacros = false;
+  }
 
   // No plan, or an older plan from before the v2 format → fresh check-in.
   if (!plan || !plan.meal_cards) {
     return (
       <div className="space-y-4">
+        {timezoneNeedsRepair && <TimezoneRepair />}
         <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
         <h1 className="text-xl font-semibold text-[#1F2937]">
           {plan ? "Time for a fresh plan" : "No plan yet today"}
@@ -69,6 +92,7 @@ export default async function TodayPage() {
 
   return (
     <div className="space-y-4">
+      {timezoneNeedsRepair && <TimezoneRepair />}
       <LowEnergyDayCard />
       <TodayPlanV2
         plan={plan}

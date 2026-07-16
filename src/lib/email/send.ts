@@ -23,6 +23,8 @@ export async function sendEmail(args: {
   subject: string;
   html: string;
   text?: string;
+  /** ISO instant for Resend scheduled sending (up to ~30 days ahead). */
+  scheduledAt?: string;
 }): Promise<SendResult> {
   const apiKey = serverEnv.resendApiKey;
   if (!apiKey) {
@@ -45,6 +47,7 @@ export async function sendEmail(args: {
         subject: args.subject,
         html: args.html,
         ...(args.text ? { text: args.text } : {}),
+        ...(args.scheduledAt ? { scheduled_at: args.scheduledAt } : {}),
       }),
     });
     if (!res.ok) {
