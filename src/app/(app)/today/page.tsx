@@ -65,7 +65,7 @@ export default async function TodayPage() {
         {timezoneNeedsRepair && <TimezoneRepair />}
         <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
         <h1 className="text-xl font-semibold text-[#1F2937]">
-          {plan ? "Time for a fresh plan" : "No plan yet today"}
+          How does today feel?
         </h1>
         <p className="mt-2 text-sm text-[#6B7280]">
           A quick check-in is all it takes — your plan adapts to how today
@@ -75,7 +75,7 @@ export default async function TodayPage() {
           href="/check-in"
           className="mt-6 inline-block rounded-xl bg-[#7C9A92] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#6D8C7D]"
         >
-          Start today&apos;s check-in
+          Check in for today
         </Link>
         </div>
         <LowEnergyDayCard />

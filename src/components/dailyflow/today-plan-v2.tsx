@@ -23,6 +23,7 @@ import type {
   MealCardType,
   MovementMomentType,
 } from "@/schemas/ai-output-v2";
+import { isLighterDay, pickCalmReset } from "@/lib/today/disclosure";
 
 // ---- shapes stored on the plan row (jsonb) ----
 type Summary = { main_focus: string; energy_match?: string; short_note?: string };
@@ -164,6 +165,18 @@ export function TodayPlanV2({
 
   const summary = plan.plan_summary;
   const intensity = plan.plan_intensity ?? "normal";
+
+  // Prompt 11: progressive disclosure by mode. On lighter days we don't push
+  // a productivity "focus block" — the plan should feel calmer, not busier.
+  const mode = plan.plan_mode ?? intensity;
+  const showFocus = !!plan.focus_plan && !isLighterDay(mode);
+
+  // Prompt 11: offer ONE calm reset, not all three at once.
+  const calmReset = pickCalmReset({
+    breathing: plan.breathing_exercise,
+    meditation: plan.meditation_or_reflection,
+    relaxation: plan.relaxation_technique,
+  });
 
   // Optimistic toggle + persist to plan_completions. Reverts on failure.
   const toggleDone = (key: string) => {
@@ -458,15 +471,13 @@ export function TodayPlanV2({
         </Section>
       )}
 
-      {/* 5. Calm reset */}
-      {(plan.breathing_exercise ||
-        plan.meditation_or_reflection ||
-        plan.relaxation_technique) && (
+      {/* 5. One calm reset (Prompt 11) — a single option, never all three */}
+      {calmReset && (
         <h2 className="px-1 text-sm font-medium uppercase tracking-wide text-[#9CA3AF]">
-          Calm reset
+          One calm reset
         </h2>
       )}
-      {plan.breathing_exercise && (
+      {calmReset === "breathing" && plan.breathing_exercise && (
         <Section
           icon={<Wind className="h-4 w-4 text-[#7C9A92]" />}
           title={plan.breathing_exercise.name}
@@ -494,7 +505,7 @@ export function TodayPlanV2({
           />
         </Section>
       )}
-      {plan.meditation_or_reflection && (
+      {calmReset === "meditation" && plan.meditation_or_reflection && (
         <Section
           icon={<Brain className="h-4 w-4 text-[#7C9A92]" />}
           title={plan.meditation_or_reflection.name}
@@ -516,7 +527,7 @@ export function TodayPlanV2({
           )}
         </Section>
       )}
-      {plan.relaxation_technique && (
+      {calmReset === "relaxation" && plan.relaxation_technique && (
         <Section
           icon={<Sparkles className="h-4 w-4 text-[#7C9A92]" />}
           title={plan.relaxation_technique.name}
@@ -536,8 +547,8 @@ export function TodayPlanV2({
         </Section>
       )}
 
-      {/* 6. Focus block */}
-      {plan.focus_plan && (
+      {/* 6. Focus block — hidden on lighter days (Prompt 11) */}
+      {showFocus && plan.focus_plan && (
         <Section
           icon={<Target className="h-4 w-4 text-[#7C9A92]" />}
           title="Focus block"
