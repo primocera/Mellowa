@@ -117,6 +117,20 @@ export default async function ProgressPage() {
         <p className="mt-1 text-sm text-[#6B7280]">
           Gentle patterns, not report cards. Missed days are part of it.
         </p>
+        <div className="mt-3 flex gap-2">
+          <Link
+            href="/habits"
+            className="rounded-full border border-[#E5E1DA] px-3 py-1.5 text-xs font-medium text-[#1F2937] transition hover:border-[#7C9A92]/50"
+          >
+            Habits
+          </Link>
+          <Link
+            href="/journal"
+            className="rounded-full border border-[#E5E1DA] px-3 py-1.5 text-xs font-medium text-[#1F2937] transition hover:border-[#7C9A92]/50"
+          >
+            Journal
+          </Link>
+        </div>
       </div>
 
       {/* Check-in history */}
