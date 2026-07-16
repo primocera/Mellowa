@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
+import { USER_DATA_REGISTRY } from "@/lib/privacy/registry";
 
 const Input = z.object({
   // Explicit typed confirmation so deletion can never happen by accident.
@@ -83,7 +84,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "delete_failed" }, { status: 500 });
   }
 
-  // 3. Clear the caller's session so the browser is signed out.
+  // 3. Verify no user-linked rows remain (Prompt 4). Cascades should have
+  // removed everything; any remainder is deleted explicitly and logged.
+  const remaining: string[] = [];
+  for (const { table, column, onDelete } of USER_DATA_REGISTRY) {
+    if (onDelete === "anonymize") continue; // FK is ON DELETE SET NULL
+    const { count } = await admin
+      .from(table)
+      .select(column, { count: "exact", head: true })
+      .eq(column, user.id);
+    if ((count ?? 0) > 0) {
+      remaining.push(table);
+      await admin.from(table).delete().eq(column, user.id);
+    }
+  }
+  if (remaining.length > 0) {
+    console.error("[account/delete] cascade left rows; deleted explicitly", {
+      tables: remaining,
+    });
+  }
+
+  // 4. Clear the caller's session so the browser is signed out.
   await supabase.auth.signOut();
 
   return NextResponse.json({ ok: true });

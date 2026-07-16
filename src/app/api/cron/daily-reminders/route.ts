@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
 import { requireBearerSecret } from "@/lib/cron-auth";
+import { pruneExpiredData } from "@/lib/privacy/retention";
 import { deliverEmail } from "@/lib/email/deliver";
 
 /**
@@ -88,7 +89,10 @@ export async function GET(request: Request) {
     if (result.sent) sent += 1;
   }
 
-  return NextResponse.json({ ok: true, sent });
+  // Data-retention pruning piggybacks on the daily run (Prompt 4).
+  const pruned = await pruneExpiredData();
+
+  return NextResponse.json({ ok: true, sent, pruned });
 }
 
 function toMinutes(hhmm: string | null): number | null {
