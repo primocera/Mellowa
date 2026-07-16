@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, ShoppingCart, Check, Trash2 } from "lucide-react";
+import { Loader2, ShoppingCart, Check, Trash2, Minus, Plus } from "lucide-react";
 import clsx from "clsx";
 import type { MealCardType } from "@/schemas/ai-output-v2";
+import type { ShoppingCategory } from "@/lib/shopping/aggregate";
+import { formatItem } from "@/lib/shopping/aggregate";
 
 export type FavouriteMeal = {
   id: string;
@@ -20,15 +22,19 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
   const [meals, setMeals] = useState(initial);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [building, setBuilding] = useState(false);
-  const [list, setList] = useState<string[] | null>(null);
+  const [categories, setCategories] = useState<ShoppingCategory[] | null>(null);
   const [excluded, setExcluded] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Prompt 13: servings multiplier and a check-off ("have it") set so a
+  // pantry item can be ticked without disappearing.
+  const [servings, setServings] = useState(1);
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
 
   const chosenIds = Object.keys(selected).filter((id) => selected[id]);
 
   function toggle(id: string) {
     setSelected((s) => ({ ...s, [id]: !s[id] }));
-    setList(null);
+    setCategories(null);
   }
 
   async function remove(id: string) {
@@ -50,15 +56,16 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
   async function buildList() {
     setBuilding(true);
     setError(null);
+    setChecked({});
     try {
       const res = await fetch("/api/shopping/build", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ meal_ids: chosenIds }),
+        body: JSON.stringify({ meal_ids: chosenIds, servings_scale: servings }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error("failed");
-      setList(data.items as string[]);
+      setCategories((data.categories as ShoppingCategory[]) ?? []);
       setExcluded((data.excluded_meals as string[]) ?? []);
     } catch {
       setError("Couldn't build the shopping list. Please try again.");
@@ -119,18 +126,47 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
         ))}
       </div>
 
-      <button
-        onClick={buildList}
-        disabled={chosenIds.length === 0 || building}
-        className="flex items-center gap-2 rounded-xl bg-[#7C9A92] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#6D8C7D] disabled:opacity-50"
-      >
-        {building ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <ShoppingCart className="h-4 w-4" />
-        )}
-        Build shopping list ({chosenIds.length})
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-[#6B7280]">Servings</span>
+          <div className="flex items-center gap-1 rounded-xl border border-[#E5E1DA] bg-white p-1">
+            <button
+              type="button"
+              onClick={() => setServings((s) => Math.max(1, s - 1))}
+              disabled={servings <= 1}
+              aria-label="Fewer servings"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#6B7280] transition hover:bg-[#FAF7F2] disabled:opacity-40"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <span className="w-6 text-center text-sm font-medium text-[#1F2937]">
+              {servings}×
+            </span>
+            <button
+              type="button"
+              onClick={() => setServings((s) => Math.min(8, s + 1))}
+              disabled={servings >= 8}
+              aria-label="More servings"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[#6B7280] transition hover:bg-[#FAF7F2] disabled:opacity-40"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <button
+          onClick={buildList}
+          disabled={chosenIds.length === 0 || building}
+          className="flex items-center gap-2 rounded-xl bg-[#7C9A92] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#6D8C7D] disabled:opacity-50"
+        >
+          {building ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ShoppingCart className="h-4 w-4" />
+          )}
+          Build shopping list ({chosenIds.length})
+        </button>
+      </div>
 
       {error && (
         <div className="rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]">
@@ -138,7 +174,7 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
         </div>
       )}
 
-      {list && (
+      {categories && (
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="font-medium text-[#1F2937]">Your shopping list</h2>
           {excluded.length > 0 && (
@@ -147,19 +183,59 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
               with your current allergy list.
             </p>
           )}
-          {list.length === 0 ? (
+          {categories.length === 0 ? (
             <p className="mt-2 text-sm text-[#6B7280]">
               These meals had no grocery items listed.
             </p>
           ) : (
-            <ul className="mt-3 space-y-1">
-              {list.map((item, i) => (
-                <li key={i} className="flex items-center gap-2 text-sm text-[#1F2937]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#7C9A92]" />
-                  {item}
-                </li>
+            <div className="mt-3 space-y-4">
+              {categories.map((group) => (
+                <div key={group.category}>
+                  <p className="text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+                    {group.category}
+                  </p>
+                  <ul className="mt-1.5 space-y-1">
+                    {group.items.map((item) => {
+                      const key = `${item.category}:${item.name}:${item.unit ?? ""}`;
+                      const isChecked = !!checked[key];
+                      return (
+                        <li key={key}>
+                          <label className="flex min-h-[44px] cursor-pointer items-start gap-2.5 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() =>
+                                setChecked((c) => ({ ...c, [key]: !c[key] }))
+                              }
+                              className="mt-1 h-4 w-4 shrink-0 rounded border-[#D8D3CA] accent-[#7C9A92]"
+                            />
+                            <span
+                              className={clsx(
+                                "flex-1",
+                                isChecked
+                                  ? "text-[#9CA3AF] line-through"
+                                  : "text-[#1F2937]"
+                              )}
+                            >
+                              {formatItem(item)}
+                              {item.notes.length > 0 && (
+                                <span className="text-[#9CA3AF]">
+                                  {" "}
+                                  · {item.notes.join(", ")}
+                                </span>
+                              )}
+                              <span className="block text-xs text-[#9CA3AF]">
+                                for {item.sources.join(", ")}
+                              </span>
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
           <p className="mt-3 text-xs text-[#6B7280]">
             Meals are checked against your listed allergies, but Mellowa cannot
