@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { SaveMealButton } from "@/components/dailyflow/save-meal-button";
+import { createClient } from "@/lib/supabase/client";
 import { PlanFeedback } from "@/components/dailyflow/plan-feedback";
 import type {
   MealCardType,
@@ -131,6 +132,26 @@ export function TodayPlanV2({
   completedKeys?: string[];
 }) {
   const [meals, setMeals] = useState<MealCardType[]>(plan.meal_cards ?? []);
+  // Per-card hide control (Prompt 7): hiding persists as the account-wide
+  // opt-out; estimates never reappear without an explicit opt-in.
+  const [macrosVisible, setMacrosVisible] = useState(showMacros);
+  async function hideMacros() {
+    setMacrosVisible(false);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("wellbeing_profiles")
+          .update({ show_macros: false })
+          .eq("user_id", user.id);
+      }
+    } catch {
+      // UI already hidden; preference retry available in Settings.
+    }
+  }
   const [movement, setMovement] = useState<MovementMomentType | null>(
     plan.movement_plan
   );
@@ -295,7 +316,17 @@ export function TodayPlanV2({
               </div>
             </div>
 
-            {showMacros && <MacroPills macros={meal.approximate_macros} />}
+            {macrosVisible && (
+              <div className="flex items-center gap-2">
+                <MacroPills macros={meal.approximate_macros} />
+                <button
+                  onClick={hideMacros}
+                  className="text-xs text-[#9CA3AF] underline hover:text-[#6B7280]"
+                >
+                  Hide
+                </button>
+              </div>
+            )}
 
             <details className="group mt-3">
               <summary className="flex cursor-pointer list-none items-center gap-1 text-sm font-medium text-[#7C9A92]">

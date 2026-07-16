@@ -50,9 +50,10 @@ const KITCHEN_EQUIPMENT = [
   { value: "minimal", label: "Minimal / none" },
 ];
 
+// General meal-style preferences only — never nutrition targets (Prompt 7).
 const MACRO_FOCUS = [
   { value: "balanced", label: "Balanced" },
-  { value: "higher_protein", label: "Higher protein" },
+  { value: "protein_rich", label: "Protein-rich meals" },
   { value: "budget_friendly", label: "Budget-friendly" },
   { value: "low_effort", label: "Low effort" },
 ];
@@ -161,7 +162,7 @@ export function PlanPreferencesForm({
   initial: Partial<Prefs>;
 }) {
   const [prefs, setPrefs] = useState<Prefs>({
-    show_macros: initial.show_macros ?? true,
+    show_macros: initial.show_macros ?? false,
     macro_focus: initial.macro_focus ?? "",
     preferred_meal_prep_time: initial.preferred_meal_prep_time ?? "",
     cooking_skill: initial.cooking_skill ?? "",
@@ -233,15 +234,20 @@ export function PlanPreferencesForm({
       </p>
 
       <div className="mt-4 space-y-5">
-        {/* Macros toggle */}
+        {/* Nutrition estimates — explicit opt-in, off by default (Prompt 7) */}
         <label className="flex cursor-pointer items-start gap-3 text-sm text-[#1F2937]">
           <input
             type="checkbox"
-            checked={!prefs.show_macros}
-            onChange={(e) => set("show_macros", !e.target.checked)}
+            checked={prefs.show_macros}
+            onChange={(e) => set("show_macros", e.target.checked)}
             className="mt-0.5 h-4 w-4 accent-[#7C9A92]"
           />
-          I prefer not to see macros
+          <span>
+            Show approximate nutrition estimates
+            <span className="block text-xs text-[#6B7280]">
+              General estimates only, never targets. You can hide them anytime.
+            </span>
+          </span>
         </label>
 
         <div>
