@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
 import { requireBearerSecret } from "@/lib/cron-auth";
-import { sendEmail } from "@/lib/email/send";
+import { deliverEmail } from "@/lib/email/deliver";
 
 /**
  * Daily cron (Prompt 12) — opt-in daily reminder email.
@@ -60,7 +60,10 @@ export async function GET(request: Request) {
     const email = userData.user?.email;
     if (!email) continue;
 
-    const result = await sendEmail({
+    const result = await deliverEmail({
+      eventKey: `daily_reminder:${p.user_id}:${localDate}`,
+      userId: p.user_id,
+      template: "daily_reminder",
       to: email,
       subject: "A gentle nudge from Mellowa",
       html: `<div style="font-family:sans-serif;color:#1F2937;line-height:1.6">
@@ -73,12 +76,15 @@ export async function GET(request: Request) {
       </div>`,
     });
 
-    // Mark the local date even when the provider is unconfigured so we never
-    // spam once it is configured.
-    await admin
-      .from("wellbeing_profiles")
-      .update({ last_reminder_sent_date: localDate })
-      .eq("user_id", p.user_id);
+    // Only record the local date after real delivery. Duplicate protection
+    // within a day comes from the delivery ledger's unique event key, so an
+    // unconfigured provider stays retryable without ever double-sending.
+    if (result.sent || result.status === "duplicate") {
+      await admin
+        .from("wellbeing_profiles")
+        .update({ last_reminder_sent_date: localDate })
+        .eq("user_id", p.user_id);
+    }
     if (result.sent) sent += 1;
   }
 

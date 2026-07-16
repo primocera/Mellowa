@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
 import { requireBearerSecret } from "@/lib/cron-auth";
-import { sendEmail } from "@/lib/email/send";
+import { deliverEmail } from "@/lib/email/deliver";
 import { trialEndingEmail } from "@/lib/email/templates";
 
 /**
@@ -36,12 +36,23 @@ export async function GET(request: Request) {
     if (!email) continue;
 
     const { subject, html } = trialEndingEmail();
-    const result = await sendEmail({ to: email, subject, html });
-    // Mark as reminded even if the provider is not configured, so we don't loop.
-    await admin
-      .from("subscriptions")
-      .update({ trial_reminder_sent: true })
-      .eq("id", row.id);
+    const result = await deliverEmail({
+      eventKey: `trial_ending:${row.id}:${row.trial_end}`,
+      userId: row.user_id,
+      template: "trial_ending",
+      to: email,
+      subject,
+      html,
+    });
+    // Only mark the source row after real provider acceptance — a missing
+    // provider or failed send must stay retryable, never recorded as sent.
+    // The delivery ledger's unique event key prevents duplicate emails.
+    if (result.sent || result.status === "duplicate") {
+      await admin
+        .from("subscriptions")
+        .update({ trial_reminder_sent: true })
+        .eq("id", row.id);
+    }
     if (result.sent) sent += 1;
   }
 

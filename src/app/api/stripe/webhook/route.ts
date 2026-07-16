@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
-import { sendEmail } from "@/lib/email/send";
+import { deliverEmail } from "@/lib/email/deliver";
 import {
   trialStartedEmail,
   trialEndedEmail,
@@ -221,7 +221,13 @@ export async function POST(request: Request) {
                 )
               : 3;
             const { subject, html } = trialStartedEmail(daysLeft);
-            await sendEmail({ to: email, subject, html });
+            await deliverEmail({
+              eventKey: `trial_started:${subscription.id}`,
+              template: "trial_started",
+              to: email,
+              subject,
+              html,
+            });
           }
         }
         break;
@@ -236,7 +242,13 @@ export async function POST(request: Request) {
           const email = await emailForCustomer(subscription);
           if (email) {
             const { subject, html } = trialEndedEmail();
-            await sendEmail({ to: email, subject, html });
+            await deliverEmail({
+              eventKey: `trial_ended:${subscription.id}`,
+              template: "trial_ended",
+              to: email,
+              subject,
+              html,
+            });
           }
         }
         break;
@@ -259,7 +271,13 @@ export async function POST(request: Request) {
           const email = await emailForCustomerId(customerId);
           if (email) {
             const { subject, html } = paymentFailedEmail();
-            await sendEmail({ to: email, subject, html });
+            await deliverEmail({
+              eventKey: `payment_failed:${invoice.id}`,
+              template: "payment_failed",
+              to: email,
+              subject,
+              html,
+            });
           }
         }
         break;

@@ -1,16 +1,29 @@
 import "server-only";
 import { serverEnv } from "@/lib/env";
 
+export interface SendResult {
+  sent: boolean;
+  /** Provider not configured — the email was NOT delivered. */
+  skipped?: boolean;
+  /** Provider message id on acceptance. */
+  providerId?: string | null;
+  /** 4xx (except 429): retrying the same payload will not succeed. */
+  permanent?: boolean;
+  error?: string;
+}
+
 /**
  * Minimal Resend client over fetch — no extra dependency.
- * If RESEND_API_KEY is not configured, email is skipped silently so the app
- * keeps working in development and before the email provider is wired up.
+ * If RESEND_API_KEY is not configured the send is skipped and reported as
+ * such; callers must never treat a skipped send as delivered (Prompt 2).
+ * Logs never include recipient content — only subject and status.
  */
 export async function sendEmail(args: {
   to: string;
   subject: string;
   html: string;
-}): Promise<{ sent: boolean; skipped?: boolean }> {
+  text?: string;
+}): Promise<SendResult> {
   const apiKey = serverEnv.resendApiKey;
   if (!apiKey) {
     console.warn("[email] RESEND_API_KEY not set — skipping", {
@@ -31,18 +44,21 @@ export async function sendEmail(args: {
         to: args.to,
         subject: args.subject,
         html: args.html,
+        ...(args.text ? { text: args.text } : {}),
       }),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       console.error("[email] Resend send failed", { status: res.status, text });
-      return { sent: false };
+      const permanent = res.status >= 400 && res.status < 500 && res.status !== 429;
+      return { sent: false, permanent, error: `provider ${res.status}` };
     }
-    return { sent: true };
+    const body = (await res.json().catch(() => null)) as { id?: string } | null;
+    return { sent: true, providerId: body?.id ?? null };
   } catch (err) {
     console.error("[email] Resend request threw", {
       message: err instanceof Error ? err.message : "unknown",
     });
-    return { sent: false };
+    return { sent: false, error: "network error" };
   }
 }
