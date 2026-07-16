@@ -573,7 +573,10 @@ export function OnboardingWizard() {
         )}
 
         {error && (
-          <div className="mt-4 rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]">
+          <div
+            role="alert"
+            className="mt-4 rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]"
+          >
             {error}
           </div>
         )}

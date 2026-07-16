@@ -169,7 +169,10 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
       </div>
 
       {error && (
-        <div className="rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]">
+        <div
+          role="alert"
+          className="rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]"
+        >
           {error}
         </div>
       )}

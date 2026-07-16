@@ -294,7 +294,11 @@ export function TodayPlanV2({
       </div>
 
       {message && (
-        <div className="rounded-xl bg-[#EEF2FF] px-4 py-3 text-sm text-[#1F2937]">
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-xl bg-[#EEF2FF] px-4 py-3 text-sm text-[#1F2937]"
+        >
           {message}
         </div>
       )}
