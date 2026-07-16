@@ -4,15 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
 import { serverEnv } from "@/lib/env";
-import { ACTIVE_STATUSES, TRIAL_DAYS } from "@/lib/stripe/plans";
+import { entitlementFor, TRIAL_DAYS } from "@/lib/stripe/plans";
 
 const CheckoutInput = z.object({
   interval: z.enum(["monthly", "yearly"]),
 });
-
-// Statuses that mean the user already has (or is mid-creating) a subscription
-// and must not open a second checkout. Superset of ACTIVE_STATUSES.
-const BLOCKING_STATUSES = [...ACTIVE_STATUSES, "incomplete", "past_due"];
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -49,7 +45,9 @@ export async function POST(request: Request) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (sub?.status && BLOCKING_STATUSES.includes(sub.status)) {
+  // Canonical entitlement matrix decides whether a new checkout is allowed
+  // (blocks trialing/active/incomplete/past_due/unpaid; allows none/canceled).
+  if (!entitlementFor(sub?.status ?? "none").checkout) {
     return NextResponse.json({ error: "already_subscribed" }, { status: 400 });
   }
 

@@ -38,8 +38,58 @@ export const PLAN_LIMITS = {
  */
 export const ACTIVE_STATUSES = ["trialing", "active"];
 
+/**
+ * Canonical entitlement matrix (Prompt 3, audit v5). Every Stripe status the
+ * app can store maps to explicit read/generate access — UI, AI guards,
+ * billing page and checkout must all derive from this, never re-derive
+ * status logic locally.
+ *
+ * - read: the user can view their existing data (always true — we never lock
+ *   people out of their own wellbeing history).
+ * - generate: premium AI generation (daily/weekly plans etc.).
+ * - checkout: user may start a (new) checkout from this state.
+ */
+export type EntitlementStatus =
+  | "none"
+  | "incomplete"
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "unpaid"
+  | "canceled";
+
+export interface Entitlement {
+  read: true;
+  generate: boolean;
+  checkout: boolean;
+}
+
+const ENTITLEMENTS: Record<EntitlementStatus, Entitlement> = {
+  none: { read: true, generate: false, checkout: true },
+  // incomplete = customer row created but checkout never completed (abandoned
+  // or payment failed at creation). Allow retrying checkout — the per-user
+  // idempotency key prevents duplicate subscriptions.
+  incomplete: { read: true, generate: false, checkout: true },
+  trialing: { read: true, generate: true, checkout: false },
+  active: { read: true, generate: true, checkout: false },
+  // past_due keeps read access; new premium generations wait for recovery.
+  past_due: { read: true, generate: false, checkout: false },
+  unpaid: { read: true, generate: false, checkout: false },
+  canceled: { read: true, generate: false, checkout: true },
+};
+
+export function entitlementFor(status: string | null | undefined): Entitlement {
+  // cancel_at_period_end does not change entitlement — the user stays
+  // trialing/active until Stripe transitions the status itself.
+  if (status && status in ENTITLEMENTS) {
+    return ENTITLEMENTS[status as EntitlementStatus];
+  }
+  // Unknown/unmapped status: fail closed for generation, allow nothing new.
+  return { read: true, generate: false, checkout: false };
+}
+
 export const PREMIUM_FEATURES: readonly string[] = [
-  "Unlimited personalized daily plans",
+  "Personalized daily plans, with fair-use safeguards",
   "Weekly reset with meal rhythm & shopping list",
   "Low-energy day mode",
   "Journal reflections",

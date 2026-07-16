@@ -21,6 +21,7 @@ export function UpgradeButton({
   label,
   amount,
   cadence,
+  trialEligible,
   highlight = false,
 }: {
   interval: "monthly" | "yearly";
@@ -29,6 +30,8 @@ export function UpgradeButton({
   amount: string;
   /** e.g. "/month" — shown after the amount. */
   cadence: string;
+  /** Server-derived: false when the user already consumed their one trial. */
+  trialEligible?: boolean;
   highlight?: boolean;
 }) {
   const router = useRouter();
@@ -78,10 +81,10 @@ export function UpgradeButton({
       <div className="rounded-xl border border-[#E5E1DA] bg-[#FAF7F2] p-4 text-sm">
         {confirm.trial ? (
           <p className="text-[#1F2937]">
-            You won&apos;t be charged today. Your {TRIAL_DAYS}-day free trial ends{" "}
-            <strong>{formatChargeDate(TRIAL_DAYS)}</strong>, when your first payment
-            of <strong>{amount}</strong>
-            {cadence} begins. Cancel anytime before then.
+            Payment method required. You&apos;ll be charged{" "}
+            <strong>{amount}</strong>
+            {cadence} on <strong>{formatChargeDate(TRIAL_DAYS)}</strong> unless
+            you cancel before then. Your subscription renews automatically.
           </p>
         ) : (
           <p className="text-[#1F2937]">
@@ -114,6 +117,13 @@ export function UpgradeButton({
         {loading && <Loader2 className="h-4 w-4 animate-spin" />}
         {label}
       </button>
+      {trialEligible !== false && (
+        <p className="mt-2 text-xs text-[#6B7280]">
+          Payment method required. Cancel before{" "}
+          {formatChargeDate(TRIAL_DAYS)} to avoid the {amount}
+          {cadence} charge.
+        </p>
+      )}
       {error && <p className="mt-2 text-xs text-[#991B1B]">{error}</p>}
     </div>
   );
