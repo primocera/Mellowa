@@ -36,29 +36,29 @@ describe("requireBearerSecret (Prompt 1, fail-closed)", () => {
 });
 
 describe("missingOperationalSecrets (deploy validation)", () => {
-  it("requires CRON_SECRET and ADMIN_STATS_SECRET in production", () => {
-    expect(missingOperationalSecrets({ NODE_ENV: "production" })).toEqual([
+  it("requires CRON_SECRET and ADMIN_STATS_SECRET on Vercel production", () => {
+    expect(missingOperationalSecrets({ VERCEL_ENV: "production" })).toEqual([
       "CRON_SECRET",
       "ADMIN_STATS_SECRET",
     ]);
     expect(
       missingOperationalSecrets({
-        NODE_ENV: "production",
+        VERCEL_ENV: "production",
         CRON_SECRET: "a",
       })
     ).toEqual(["ADMIN_STATS_SECRET"]);
     expect(
       missingOperationalSecrets({
-        NODE_ENV: "production",
+        VERCEL_ENV: "production",
         CRON_SECRET: "a",
         ADMIN_STATS_SECRET: "b",
       })
     ).toEqual([]);
   });
 
-  it("does not require secrets in development, test or preview", () => {
+  it("does not block local prod builds, CI or preview deployments", () => {
+    expect(missingOperationalSecrets({ NODE_ENV: "production" })).toEqual([]);
     expect(missingOperationalSecrets({ NODE_ENV: "development" })).toEqual([]);
-    expect(missingOperationalSecrets({ NODE_ENV: "test" })).toEqual([]);
     expect(
       missingOperationalSecrets({ NODE_ENV: "production", VERCEL_ENV: "preview" })
     ).toEqual([]);

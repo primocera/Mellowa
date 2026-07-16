@@ -44,7 +44,10 @@ function constantTimeEquals(a: string, b: string): boolean {
 export function missingOperationalSecrets(
   env: Record<string, string | undefined> = process.env
 ): string[] {
-  if (env.NODE_ENV !== "production" || env.VERCEL_ENV === "preview") return [];
+  // Enforce only on real production deployments (Vercel production). Local
+  // `next start` and CI also run with NODE_ENV=production but expose nothing
+  // publicly — routes still fail closed there via requireBearerSecret.
+  if (env.VERCEL_ENV !== "production") return [];
   const requiredNames = ["CRON_SECRET", "ADMIN_STATS_SECRET"];
   return requiredNames.filter((name) => !env[name]);
 }
