@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -11,6 +11,15 @@ import {
 } from "@/schemas/wellbeing";
 import clsx from "clsx";
 import { normalizeAllergies } from "@/lib/safety/allergens";
+import {
+  validateSleepWindow,
+  detectMedicalNutritionSignal,
+  MEDICAL_NUTRITION_MESSAGE,
+} from "@/lib/onboarding/validation";
+
+// Prompt 12: resume an interrupted first run. The draft is non-sensitive
+// onboarding input; we clear it as soon as the profile is saved.
+const DRAFT_KEY = "mellowa.onboarding.draft.v1";
 
 const STEPS = [
   "Your rhythm",
@@ -168,13 +177,53 @@ export function OnboardingWizard() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Resume a previous draft on mount, then persist on every change so a
+  // refresh doesn't lose work. `loaded` gates persistence until after the
+  // one-time read, so we never overwrite a saved draft with the initial state.
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    let restored: Partial<Draft> | null = null;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) restored = JSON.parse(raw) as Partial<Draft>;
+    } catch {
+      /* ignore malformed drafts */
+    }
+    // One-time hydration from storage — the documented exception to the
+    // no-setState-in-effect rule (react.dev "you might not need an effect").
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (restored) setDraft((d) => ({ ...d, ...restored }));
+    setLoaded(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+  useEffect(() => {
+    if (!loaded) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    } catch {
+      /* storage may be unavailable; onboarding still works in-memory */
+    }
+  }, [draft, loaded]);
+
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
+
+  const sleepWindow = validateSleepWindow(draft.wake_time, draft.sleep_time);
+  const medicalSignal = detectMedicalNutritionSignal(
+    draft.food_preferences,
+    draft.allergies,
+    draft.disliked_ingredients
+  );
 
   const stepValid = () => {
     switch (step) {
       case 0:
-        return draft.wake_time && draft.sleep_time && draft.work_schedule.trim();
+        return (
+          !!draft.wake_time &&
+          !!draft.sleep_time &&
+          !!draft.work_schedule.trim() &&
+          sleepWindow.ok
+        );
       case 1:
         return !!draft.primary_goal;
       case 2:
@@ -264,6 +313,11 @@ export function OnboardingWizard() {
       return;
     }
 
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      /* best effort */
+    }
     router.push("/check-in");
     router.refresh();
   }
@@ -324,6 +378,9 @@ export function OnboardingWizard() {
                 className="w-full rounded-xl border border-[#E5E1DA] px-4 py-3 text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
               />
             </div>
+            {draft.wake_time && draft.sleep_time && !sleepWindow.ok && (
+              <p className="text-xs text-[#B45309]">{sleepWindow.message}</p>
+            )}
           </div>
         )}
 
@@ -343,6 +400,11 @@ export function OnboardingWizard() {
         {step === 2 && (
           <div className="space-y-5">
             <h2 className="text-lg font-semibold text-[#1F2937]">Food, simply</h2>
+            {medicalSignal && (
+              <div className="rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]">
+                {MEDICAL_NUTRITION_MESSAGE}
+              </div>
+            )}
             <div>
               <label className="mb-1 block text-sm font-medium text-[#1F2937]">
                 Food preferences <span className="font-normal text-[#6B7280]">(comma separated, optional)</span>
@@ -483,6 +545,12 @@ export function OnboardingWizard() {
               eating disorder concerns, pregnancy, severe mental health symptoms or
               emergencies, please seek qualified professional support.
             </div>
+            <p className="text-xs leading-relaxed text-[#6B7280]">
+              How your answers are used: the rhythm, food and baseline details you
+              share are sent to our AI provider to generate your personal plans.
+              They&apos;re never used to advertise to you, and you can export or
+              delete everything at any time from You → Your data.
+            </p>
             <label className="flex cursor-pointer items-start gap-3 text-sm text-[#1F2937]">
               <input
                 type="checkbox"
