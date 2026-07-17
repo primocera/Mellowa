@@ -8,6 +8,11 @@ import { AiGenerationError } from "@/lib/ai/errors";
 import { canUsePremiumFeature, canGenerateWeeklyPlan } from "@/lib/stripe/subscription";
 import { claimAiGeneration } from "@/lib/ai/rate-limit";
 import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
+import {
+  claimGenerationRequest,
+  finishGenerationRequest,
+  isValidIdempotencyKey,
+} from "@/lib/ai/idempotency";
 import type { DailyCheckin, WellbeingProfile } from "@/types/dailyflow";
 
 export async function POST(request: Request) {
@@ -45,9 +50,47 @@ export async function POST(request: Request) {
     );
   }
 
+  // Idempotency (v6 Prompt 7): one provider call per intentional request,
+  // keyed per user/week so concurrent duplicates converge.
+  const idemKey = request.headers.get("x-idempotency-key");
+  const weekStartForClaim = format(
+    startOfWeek(new Date(), { weekStartsOn: 1 }),
+    "yyyy-MM-dd"
+  );
+  let requestId: string | null = null;
+  if (isValidIdempotencyKey(idemKey)) {
+    const idemClaim = await claimGenerationRequest(supabase, {
+      userId: user.id,
+      route: "weekly-plan",
+      idempotencyKey: idemKey,
+      localDate: weekStartForClaim,
+    });
+    if (!idemClaim.claimed) {
+      if (idemClaim.status === "succeeded" && idemClaim.resultId) {
+        const { data: existing } = await supabase
+          .from("weekly_plans")
+          .select("*")
+          .eq("id", idemClaim.resultId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (existing) {
+          return NextResponse.json({ blocked: false, plan: existing, deduplicated: true });
+        }
+      }
+      return NextResponse.json(
+        { error: "generation_in_progress", status: "in_progress" },
+        { status: 409 }
+      );
+    }
+    requestId = idemClaim.requestId;
+  }
+  const finish = (status: "succeeded" | "failed", resultId?: string | null) =>
+    finishGenerationRequest(supabase, { requestId, userId: user.id, status, resultId });
+
   // Abuse guard — atomic per-user rate limit + global cost ceiling.
   const claim = await claimAiGeneration(user.id, "weekly-plan");
   if (!claim.ok) {
+    await finish("failed");
     if (claim.scope === "capacity") {
       return NextResponse.json(
         {
@@ -74,6 +117,7 @@ export async function POST(request: Request) {
 
   const parsed = WeeklyPlanInput.safeParse(body ?? {});
   if (!parsed.success) {
+    await finish("failed");
     return NextResponse.json(
       { error: "Invalid input", issues: parsed.error.issues },
       { status: 400 }
@@ -85,6 +129,7 @@ export async function POST(request: Request) {
   if (notes) {
     const safety = await checkInputSafety(user.id, "weekly-plan", notes);
     if (safety.should_block_generation) {
+      await finish("failed");
       return NextResponse.json(
         { blocked: true, user_message: safety.user_message },
         { status: 200 }
@@ -120,6 +165,7 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     const code = err instanceof AiGenerationError ? err.code : "provider_error";
+    await finish("failed");
     return NextResponse.json(
       { error: "Weekly plan generation failed", code },
       { status: 502 }
@@ -144,8 +190,10 @@ export async function POST(request: Request) {
     .single();
 
   if (saveError) {
+    await finish("failed");
     return NextResponse.json({ error: "Failed to save weekly plan" }, { status: 500 });
   }
 
+  await finish("succeeded", saved.id);
   return NextResponse.json({ blocked: false, plan: saved });
 }

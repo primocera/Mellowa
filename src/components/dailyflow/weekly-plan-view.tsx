@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Copy, Check, Feather, CalendarPlus } from "lucide-react";
 import type { WeeklyPlan } from "@/types/dailyflow";
@@ -25,20 +25,26 @@ function GenerateButton({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const idemKey = useRef<string | null>(null);
 
   async function generate() {
     setLoading(true);
     setMessage(null);
+    if (!idemKey.current) idemKey.current = crypto.randomUUID();
     try {
       const res = await fetch("/api/ai/weekly-plan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": idemKey.current,
+        },
         body: JSON.stringify({ notes: notes ?? "" }),
       });
       const data = await res.json();
       if (data.blocked) {
         setMessage(data.user_message);
       } else if (res.ok) {
+        idemKey.current = null;
         router.refresh();
       } else if (res.status === 402) {
         setMessage(

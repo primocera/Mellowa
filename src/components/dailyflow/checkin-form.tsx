@@ -123,6 +123,9 @@ export function CheckinForm() {
   const [error, setError] = useState<string | null>(null);
   const [safetyMessage, setSafetyMessage] = useState<string | null>(null);
   const restored = useRef(false);
+  // Stable per submission attempt: double clicks and retries of the same
+  // submit reuse one key so the server generates at most once (v6 Prompt 7).
+  const idemKey = useRef<string | null>(null);
 
   // Restore + autosave draft (today only), so an interruption loses nothing.
   // localStorage is unavailable during SSR, so the restore must happen in a
@@ -158,6 +161,7 @@ export function CheckinForm() {
     setError(null);
     setSafetyMessage(null);
     setLoading(kind);
+    if (!idemKey.current) idemKey.current = crypto.randomUUID();
 
     const payload =
       kind === "skip"
@@ -185,7 +189,10 @@ export function CheckinForm() {
     try {
       const res = await fetch("/api/ai/daily-plan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": idemKey.current,
+        },
         body: JSON.stringify({
           ...payload,
           local_date: localDate(),
@@ -217,6 +224,7 @@ export function CheckinForm() {
         return;
       }
 
+      idemKey.current = null;
       try {
         localStorage.removeItem(DRAFT_KEY);
       } catch {

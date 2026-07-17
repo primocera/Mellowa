@@ -30,6 +30,11 @@ import { canGenerateDailyPlan } from "@/lib/stripe/subscription";
 import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
 import { resolvePlanDate } from "@/lib/dates/local-day";
 import { guardAiRoute } from "@/lib/ai/guard";
+import {
+  claimGenerationRequest,
+  finishGenerationRequest,
+  isValidIdempotencyKey,
+} from "@/lib/ai/idempotency";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
 export async function POST(request: Request) {
@@ -85,12 +90,47 @@ export async function POST(request: Request) {
     );
   }
 
+  // Idempotency (v6 Prompt 7): duplicate concurrent/retried requests converge
+  // on one claim so a double click can never launch two provider calls.
+  const idemKey = request.headers.get("x-idempotency-key");
+  let requestId: string | null = null;
+  if (isValidIdempotencyKey(idemKey)) {
+    const claim = await claimGenerationRequest(supabase, {
+      userId: user.id,
+      route: "daily-plan",
+      idempotencyKey: idemKey,
+    });
+    if (!claim.claimed) {
+      if (claim.status === "succeeded" && claim.resultId) {
+        const { data: existing } = await supabase
+          .from("daily_plans")
+          .select("*")
+          .eq("id", claim.resultId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (existing) {
+          return NextResponse.json({ blocked: false, plan: existing, deduplicated: true });
+        }
+      }
+      return NextResponse.json(
+        { error: "generation_in_progress", status: "in_progress" },
+        { status: 409 }
+      );
+    }
+    requestId = claim.requestId;
+  }
+  const finish = (status: "succeeded" | "failed", resultId?: string | null) =>
+    finishGenerationRequest(supabase, { requestId, userId: user.id, status, resultId });
+
   // Abuse guard — rate limit (sample allowance already checked above).
   const guard = await guardAiRoute(user.id, {
     requirePremium: false,
     route: "daily-plan",
   });
-  if (guard) return guard;
+  if (guard) {
+    await finish("failed");
+    return guard;
+  }
 
   // 4. Safety check BEFORE any generation
   const freeText = [checkin.today_focus, checkin.notes, checkin.hunger_pattern]
@@ -105,6 +145,7 @@ export async function POST(request: Request) {
 
   // 5. Blocked → return safety message, no plan
   if (safety.should_block_generation) {
+    await finish("failed");
     return NextResponse.json(
       { blocked: true, user_message: safety.user_message },
       { status: 200 }
@@ -139,6 +180,7 @@ export async function POST(request: Request) {
     .single();
 
   if (checkinError) {
+    await finish("failed");
     return NextResponse.json(
       { error: "Failed to save check-in" },
       { status: 500 }
@@ -212,6 +254,7 @@ export async function POST(request: Request) {
         stress_level: checkin.stress_level,
       });
       if (!retryQuality.ok) {
+        await finish("failed");
         return NextResponse.json(
           { error: "quality_check_failed", reasons: retryQuality.reasons },
           { status: 502 }
@@ -246,6 +289,7 @@ export async function POST(request: Request) {
               v.violations.map((x) => x.category)
             ),
           });
+          await finish("failed");
           return NextResponse.json(
             {
               error: "allergen_check_failed",
@@ -272,6 +316,7 @@ export async function POST(request: Request) {
       plan = buildFallbackDailyPlan();
       trackEvent("plan_fallback_served", user.id);
     } else {
+      await finish("failed");
       return NextResponse.json(
         { error: "Plan generation failed", code },
         { status: 502 }
@@ -327,6 +372,7 @@ export async function POST(request: Request) {
     .single();
 
   if (planError) {
+    await finish("failed");
     return NextResponse.json({ error: "Failed to save plan" }, { status: 500 });
   }
 
@@ -361,6 +407,7 @@ export async function POST(request: Request) {
   }
 
   // 10. Return the saved plan
+  await finish("succeeded", savedPlan.id);
   trackEvent("checkin_completed", user.id);
   trackEvent("plan_generated", user.id);
   return NextResponse.json({ blocked: false, plan: savedPlan });

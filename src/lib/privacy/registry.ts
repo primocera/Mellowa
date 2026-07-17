@@ -43,6 +43,7 @@ export const USER_DATA_REGISTRY: UserTable[] = [
   { table: "email_deliveries", column: "user_id", onDelete: "cascade" },
   { table: "user_consents", column: "user_id", onDelete: "cascade" },
   { table: "subscriptions", column: "user_id", onDelete: "cascade" },
+  { table: "generation_requests", column: "user_id", onDelete: "cascade" },
 ];
 
 /**
