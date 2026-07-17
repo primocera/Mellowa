@@ -42,6 +42,23 @@ Requires migration `021_mellowa_v6_email_outbox.sql`. Rows created before 021
 have no stored payload and are dead-lettered with
 `last_error = "no stored payload to replay"` on first claim.
 
+## Health checks and free-tier alerting (v6, Prompt 5)
+
+- `GET /api/health` — public liveness: `{ ok, version }`, no dependencies.
+- `GET /api/health/ready` — deep readiness behind
+  `Authorization: Bearer <ADMIN_STATS_SECRET>`: database reachability,
+  v6 migrations (020/021), email/Stripe/AI/cron config presence.
+  Returns 503 when any component fails; components report only
+  ok / fail / not_configured — never details.
+
+Free alerting setup (UptimeRobot or similar):
+1. Monitor `https://mellowa.app/api/health` (interval 5 min) — alerts on
+   downtime.
+2. Monitor `https://mellowa.app/api/health/ready` with the bearer header
+   (custom HTTP monitor) — alerts on any failing dependency, including a
+   forgotten migration.
+3. Alert channel: owner email (free tier is enough for beta).
+
 ## Manual testing (replace placeholders, never commit real values)
 
 ```sh
