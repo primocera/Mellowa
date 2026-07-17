@@ -198,7 +198,7 @@ export function CheckinForm() {
       if (!res.ok) {
         if (res.status === 402) {
           setError(
-            "You've used your free sample plan. Start your 3-day free trial on the Billing page for unlimited daily plans."
+            "You've used your free sample plan. Start 3 days free on the Billing page to keep creating daily plans."
           );
         } else {
           setError(

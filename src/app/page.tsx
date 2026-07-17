@@ -50,8 +50,12 @@ const FAQ = [
     a: "About a minute. Four quick sliders and an optional note — then your plan is ready.",
   },
   {
-    q: "How does the free trial work?",
-    a: "You start with 3 days free. After the trial, your plan continues at €9.99/month or €59.99/year unless you cancel. You can cancel anytime before your trial ends — no charge.",
+    q: "What does the free sample include?",
+    a: "One personalized day plan after a short setup. No payment method is required for the sample.",
+  },
+  {
+    q: "When does the 3-day trial begin?",
+    a: "Only after you choose Monthly or Yearly and continue to secure checkout. A payment method is required, and you'll see the exact charge date before you continue. After the trial, your plan continues at €9.99/month or €59.99/year unless you cancel first.",
   },
 ];
 
@@ -92,7 +96,7 @@ export default function LandingPage() {
             href="/signup"
             className="rounded-xl bg-[#7C9A92] px-6 py-3.5 font-medium text-white transition hover:bg-[#6D8C7D]"
           >
-            Start my 3-day free trial
+            Create my free sample plan
           </Link>
           <a
             href="#how-it-works"
@@ -102,7 +106,8 @@ export default function LandingPage() {
           </a>
         </div>
         <p className="mt-4 text-sm text-[#9CA3AF]">
-          Then €9.99/month or €59.99/year. Cancel anytime before your trial ends.
+          No card for the sample. Premium starts with a 3-day trial when you
+          choose a plan.
         </p>
       </section>
 
@@ -205,10 +210,12 @@ export default function LandingPage() {
       {/* 8. Pricing preview */}
       <section className="mx-auto max-w-3xl px-6 py-12 text-center">
         <h2 className="text-2xl font-semibold tracking-tight">
-          Start with 3 days free.
+          See one day before you choose a plan.
         </h2>
         <p className="mt-2 text-[#6B7280]">
-          Then €9.99/month or €59.99/year. Cancel anytime before your trial ends.
+          Create a free sample day without a card. If the structure feels
+          useful, Premium starts with a 3-day trial when you choose Monthly or
+          Yearly.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-4">
           <Link
@@ -221,7 +228,7 @@ export default function LandingPage() {
             </p>
             <p className="mt-1 text-sm text-[#6B7280]">3 days free, then monthly.</p>
             <span className="mt-4 inline-block rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white">
-              Start free trial
+              Start with a free sample
             </span>
           </Link>
           <Link
@@ -239,7 +246,7 @@ export default function LandingPage() {
             </p>
             <p className="mt-1 text-sm text-[#6B7280]">Best value. 3 days free.</p>
             <span className="mt-4 inline-block rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white">
-              Start free trial
+              Start with a free sample
             </span>
           </Link>
         </div>
@@ -280,7 +287,7 @@ export default function LandingPage() {
           href="/signup"
           className="mt-6 inline-block rounded-xl bg-[#7C9A92] px-6 py-3.5 font-medium text-white transition hover:bg-[#6D8C7D]"
         >
-          Start my 3-day free trial
+          Create my free sample plan
         </Link>
       </section>
 

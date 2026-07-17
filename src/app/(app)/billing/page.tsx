@@ -97,9 +97,9 @@ export default async function BillingPage() {
             ) : (
               <>
                 <p className="mt-3 text-sm text-[#6B7280]">
-                  Start your 3-day free trial to unlock unlimited daily plans,
-                  weekly reset, meal rhythm, journal reflections and progress
-                  insights.
+                  Start your 3-day free trial to unlock personalized daily
+                  plans with fair-use safeguards, weekly reset, meal rhythm,
+                  journal reflections and progress insights.
                 </p>
                 <div className="mt-4 space-y-2">
                   <UpgradeButton
