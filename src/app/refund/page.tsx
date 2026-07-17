@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal/legal-page";
+import { readLegalConfig } from "@/lib/legal/config";
 
 export const metadata: Metadata = {
   title: "Refund & Cancellation Policy — Mellowa",
@@ -7,6 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default function RefundPage() {
+  const legal = readLegalConfig();
   return (
     <LegalPage title="Refund & Cancellation Policy" lastUpdated="July 2026">
       <p>
@@ -14,11 +16,12 @@ export default function RefundPage() {
         trial, cancellations and refunds work.
       </p>
 
-      <LegalSection heading="3-day free trial">
+      <LegalSection heading="Free sample and 3-day trial">
         <p>
-          Every new subscription starts with a 3-day free trial. You will not be
-          charged during the trial. If you cancel before the trial ends, you pay
-          nothing.
+          One free sample day plan is available without a payment method. Every
+          new subscription then starts with a 3-day free trial when you choose a
+          plan at checkout. You will not be charged during the trial. If you
+          cancel before the trial ends, you pay nothing.
         </p>
       </LegalSection>
 
@@ -46,8 +49,8 @@ export default function RefundPage() {
       <LegalSection heading="How to request">
         <p>
           Email{" "}
-          <a href="mailto:support@mellowa.app" className="text-[#6D8C7D] underline">
-            support@mellowa.app
+          <a href={`mailto:${legal.supportEmail}`} className="text-[#6D8C7D] underline">
+            {legal.supportEmail}
           </a>{" "}
           with the email on your account. We aim to reply within a few business
           days.

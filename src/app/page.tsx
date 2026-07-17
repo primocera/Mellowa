@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { readLegalConfig } from "@/lib/legal/config";
 import {
   UtensilsCrossed,
   Droplets,
@@ -302,7 +303,10 @@ export default function LandingPage() {
           <Link href="/refund" className="hover:text-[#6D8C7D]">
             Refunds
           </Link>
-          <a href="mailto:support@mellowa.app" className="hover:text-[#6D8C7D]">
+          <a
+            href={`mailto:${readLegalConfig().supportEmail}`}
+            className="hover:text-[#6D8C7D]"
+          >
             Support
           </a>
         </div>

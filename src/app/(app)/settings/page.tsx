@@ -6,6 +6,7 @@ import { PlanPreferencesForm } from "@/components/dailyflow/plan-preferences-for
 import { AccountDataControls } from "@/components/dailyflow/account-data-controls";
 import { MellowaLearned } from "@/components/dailyflow/mellowa-learned";
 import type { WellbeingProfile } from "@/types/dailyflow";
+import { readLegalConfig } from "@/lib/legal/config";
 
 export const metadata: Metadata = { title: "Settings — Mellowa" };
 
@@ -125,13 +126,13 @@ export default async function SettingsPage() {
         <h2 className="font-medium text-[#1F2937]">Support</h2>
         <p className="mt-1 text-sm text-[#6B7280]">
           Questions, billing issues or feedback? We usually reply within two
-          business days.
+          business days. This inbox is not monitored for emergencies.
         </p>
         <a
-          href="mailto:support@mellowa.app"
+          href={`mailto:${readLegalConfig().supportEmail}`}
           className="mt-4 inline-block rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm font-medium text-[#1F2937] transition hover:border-[#7C9A92]/50"
         >
-          Email support@mellowa.app
+          Email {readLegalConfig().supportEmail}
         </a>
       </div>
 

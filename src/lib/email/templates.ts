@@ -1,4 +1,5 @@
 import { serverEnv } from "@/lib/env";
+import { readLegalConfig } from "@/lib/legal/config";
 
 /**
  * Lifecycle email templates. Calm, warm, non-clinical — matching Mellowa's
@@ -18,6 +19,10 @@ function shell(bodyHtml: string): string {
     <p style="font-size:12px;color:${MUTED};line-height:1.6;margin:0;">
       Mellowa is a wellbeing app — not medical care, therapy or emergency support.
       If you're in crisis, please contact your local emergency services.
+    </p>
+    <p style="font-size:12px;color:${MUTED};line-height:1.6;margin:8px 0 0;">
+      Questions? Contact <a href="mailto:${readLegalConfig().supportEmail}" style="color:${BRAND};">${readLegalConfig().supportEmail}</a>.
+      This inbox is not monitored for emergencies.
     </p>
   </div>
 </body></html>`;

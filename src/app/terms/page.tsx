@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal/legal-page";
+import { readLegalConfig } from "@/lib/legal/config";
+import { POLICY_VERSIONS } from "@/lib/consent/config";
 
 export const metadata: Metadata = {
   title: "Terms of Service — Mellowa",
@@ -7,8 +9,13 @@ export const metadata: Metadata = {
 };
 
 export default function TermsPage() {
+  const legal = readLegalConfig();
   return (
-    <LegalPage title="Terms of Service" lastUpdated="July 2026">
+    <LegalPage
+      title="Terms of Service"
+      lastUpdated="July 2026"
+      version={POLICY_VERSIONS.terms}
+    >
       <p>
         By creating a Mellowa account you agree to these terms. Please read them
         together with our Privacy Policy and Refund Policy.
@@ -33,12 +40,15 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="Subscriptions &amp; free trial">
+      <LegalSection heading="Free sample, subscriptions &amp; trial">
         <p>
-          Mellowa is offered as a paid subscription (monthly or yearly) with a
-          3-day free trial. Your chosen plan begins billing automatically when the
-          trial ends unless you cancel beforehand. You can cancel any time from
-          your billing settings; cancellation stops future renewals.
+          New accounts can create one free sample day plan without a payment
+          method. Mellowa is otherwise offered as a paid subscription (monthly
+          or yearly) with a 3-day free trial that starts only when you choose a
+          plan and add a payment method at checkout. Your chosen plan begins
+          billing automatically when the trial ends unless you cancel
+          beforehand. You can cancel any time from your billing settings;
+          cancellation stops future renewals.
         </p>
       </LegalSection>
 
@@ -70,10 +80,10 @@ export default function TermsPage() {
       <LegalSection heading="Contact">
         <p>
           Questions? Email{" "}
-          <a href="mailto:support@mellowa.app" className="text-[#6D8C7D] underline">
-            support@mellowa.app
+          <a href={`mailto:${legal.supportEmail}`} className="text-[#6D8C7D] underline">
+            {legal.supportEmail}
           </a>
-          .
+          . This inbox is not monitored for emergencies.
         </p>
       </LegalSection>
     </LegalPage>
