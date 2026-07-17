@@ -51,3 +51,6 @@ PROGRESS.md
 /test-results/
 /playwright-report/
 
+
+# playbook working files (never commit)
+/playbooks/
