@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import { AuthForm } from "@/components/forms/auth-form";
+import { parsePlanIntent, sanitizeNextPath } from "@/lib/auth/intent";
 
 export const metadata: Metadata = { title: "Log in — Mellowa" };
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reset?: string }>;
+  searchParams: Promise<{ reset?: string; error?: string; plan?: string; next?: string }>;
 }) {
-  const { reset } = await searchParams;
+  const { reset, error, plan, next } = await searchParams;
 
   return (
     <div className="space-y-4">
@@ -17,7 +18,17 @@ export default async function LoginPage({
           Your password has been updated. You can log in now.
         </div>
       )}
-      <AuthForm mode="login" />
+      {error === "verify_link_invalid" && (
+        <div className="rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]">
+          That verification link didn&rsquo;t work. Log in, or sign up again to
+          get a new one.
+        </div>
+      )}
+      <AuthForm
+        mode="login"
+        plan={parsePlanIntent(plan)}
+        next={sanitizeNextPath(next)}
+      />
     </div>
   );
 }
