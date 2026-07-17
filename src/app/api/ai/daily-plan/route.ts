@@ -82,7 +82,8 @@ export async function POST(request: Request) {
   }
   const checkin = parsed.data;
 
-  // Plan gate — sample tier gets one lifetime preview, premium is unlimited.
+  // Plan gate — sample tier gets one lifetime preview; premium generates
+  // within fair-use rate limits.
   if (!(await canGenerateDailyPlan(user.id))) {
     return NextResponse.json(
       { error: "limit_reached", scope: "daily_plan" },

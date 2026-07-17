@@ -112,7 +112,7 @@ export function LowEnergyDayCard() {
               ) : (
                 <Sparkles className="h-4 w-4" />
               )}
-              {loading ? "Making it small..." : "Create my tiny plan"}
+              {loading ? "Making the day simpler..." : "Make today lighter"}
             </button>
             <button
               type="button"
@@ -202,7 +202,7 @@ export function LowEnergyDayCard() {
           </div>
 
           <div className="rounded-xl bg-[#FAF7F2] p-4 text-sm">
-            <p className="font-medium text-[#1F2937]">One tiny habit</p>
+            <p className="font-medium text-[#1F2937]">One small habit</p>
             <p className="mt-1 text-[#6B7280]">
               {plan.one_tiny_habit.habit}{" "}
               <span className="text-[#9CA3AF]">
