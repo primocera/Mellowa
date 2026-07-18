@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { DailyCheckin, Habit, HabitLog } from "@/types/dailyflow";
 import { metricTextSummary } from "@/lib/progress/neutral";
 
-export const metadata: Metadata = { title: "Progress — Mellowa" };
+export const metadata: Metadata = { title: "Patterns — Mellowa" };
 
 const METRICS = [
   { key: "energy_level", label: "Energy" },
@@ -127,10 +127,10 @@ export default async function ProgressPage() {
     <div className="space-y-4">
       <div className="mb-2">
         <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
-          Progress
+          Notice what repeats, without scoring yourself
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
-          Gentle patterns, not report cards. Missed days are part of it.
+          A neutral view of your own check-ins, habits and reflections.
         </p>
         <div className="mt-3 flex gap-2">
           <Link

@@ -19,8 +19,8 @@ const LINKS: HubLink[] = [
   },
   {
     href: "/stress-reset",
-    label: "Calm",
-    description: "Short resets for busy moments.",
+    label: "Resets",
+    description: "Brief practices for everyday tension or overload.",
     icon: Wind,
   },
 ];

@@ -5,7 +5,7 @@ import {
   exerciseMeta,
 } from "@/components/dailyflow/exercise-card";
 
-export const metadata: Metadata = { title: "Stress reset — Mellowa" };
+export const metadata: Metadata = { title: "Resets — Mellowa" };
 
 const CATEGORIES = [
   { key: "breathing", label: "Breathing" },
@@ -18,10 +18,11 @@ export default function StressResetPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
-          Stress reset
+          Resets
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
-          Small calming tools for heavy days. Pick whatever fits the moment.
+          Brief practices for everyday tension or overload. Pick whatever fits
+          the moment.
         </p>
       </div>
 

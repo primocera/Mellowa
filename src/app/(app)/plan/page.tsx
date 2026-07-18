@@ -2,25 +2,25 @@ import type { Metadata } from "next";
 import { CalendarDays, Utensils, ShoppingBasket } from "lucide-react";
 import { HubLinks, type HubLink } from "@/components/layout/hub-links";
 
-export const metadata: Metadata = { title: "Plan — Mellowa" };
+export const metadata: Metadata = { title: "Week — Mellowa" };
 
 const LINKS: HubLink[] = [
   {
     href: "/weekly-plan",
-    label: "Weekly plan",
-    description: "A gentle rhythm for the week ahead.",
+    label: "Week at a glance",
+    description: "See the shape of the days ahead.",
     icon: CalendarDays,
   },
   {
     href: "/meal-rhythm",
     label: "Meal rhythm",
-    description: "Simple meal ideas that fit your days.",
+    description: "Make regular eating easier across different kinds of days.",
     icon: Utensils,
   },
   {
     href: "/weekly-plan#shopping",
     label: "Shopping list",
-    description: "Everything you need, grouped and ready.",
+    description: "Build an editable list from meals you want to use.",
     icon: ShoppingBasket,
   },
 ];
@@ -30,10 +30,11 @@ export default function PlanPage() {
     <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
-          Plan
+          Make the week easier
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
-          Your week, meals and shopping — all in one calm place.
+          A loose structure for meals, routines and shopping—not a schedule you
+          have to follow.
         </p>
       </header>
       <HubLinks links={LINKS} />
