@@ -47,27 +47,30 @@ function Scale({
 }
 
 const TIME_OPTIONS = [
-  "Very little today",
+  "Almost none",
+  "About 10 minutes",
+  "About 20 minutes",
   "About 30 minutes",
-  "1–2 hours",
-  "A fairly open day",
+  "Flexible today",
 ];
 
 const CONTEXT_OPTIONS: { value: string; label: string }[] = [
-  { value: "office", label: "Office day" },
+  { value: "busy", label: "Busy" },
+  { value: "low_capacity", label: "Low capacity" },
+  { value: "out_of_routine", label: "Out of routine" },
   { value: "home", label: "At home" },
-  { value: "caregiving", label: "Caregiving" },
-  { value: "shift", label: "Shift work" },
-  { value: "travel", label: "Travelling" },
-  { value: "irregular", label: "Irregular day" },
+  { value: "on_the_go", label: "On the go" },
+  { value: "social", label: "Social day" },
 ];
 
+// Display copy per CE-7; internal mode values are unchanged ("minimum" renders
+// as "Lightest version").
 const MODE_OPTIONS: { value: string; label: string; hint: string }[] = [
-  { value: "auto", label: "Choose for me", hint: "Based on your check-in" },
-  { value: "minimum", label: "Minimum day", hint: "Just the essentials" },
-  { value: "balanced", label: "Balanced day", hint: "A full gentle rhythm" },
-  { value: "reset", label: "Reset day", hint: "Calm and fewer commitments" },
-  { value: "custom", label: "Custom", hint: "Pick your own areas" },
+  { value: "auto", label: "Choose for me", hint: "Based on this check-in" },
+  { value: "minimum", label: "Lightest version", hint: "Only the essentials" },
+  { value: "reset", label: "Reset day", hint: "Less output, more recovery" },
+  { value: "balanced", label: "Balanced day", hint: "Meals plus a few supporting steps" },
+  { value: "custom", label: "Custom", hint: "Choose the areas yourself" },
 ];
 
 const AREA_OPTIONS: { value: string; label: string }[] = [
@@ -210,8 +213,8 @@ export function CheckinForm() {
         } else {
           setError(
             data.error === "onboarding_required"
-              ? "Please finish onboarding first."
-              : "Something went wrong. Please try again."
+              ? "Finish the short setup before creating a plan. Your check-in draft will stay here."
+              : "Mellowa couldn't shape a new plan just now. Your check-in is saved on this device — try again in a few minutes."
           );
         }
         setLoading(null);
@@ -233,7 +236,9 @@ export function CheckinForm() {
       router.push("/today");
       router.refresh();
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(
+        "Mellowa couldn't shape a new plan just now. Your check-in is saved on this device — try again in a few minutes."
+      );
       setLoading(null);
     }
   }
@@ -259,11 +264,13 @@ export function CheckinForm() {
 
   return (
     <div className="space-y-5 rounded-2xl bg-white p-6 shadow-sm sm:p-8">
-      <Scale label="Energy today" low="Running on empty" high="Feeling great" value={draft.energy} onChange={(v) => set("energy", v)} />
-      <Scale label="Stress" low="Calm" high="Very stressed" value={draft.stress} onChange={(v) => set("stress", v)} />
+      <Scale label="Energy available today" low="Running low" high="Plenty available" value={draft.energy} onChange={(v) => set("energy", v)} />
+      <Scale label="Stress" low="Calm" high="Very stretched" value={draft.stress} onChange={(v) => set("stress", v)} />
 
       <div>
-        <p className="mb-2 text-sm font-medium text-[#1F2937]">Time for yourself today</p>
+        <p className="mb-2 text-sm font-medium text-[#1F2937]">
+          How much room do you have for yourself?
+        </p>
         <div className="grid grid-cols-2 gap-2">
           {TIME_OPTIONS.map((opt) => (
             <button
@@ -308,7 +315,7 @@ export function CheckinForm() {
 
       <div>
         <p className="mb-2 text-sm font-medium text-[#1F2937]">
-          What kind of support would help today?
+          What should the plan prioritize?
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {MODE_OPTIONS.map((opt) => (
@@ -368,7 +375,7 @@ export function CheckinForm() {
         className="flex items-center gap-1 text-sm font-medium text-[#7C9A92]"
       >
         <ChevronDown className={clsx("h-4 w-4 transition", showDetail && "rotate-180")} />
-        Add detail (mood, sleep, notes)
+        Add context only if it would change the plan
       </button>
 
       {showDetail && (
@@ -377,7 +384,7 @@ export function CheckinForm() {
           <Scale label="Last night's sleep" low="Rough" high="Restful" value={draft.sleep} onChange={(v) => set("sleep", v)} />
           <div>
             <label className="mb-1 block text-sm font-medium text-[#1F2937]">
-              How&apos;s your appetite today?
+              How is eating fitting into today?
             </label>
             <input
               type="text"
@@ -389,7 +396,7 @@ export function CheckinForm() {
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-[#1F2937]">
-              One thing you&apos;d like to focus on
+              One thing worth making easier
             </label>
             <input
               type="text"
@@ -401,13 +408,13 @@ export function CheckinForm() {
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-[#1F2937]">
-              Anything else on your mind?
+              Anything else Mellowa should work around?
             </label>
             <textarea
               value={draft.notes}
               onChange={(e) => set("notes", e.target.value)}
               rows={3}
-              placeholder="Totally optional — whatever helps your plan fit today."
+              placeholder="Optional — only if it would change the plan."
               className={inputClass}
             />
           </div>
@@ -426,10 +433,10 @@ export function CheckinForm() {
         {loading === "plan" ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Building a realistic plan for today...
+            Matching the plan to your time and energy…
           </>
         ) : (
-          "Create today's plan"
+          "Shape today's plan"
         )}
       </button>
 
@@ -441,12 +448,12 @@ export function CheckinForm() {
         {loading === "skip" ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Preparing a gentle minimum day...
+            Making the day simpler…
           </>
         ) : (
           <>
             <Feather className="h-4 w-4" />
-            Skip check-in — just give me a Minimum Day
+            Give me the lightest version
           </>
         )}
       </button>

@@ -111,7 +111,22 @@ export const DailyCheckinInput = z.object({
   time_available: z.string().optional().default(""),
   // Prompt 3: day context (never a health condition).
   context: z
-    .enum(["office", "home", "caregiving", "shift", "travel", "irregular", ""])
+    .enum([
+      // CE-7 display set
+      "busy",
+      "low_capacity",
+      "out_of_routine",
+      "home",
+      "on_the_go",
+      "social",
+      // legacy values kept valid for stored check-ins
+      "office",
+      "caregiving",
+      "shift",
+      "travel",
+      "irregular",
+      "",
+    ])
     .optional()
     .default(""),
   // Client-local date + IANA timezone so the plan lands on the user's day.

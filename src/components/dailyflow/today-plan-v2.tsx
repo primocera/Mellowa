@@ -61,7 +61,7 @@ const INTENSITY_LABELS: Record<string, string> = {
 };
 
 const MODE_LABELS: Record<string, string> = {
-  minimum: "Minimum day",
+  minimum: "Lightest version",
   balanced: "Balanced day",
   reset: "Reset day",
   custom: "Your custom day",

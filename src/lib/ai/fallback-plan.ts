@@ -20,7 +20,7 @@ export function buildFallbackDailyPlan(): DailyPlanV2OutputType {
       main_focus: "A calm, simple day",
       energy_match: "Gentle and low-effort",
       short_note:
-        "We couldn't build a custom plan right now, so here's a simple Minimum Day to fall back on.",
+        "We couldn't build a custom plan right now, so here's the lightest useful version to fall back on.",
     },
     plan_intensity: "low_energy",
     plan_mode: "minimum",
