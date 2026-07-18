@@ -6,6 +6,7 @@ import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateWeeklyPlan } from "@/lib/ai/generate-weekly-plan";
 import type { UsageSink } from "@/lib/ai/generate-json";
 import { finalizeAiUsage, releaseReservation } from "@/lib/ai/usage";
+import { promptVersionId } from "@/prompts/versions";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canUsePremiumFeature, canGenerateWeeklyPlan } from "@/lib/stripe/subscription";
 import { claimAiGeneration } from "@/lib/ai/rate-limit";
@@ -16,6 +17,8 @@ import {
   isValidIdempotencyKey,
 } from "@/lib/ai/idempotency";
 import type { DailyCheckin, WellbeingProfile } from "@/types/dailyflow";
+
+const PROMPT_VERSION = promptVersionId("weekly-plan");
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -137,7 +140,7 @@ export async function POST(request: Request) {
     const safety = await checkInputSafety(user.id, "weekly-plan", notes);
     if (safety.should_block_generation) {
       await finish("failed");
-      await finalizeAiUsage(claim.eventId, { status: "safety_blocked" });
+      await finalizeAiUsage(claim.eventId, { status: "safety_blocked", promptVersion: PROMPT_VERSION });
       return NextResponse.json(
         { blocked: true, user_message: safety.user_message },
         { status: 200 }
@@ -179,6 +182,7 @@ export async function POST(request: Request) {
     // is captured in the sink; the provider may have been billed even on failure.
     await finalizeAiUsage(claim.eventId, {
       status: usageSink.usage?.status ?? "provider_error",
+      promptVersion: PROMPT_VERSION,
       usage: usageSink.usage,
     });
     return NextResponse.json(
@@ -208,13 +212,14 @@ export async function POST(request: Request) {
     await finish("failed");
     // The provider call succeeded and was billed, so record the real cost even
     // though persistence failed — the row is truthful, just without a result_id.
-    await finalizeAiUsage(claim.eventId, { status: "success", usage: usageSink.usage });
+    await finalizeAiUsage(claim.eventId, { status: "success", usage: usageSink.usage, promptVersion: PROMPT_VERSION });
     return NextResponse.json({ error: "Failed to save weekly plan" }, { status: 500 });
   }
 
   await finish("succeeded", saved.id);
   await finalizeAiUsage(claim.eventId, {
     status: "success",
+    promptVersion: PROMPT_VERSION,
     usage: usageSink.usage,
     resultId: saved.id,
   });

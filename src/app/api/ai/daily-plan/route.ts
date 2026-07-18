@@ -5,6 +5,7 @@ import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateDailyPlanV2 } from "@/lib/ai/generate-daily-plan-v2";
 import type { UsageSink } from "@/lib/ai/generate-json";
 import { finalizeAiUsage, releaseReservation, type AiUsage } from "@/lib/ai/usage";
+import { promptVersionId } from "@/prompts/versions";
 import { resolvePlanMode, planModeInstruction } from "@/lib/ai/plan-mode";
 import {
   findPlanAllergenViolations,
@@ -38,6 +39,8 @@ import {
   isValidIdempotencyKey,
 } from "@/lib/ai/idempotency";
 import type { WellbeingProfile } from "@/types/dailyflow";
+
+const PROMPT_VERSION = promptVersionId("daily-plan-v2");
 
 export async function POST(request: Request) {
   // 1. Authenticate
@@ -153,7 +156,7 @@ export async function POST(request: Request) {
   // 5. Blocked → return safety message, no plan
   if (safety.should_block_generation) {
     await finish("failed");
-    await finalizeAiUsage(usageEventId, { status: "safety_blocked" });
+    await finalizeAiUsage(usageEventId, { status: "safety_blocked", promptVersion: PROMPT_VERSION });
     return NextResponse.json(
       { blocked: true, user_message: safety.user_message },
       { status: 200 }
@@ -297,6 +300,7 @@ export async function POST(request: Request) {
         // Both provider calls were billed even though quality was rejected.
         await finalizeAiUsage(usageEventId, {
           status: "quality_failed",
+          promptVersion: PROMPT_VERSION,
           usage: summedUsage("success"),
           retryCount: genAttempts - 1,
         });
@@ -340,6 +344,7 @@ export async function POST(request: Request) {
           // Provider calls were billed; record real cost with the safety outcome.
           await finalizeAiUsage(usageEventId, {
             status: "safety_blocked",
+            promptVersion: PROMPT_VERSION,
             usage: summedUsage("success"),
             retryCount: genAttempts - 1,
           });
@@ -377,6 +382,7 @@ export async function POST(request: Request) {
       await finish("failed");
       await finalizeAiUsage(usageEventId, {
         status: usageSink.usage?.status ?? "provider_error",
+        promptVersion: PROMPT_VERSION,
         usage: summedUsage(usageSink.usage?.status ?? "provider_error"),
         retryCount: Math.max(genAttempts - 1, 0),
       });
@@ -440,6 +446,7 @@ export async function POST(request: Request) {
     // save failed (no result_id). A fallback plan has no tokens → cost 0.
     await finalizeAiUsage(usageEventId, {
       status: usedFallback ? "fallback" : "success",
+      promptVersion: PROMPT_VERSION,
       usage: summedUsage(usedFallback ? "fallback" : "success"),
       fallbackUsed: usedFallback,
       retryCount: Math.max(genAttempts - 1, 0),
@@ -483,6 +490,7 @@ export async function POST(request: Request) {
   // A fallback plan carries no tokens, so it is recorded at zero cost.
   await finalizeAiUsage(usageEventId, {
     status: usedFallback ? "fallback" : "success",
+    promptVersion: PROMPT_VERSION,
     usage: summedUsage(usedFallback ? "fallback" : "success"),
     fallbackUsed: usedFallback,
     retryCount: Math.max(genAttempts - 1, 0),
