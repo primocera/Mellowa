@@ -311,13 +311,21 @@ export async function POST(request: Request) {
       case "customer.subscription.deleted": {
         const subscription = event.data.object;
         await syncSubscription(subscription);
+        // Voluntary vs involuntary churn (Prompt 18): a subscription the user
+        // set to cancel ended voluntarily; one Stripe ended after failed
+        // payment retries (past_due/unpaid) ended involuntarily.
+        const churnType =
+          subscription.cancel_at_period_end ||
+          subscription.cancellation_details?.reason === "cancellation_requested"
+            ? "voluntary"
+            : "involuntary";
         trackEvent("trial_canceled", {
           userId: await userIdForCustomerId(
             typeof subscription.customer === "string"
               ? subscription.customer
               : subscription.customer.id
           ),
-          properties: intervalOf(subscription),
+          properties: { ...intervalOf(subscription), churn_type: churnType },
         });
         break;
       }

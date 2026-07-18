@@ -5,6 +5,7 @@ import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
 import { PRICING } from "@/lib/stripe/plans";
 import { UpgradeButton } from "@/components/dailyflow/upgrade-button";
 import { ManageBilling } from "@/components/dailyflow/manage-billing";
+import { readLegalConfig } from "@/lib/legal/config";
 
 export const metadata: Metadata = { title: "Billing — Mellowa" };
 
@@ -127,6 +128,24 @@ export default async function BillingPage() {
             )}
           </>
         )}
+      </div>
+
+      <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="font-medium text-[#1F2937]">Refunds</h2>
+        <p className="mt-2 text-sm text-[#6B7280]">
+          If a charge doesn&rsquo;t feel right, tell us — we review every
+          request personally, usually within 3 business days. Our{" "}
+          <Link href="/refund" className="text-[#7C9A92] hover:underline">
+            refund policy
+          </Link>{" "}
+          explains what&rsquo;s covered; statutory rights always apply.
+        </p>
+        <a
+          href={`mailto:${readLegalConfig().supportEmail}?subject=${encodeURIComponent("Refund request")}`}
+          className="mt-3 inline-block rounded-xl border border-[#E5E1DA] bg-white px-4 py-2 text-sm font-medium text-[#1F2937] transition hover:border-[#7C9A92]/50"
+        >
+          Request a refund
+        </a>
       </div>
 
       <p className="px-2 text-xs text-[#9CA3AF]">

@@ -90,6 +90,8 @@ describe("event validation", () => {
     expect(ALLOWED_PROPERTY_KEYS.sort()).toEqual(
       [
         "campaign",
+        "cancel_reason",
+        "churn_type",
         "experiment",
         "model_version",
         "outcome",

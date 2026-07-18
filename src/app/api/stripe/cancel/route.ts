@@ -3,9 +3,15 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
+import { trackEvent } from "@/lib/analytics";
 
 const Input = z.object({
   action: z.enum(["cancel", "reactivate"]),
+  // Optional and skippable by design — cancellation is never gated on a
+  // survey (Prompt 18). Closed enum, no free text.
+  reason: z
+    .enum(["too_expensive", "not_using", "missing_features", "taking_a_break", "other"])
+    .optional(),
 });
 
 /**
@@ -57,6 +63,17 @@ export async function POST(request: Request) {
       .from("subscriptions")
       .update({ cancel_at_period_end: updated.cancel_at_period_end ?? false })
       .eq("user_id", user.id);
+
+    if (cancelAtPeriodEnd) {
+      trackEvent("cancellation_requested", {
+        userId: user.id,
+        properties: {
+          surface: "billing",
+          churn_type: "voluntary",
+          ...(parsed.data.reason ? { cancel_reason: parsed.data.reason } : {}),
+        },
+      });
+    }
 
     return NextResponse.json({
       ok: true,

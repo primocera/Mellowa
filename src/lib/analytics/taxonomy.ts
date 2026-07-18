@@ -34,6 +34,7 @@ export const EVENT_NAMES = [
   "checkout_completed",
   "trial_started",
   "trial_canceled",
+  "cancellation_requested",
   "trial_converted",
   "subscription_renewed",
   "payment_failed",
@@ -60,6 +61,7 @@ export const SERVER_AUTHORITATIVE_EVENTS = new Set<AppEvent>([
   "checkout_completed",
   "trial_started",
   "trial_canceled",
+  "cancellation_requested",
   "trial_converted",
   "subscription_renewed",
   "payment_failed",
@@ -86,6 +88,16 @@ const SURFACE = [
 ] as const;
 const PLAN_INTERVAL = ["monthly", "yearly"] as const;
 const OUTCOME = ["success", "failure", "blocked", "skipped", "cancelled"] as const;
+/** Voluntary = the user chose to leave; involuntary = payment failure ended it. */
+const CHURN_TYPE = ["voluntary", "involuntary"] as const;
+/** Optional, closed cancellation-reason set — never free text (Prompt 18). */
+const CANCEL_REASON = [
+  "too_expensive",
+  "not_using",
+  "missing_features",
+  "taking_a_break",
+  "other",
+] as const;
 
 /**
  * Non-free-text slug: lowercase letters, digits, dot, colon and hyphen only,
@@ -119,6 +131,8 @@ export const propertiesSchema = z
     model_version: slug,
     prompt_version: slug,
     experiment: slug,
+    churn_type: z.enum(CHURN_TYPE),
+    cancel_reason: z.enum(CANCEL_REASON),
   })
   .partial()
   .strict();

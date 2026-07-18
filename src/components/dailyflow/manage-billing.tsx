@@ -22,6 +22,7 @@ export function ManageBilling({
   const router = useRouter();
   const [busy, setBusy] = useState<"portal" | "cancel" | "reactivate" | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   async function openPortal() {
@@ -48,7 +49,10 @@ export function ManageBilling({
       const res = await fetch("/api/stripe/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({
+          action,
+          ...(action === "cancel" && cancelReason ? { reason: cancelReason } : {}),
+        }),
       });
       const data = await res.json();
       if (data.ok) {
@@ -90,6 +94,23 @@ export function ManageBilling({
             <strong>{periodEndLabel ?? "the end of the current period"}</strong>.
             You won&apos;t be charged again after cancellation.
           </p>
+          <label className="mt-3 block">
+            <span className="text-xs text-[#6B7280]">
+              Why are you leaving? (optional — cancellation works either way)
+            </span>
+            <select
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-[#E5E1DA] bg-white px-3 py-2 text-sm"
+            >
+              <option value="">Prefer not to say</option>
+              <option value="too_expensive">Too expensive right now</option>
+              <option value="not_using">Not using it enough</option>
+              <option value="missing_features">Missing something I need</option>
+              <option value="taking_a_break">Taking a break</option>
+              <option value="other">Something else</option>
+            </select>
+          </label>
           <div className="mt-3 flex gap-2">
             <button
               onClick={() => setCancel("cancel")}
