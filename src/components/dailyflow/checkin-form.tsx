@@ -118,9 +118,26 @@ function localDate(): string {
   ).padStart(2, "0")}`;
 }
 
-export function CheckinForm() {
+/**
+ * Optional baseline seed (Launch v6, Prompt 21). The first check-in after
+ * onboarding is prefilled from the user's stored baselines so the sample plan
+ * is one tap away. These are starting sliders only — the user can change them,
+ * and today's saved draft always wins over the seed.
+ */
+export type CheckinBaseline = {
+  energy?: number;
+  stress?: number;
+  sleep?: number;
+};
+
+export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
   const router = useRouter();
-  const [draft, setDraft] = useState<Draft>(DEFAULT_DRAFT);
+  const [draft, setDraft] = useState<Draft>(() => ({
+    ...DEFAULT_DRAFT,
+    energy: baseline?.energy ?? DEFAULT_DRAFT.energy,
+    stress: baseline?.stress ?? DEFAULT_DRAFT.stress,
+    sleep: baseline?.sleep ?? DEFAULT_DRAFT.sleep,
+  }));
   const [showDetail, setShowDetail] = useState(false);
   const [loading, setLoading] = useState<"plan" | "skip" | null>(null);
   const [error, setError] = useState<string | null>(null);

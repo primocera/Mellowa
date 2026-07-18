@@ -16,6 +16,7 @@ import {
   detectMedicalNutritionSignal,
   MEDICAL_NUTRITION_MESSAGE,
 } from "@/lib/onboarding/validation";
+import { trackClient } from "@/lib/analytics/client";
 
 // Prompt 12: resume an interrupted first run. The draft is non-sensitive
 // onboarding input; we clear it as soon as the profile is saved.
@@ -198,6 +199,11 @@ export function OnboardingWizard() {
     if (restored) setDraft((d) => ({ ...d, ...restored }));
     setLoaded(true);
     /* eslint-enable react-hooks/set-state-in-effect */
+    // Funnel start (Prompt 21). Fired once on mount; a restored draft is a
+    // resume, a fresh INITIAL is a new start — both count as an onboarding
+    // start for the activation funnel. Only the enumerated `surface` property
+    // is sent; never any field value the user typed.
+    trackClient("onboarding_started", { surface: "onboarding" });
   }, []);
   useEffect(() => {
     if (!loaded) return;
@@ -321,6 +327,10 @@ export function OnboardingWizard() {
     } catch {
       /* best effort */
     }
+    // Activation milestone (Prompt 21) — carries no field values, only surface.
+    trackClient("onboarding_completed", { surface: "onboarding" });
+    // Hand straight off to the prefilled check-in so the free sample plan is
+    // the very next step (no dead end, no upsell wall).
     router.push("/check-in");
     router.refresh();
   }
@@ -333,7 +343,9 @@ export function OnboardingWizard() {
           <p className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
             Step {step + 1} of {STEPS.length} • {STEPS[step]}
           </p>
-          {loaded && <p className="text-xs text-[#9CA3AF]">Saved on this device</p>}
+          <p className="text-xs text-[#9CA3AF]">
+            {step === 0 ? "About 2 minutes" : loaded ? "Saved on this device" : ""}
+          </p>
         </div>
         <div className="flex gap-1.5">
           {STEPS.map((_, i) => (
