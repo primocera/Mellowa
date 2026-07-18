@@ -24,8 +24,8 @@ export default async function JournalPage() {
           Journal
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
-          A gentle place to notice how your days are going. Not therapy — just
-          reflection.
+          A place to notice how your days are going. General reflection, not
+          therapy.
         </p>
       </div>
       <JournalView entries={(entries ?? []) as JournalEntry[]} />
