@@ -14,12 +14,12 @@ type MealIdea = {
 type MealRhythm = { title: string; ideas: MealIdea[]; notes?: string };
 
 const CHALLENGES = [
-  "Skipping breakfast",
-  "Chaotic lunch",
-  "Evening overeating",
   "No cooking time",
-  "Low appetite",
-  "Cravings",
+  "Irregular workday",
+  "Low appetite earlier",
+  "Busy evenings",
+  "Budget matters most",
+  "I need variety",
 ];
 
 const GROUP_LABELS: Record<string, string> = {
@@ -71,7 +71,7 @@ export function MealRhythmView({ initial }: { initial: MealRhythm | null }) {
     <div className="space-y-4">
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="font-medium text-[#1F2937]">
-          What&apos;s the trickiest meal moment right now?
+          Which situation should Mellowa plan around?
         </h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {CHALLENGES.map((c) => (
@@ -101,10 +101,10 @@ export function MealRhythmView({ initial }: { initial: MealRhythm | null }) {
             <UtensilsCrossed className="h-4 w-4" />
           )}
           {loading
-            ? "Putting together simple ideas..."
+            ? "Putting together meal ideas..."
             : rhythm
               ? "Get fresh ideas"
-              : "Get meal rhythm ideas"}
+              : "Create meal ideas"}
         </button>
         {message && (
           <p className="mt-3 rounded-xl bg-[#EEF2FF] px-3 py-2 text-sm text-[#1F2937]">

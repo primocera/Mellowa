@@ -81,13 +81,15 @@ function GenerateButton({
 export function WeeklyPlanEmpty() {
   return (
     <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
-      <h1 className="text-xl font-semibold text-[#1F2937]">No weekly plan yet</h1>
+      <h1 className="text-xl font-semibold text-[#1F2937]">
+        Start with the week you actually have
+      </h1>
       <p className="mx-auto mt-2 max-w-sm text-sm text-[#6B7280]">
-        One simple structure for the week — meals, movement, resets and a
-        shopping list. Less deciding, more living.
+        Add anything that will change the plan—busy evenings, meals out or days
+        with very little cooking time.
       </p>
       <div className="mt-6 flex justify-center">
-        <GenerateButton label="Create this week's plan" />
+        <GenerateButton label="Shape this week" />
       </div>
     </div>
   );
@@ -220,6 +222,10 @@ export function WeeklyPlanView({ plan }: { plan: WeeklyPlan }) {
               </div>
             ))}
           </div>
+          <p className="mt-4 text-xs text-[#9CA3AF]">
+            This list is editable. Keep what is useful, remove what you already
+            have and always check product labels for your allergies.
+          </p>
         </div>
       )}
 
