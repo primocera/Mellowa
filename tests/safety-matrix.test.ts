@@ -164,3 +164,19 @@ describe("checkInputSafety fail-closed (Prompt 5)", () => {
     expect(generateMock).not.toHaveBeenCalled();
   });
 });
+
+describe("canonical safety copy (v6 CE Prompt 16)", () => {
+  it("crisis response opens with the canonical apology and no product content", () => {
+    const msg = crisisMessage("self_harm", "en-US");
+    expect(msg).toContain("Mellowa can't provide crisis support");
+    expect(msg.toLowerCase()).not.toContain("plan");
+    expect(msg.toLowerCase()).not.toContain("premium");
+  });
+
+  it("medical-nutrition response names the professional path and remaining scope", () => {
+    const msg = crisisMessage("medical_nutrition");
+    expect(msg).toContain("condition-specific nutrition");
+    expect(msg).toContain("registered dietitian");
+    expect(msg).toContain("non-medical daily structure");
+  });
+});
