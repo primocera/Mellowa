@@ -9,6 +9,10 @@ import {
   trialEndedEmail,
   paymentFailedEmail,
 } from "@/lib/email/templates";
+import {
+  factsFromSubscription,
+  factsFromInvoice,
+} from "@/lib/email/billing-facts";
 
 /**
  * Stripe webhook — keeps the subscriptions table in sync (Prompt 14).
@@ -224,16 +228,9 @@ export async function POST(request: Request) {
         if (subscription.status === "trialing") {
           const email = await emailForCustomer(subscription);
           if (email) {
-            const daysLeft = subscription.trial_end
-              ? Math.max(
-                  1,
-                  Math.ceil(
-                    (subscription.trial_end * 1000 - Date.now()) /
-                      (24 * 60 * 60 * 1000)
-                  )
-                )
-              : 3;
-            const { subject, html } = trialStartedEmail(daysLeft);
+            const { subject, html } = trialStartedEmail(
+              factsFromSubscription(subscription, "trial_end")
+            );
             await deliverEmail({
               eventKey: `trial_started:${subscription.id}`,
               template: "trial_started",
@@ -283,7 +280,9 @@ export async function POST(request: Request) {
             .eq("stripe_customer_id", customerId);
           const email = await emailForCustomerId(customerId);
           if (email) {
-            const { subject, html } = paymentFailedEmail();
+            const { subject, html } = paymentFailedEmail(
+              factsFromInvoice(invoice)
+            );
             await deliverEmail({
               eventKey: `payment_failed:${invoice.id}`,
               template: "payment_failed",
