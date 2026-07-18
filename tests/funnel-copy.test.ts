@@ -41,7 +41,9 @@ describe("funnel copy truth", () => {
   it("keeps 'Start my 3-day free trial' off the public landing page", () => {
     const landing = readFileSync("src/app/page.tsx", "utf8");
     expect(landing).not.toMatch(/start my 3-day free trial/i);
-    expect(landing).toMatch(/create my free sample plan/i);
-    expect(landing).toMatch(/no card for the sample/i);
+    // CTA/helper render from the shared terminology module (CE-1); the
+    // rendered strings are asserted by the public Playwright suite.
+    expect(landing).toMatch(/TERMS\.sampleCta/);
+    expect(landing).toMatch(/TERMS\.sampleHelper/);
   });
 });
