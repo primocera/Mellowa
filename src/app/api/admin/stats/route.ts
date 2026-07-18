@@ -2,16 +2,37 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
 import { requireBearerSecret } from "@/lib/cron-auth";
+import { buildMetricsReport, reportToCsv } from "@/lib/analytics/report";
 
 /**
- * Ops/beta stats (Prompts 19 + 20). Read-only daily numbers for go/no-go
- * decisions — no dashboards, no alert emails. Gated by ADMIN_STATS_SECRET:
+ * Ops/beta stats (Prompts 19 + 20; metrics v6 Prompt 10). Read-only aggregates
+ * for go/no-go decisions. Gated by ADMIN_STATS_SECRET:
  *   curl -H "Authorization: Bearer $ADMIN_STATS_SECRET" /api/admin/stats
+ *   ?window=<days>&release=<tag>&format=csv|json&view=raw|report
  * Returns aggregate counts only — no user content.
  */
 export async function GET(request: Request) {
   const denied = requireBearerSecret(request, serverEnv.adminStatsSecret);
   if (denied) return denied;
+
+  const url = new URL(request.url);
+  const windowDays = Math.min(Math.max(Number(url.searchParams.get("window") ?? 30), 1), 365);
+  const release = url.searchParams.get("release");
+  const format = url.searchParams.get("format");
+
+  // Decision-ready metrics report (funnels, retention, unit economics, ...).
+  if (url.searchParams.get("view") !== "raw") {
+    const report = await buildMetricsReport(windowDays, release);
+    if (format === "csv") {
+      return new NextResponse(reportToCsv(report), {
+        headers: {
+          "content-type": "text/csv; charset=utf-8",
+          "content-disposition": `attachment; filename="mellowa-metrics-${windowDays}d.csv"`,
+        },
+      });
+    }
+    return NextResponse.json(report);
+  }
 
   const admin = createAdminClient();
   const dayStart = new Date();
