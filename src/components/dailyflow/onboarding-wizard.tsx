@@ -23,20 +23,22 @@ const DRAFT_KEY = "mellowa.onboarding.draft.v1";
 
 const STEPS = [
   "Your rhythm",
-  "Main goal",
-  "Food",
-  "Baseline",
-  "Tone",
-  "One last thing",
+  "What you want help with",
+  "Food that fits",
+  "Your usual capacity",
+  "Voice",
+  "Boundaries",
 ] as const;
 
+// Display labels are concrete daily-life outcomes (CE-6); the stored values
+// stay unchanged so existing profiles and AI prompts keep working.
 const GOALS: { value: WellbeingProfileInputType["primary_goal"]; label: string }[] = [
-  { value: "more_energy", label: "More energy" },
-  { value: "better_meal_rhythm", label: "Better meal rhythm" },
-  { value: "less_overwhelm", label: "Less overwhelm" },
-  { value: "better_sleep_routine", label: "Better sleep routine" },
-  { value: "habit_consistency", label: "Habit consistency" },
-  { value: "general_wellbeing_structure", label: "General structure" },
+  { value: "better_meal_rhythm", label: "Eat more regularly" },
+  { value: "general_wellbeing_structure", label: "Have steadier daily structure" },
+  { value: "more_energy", label: "Make room for movement" },
+  { value: "better_sleep_routine", label: "Wind down more easily" },
+  { value: "habit_consistency", label: "Build one repeatable habit" },
+  { value: "less_overwhelm", label: "Feel less scattered" },
 ];
 
 const COOKING_TIMES = [
@@ -59,11 +61,12 @@ const MOVEMENT = [
   { value: "very_active", label: "Very active" },
 ] as const;
 
+// Display names elevated (CE-6); stored values unchanged for existing profiles.
 const TONES = [
-  { value: "gentle", label: "Gentle", hint: "Soft, kind and calm" },
-  { value: "direct", label: "Direct", hint: "Clear and to the point" },
-  { value: "minimal", label: "Minimal", hint: "Short, no fluff" },
-  { value: "encouraging", label: "Encouraging", hint: "Warm cheerleading" },
+  { value: "gentle", label: "Warm", hint: "Kind and encouraging, without being overly cheerful." },
+  { value: "direct", label: "Clear", hint: "Direct, practical and concise." },
+  { value: "minimal", label: "Quiet", hint: "Minimal words and very little encouragement." },
+  { value: "encouraging", label: "Encouraging", hint: "Warm, with more active support." },
 ] as const;
 
 type Draft = {
@@ -326,9 +329,12 @@ export function OnboardingWizard() {
     <div className="mx-auto max-w-lg">
       {/* Progress */}
       <div className="mb-6">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[#6B7280]">
-          Step {step + 1} of {STEPS.length} — {STEPS[step]}
-        </p>
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+            Step {step + 1} of {STEPS.length} • {STEPS[step]}
+          </p>
+          {loaded && <p className="text-xs text-[#9CA3AF]">Saved on this device</p>}
+        </div>
         <div className="flex gap-1.5">
           {STEPS.map((_, i) => (
             <div
@@ -345,10 +351,16 @@ export function OnboardingWizard() {
       <div className="rounded-2xl bg-white p-6 shadow-sm sm:p-8">
         {step === 0 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold text-[#1F2937]">Your daily rhythm</h2>
+            <h2 className="text-lg font-semibold text-[#1F2937]">
+              When does your day usually begin and end?
+            </h2>
+            <p className="text-sm text-[#6B7280]">
+              Approximate is enough. This helps Mellowa place meals and the
+              evening wind-down realistically.
+            </p>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#1F2937]">Wake time</label>
+                <label className="mb-1 block text-sm font-medium text-[#1F2937]">Usual wake time</label>
                 <input
                   type="time"
                   value={draft.wake_time}
@@ -357,7 +369,7 @@ export function OnboardingWizard() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-[#1F2937]">Sleep time</label>
+                <label className="mb-1 block text-sm font-medium text-[#1F2937]">Usual sleep time</label>
                 <input
                   type="time"
                   value={draft.sleep_time}
@@ -368,13 +380,13 @@ export function OnboardingWizard() {
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-[#1F2937]">
-                What does your typical day look like?
+                What does your schedule look like?
               </label>
               <input
                 type="text"
                 value={draft.work_schedule}
                 onChange={(e) => set("work_schedule", e.target.value)}
-                placeholder="e.g. office 9–5, shifts, home with kids…"
+                placeholder="Office hours, shifts, caregiving, variable days…"
                 className="w-full rounded-xl border border-[#E5E1DA] px-4 py-3 text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
               />
             </div>
@@ -387,7 +399,7 @@ export function OnboardingWizard() {
         {step === 1 && (
           <div className="space-y-5">
             <h2 className="text-lg font-semibold text-[#1F2937]">
-              What would help you most right now?
+              What would make daily life easier right now?
             </h2>
             <OptionGrid
               options={GOALS}
@@ -399,7 +411,9 @@ export function OnboardingWizard() {
 
         {step === 2 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold text-[#1F2937]">Food, simply</h2>
+            <h2 className="text-lg font-semibold text-[#1F2937]">
+              What should meals work around?
+            </h2>
             {medicalSignal && (
               <div className="rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]">
                 {MEDICAL_NUTRITION_MESSAGE}
@@ -407,7 +421,7 @@ export function OnboardingWizard() {
             )}
             <div>
               <label className="mb-1 block text-sm font-medium text-[#1F2937]">
-                Food preferences <span className="font-normal text-[#6B7280]">(comma separated, optional)</span>
+                Eating preferences <span className="font-normal text-[#6B7280]">(comma separated, optional)</span>
               </label>
               <input
                 type="text"
@@ -455,16 +469,17 @@ export function OnboardingWizard() {
                 <span>
                   One of these is severe or life-threatening (e.g. anaphylaxis).
                   <span className="block text-xs text-[#6B7280]">
-                    If checked, Mellowa won&apos;t suggest specific meals or
-                    recipes — automated checks can&apos;t guarantee label or
-                    cross-contamination safety at that level.
+                    Mellowa won&apos;t suggest specific meals for severe
+                    allergies — automated checks can&apos;t guarantee label or
+                    cross-contamination safety at that level. You can still use
+                    non-food planning features.
                   </span>
                 </span>
               </label>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-[#1F2937]">
-                Foods you&apos;d rather avoid{" "}
+                Foods you prefer not to eat{" "}
                 <span className="font-normal text-[#6B7280]">(taste, not allergy — optional)</span>
               </label>
               <input
@@ -476,7 +491,7 @@ export function OnboardingWizard() {
               />
             </div>
             <div>
-              <p className="mb-2 text-sm font-medium text-[#1F2937]">Time for cooking</p>
+              <p className="mb-2 text-sm font-medium text-[#1F2937]">Usual cooking time</p>
               <OptionGrid
                 options={COOKING_TIMES}
                 value={draft.cooking_time}
@@ -484,7 +499,7 @@ export function OnboardingWizard() {
               />
             </div>
             <div>
-              <p className="mb-2 text-sm font-medium text-[#1F2937]">Food budget</p>
+              <p className="mb-2 text-sm font-medium text-[#1F2937]">Budget comfort</p>
               <OptionGrid
                 options={BUDGETS}
                 value={draft.budget_level}
@@ -496,19 +511,25 @@ export function OnboardingWizard() {
 
         {step === 3 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold text-[#1F2937]">How things feel lately</h2>
+            <h2 className="text-lg font-semibold text-[#1F2937]">
+              What does a typical week feel like?
+            </h2>
+            <p className="text-sm text-[#6B7280]">
+              This is a starting point, not a score. Daily check-ins can
+              override it.
+            </p>
             <Scale
-              label="Energy (1 = running on empty, 5 = great)"
+              label="Usual energy (1 = usually low, 5 = usually plenty)"
               value={draft.energy_baseline}
               onChange={(v) => set("energy_baseline", v)}
             />
             <Scale
-              label="Stress (1 = calm, 5 = very stressed)"
+              label="Usual stress (1 = rarely stretched, 5 = often stretched)"
               value={draft.stress_baseline}
               onChange={(v) => set("stress_baseline", v)}
             />
             <Scale
-              label="Sleep quality (1 = poor, 5 = great)"
+              label="Usual sleep (1 = often disrupted, 5 = mostly restful)"
               value={draft.sleep_quality_baseline}
               onChange={(v) => set("sleep_quality_baseline", v)}
             />
@@ -526,7 +547,7 @@ export function OnboardingWizard() {
         {step === 4 && (
           <div className="space-y-5">
             <h2 className="text-lg font-semibold text-[#1F2937]">
-              How should Mellowa talk to you?
+              How should Mellowa sound?
             </h2>
             <OptionGrid
               options={TONES}
@@ -538,12 +559,13 @@ export function OnboardingWizard() {
 
         {step === 5 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold text-[#1F2937]">One last thing</h2>
+            <h2 className="text-lg font-semibold text-[#1F2937]">Before your first plan</h2>
             <div className="rounded-xl bg-[#EEF2FF] px-4 py-4 text-sm leading-relaxed text-[#1F2937]">
-              Mellowa is not medical care, therapy or emergency support. It provides
-              general wellbeing routines and habit structure. For medical conditions,
-              eating disorder concerns, pregnancy, severe mental health symptoms or
-              emergencies, please seek qualified professional support.
+              Mellowa provides general wellbeing structure for adults. It is not
+              medical care, therapy, emergency support or a condition-specific
+              nutrition service. For medical conditions, eating disorder concerns,
+              pregnancy, severe mental health symptoms or emergencies, please seek
+              qualified professional support.
             </div>
             <p className="text-xs leading-relaxed text-[#6B7280]">
               How your answers are used: the rhythm, food and baseline details you
@@ -558,7 +580,7 @@ export function OnboardingWizard() {
                 onChange={(e) => set("safety_acknowledged", e.target.checked)}
                 className="mt-0.5 h-4 w-4 accent-[#7C9A92]"
               />
-              I understand what Mellowa is — and what it isn&apos;t.
+              I understand what Mellowa can and cannot provide.
             </label>
             <label className="flex cursor-pointer items-start gap-3 text-sm text-[#1F2937]">
               <input
@@ -611,7 +633,7 @@ export function OnboardingWizard() {
               className="flex items-center gap-1.5 rounded-xl bg-[#7C9A92] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#6D8C7D] disabled:opacity-50"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              Finish
+              Create my first check-in
             </button>
           )}
         </div>
