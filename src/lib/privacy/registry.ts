@@ -56,6 +56,11 @@ export const EXEMPT_TABLES: { table: string; reason: string }[] = [
     reason:
       "global webhook event ledger; payloads may reference any customer and are never exported per-user",
   },
+  {
+    table: "account_flags",
+    reason:
+      "internal anti-abuse/ops flags set by support; no user-authored content; removed on account deletion via FK cascade (026)",
+  },
 ];
 
 /**

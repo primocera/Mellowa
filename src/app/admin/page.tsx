@@ -28,6 +28,7 @@ export default async function AdminPage({
   return (
     <main style={{ maxWidth: 860, margin: "0 auto", padding: "24px 16px", color: "#1F2937" }}>
       <h1 style={{ fontSize: 24, fontWeight: 600 }}>Metrics</h1>
+        <a href="/admin/users" className="text-sm text-[#6D8C7D] underline">Support console →</a>
       <p style={{ color: "#6B7280", fontSize: 14 }}>
         Window: last {r.windowDays} days · Generated {new Date(r.generatedAt).toUTCString()}
         {r.release ? ` · Release ${r.release}` : ""} · Small cohorts (&lt;5) suppressed as “—”.

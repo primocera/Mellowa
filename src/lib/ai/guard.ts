@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
 import { claimAiGeneration, type AiRoute } from "@/lib/ai/rate-limit";
 import { getConsentStatus } from "@/lib/consent/status";
+import { isGenerationDisabled } from "@/lib/admin/support";
 
 /**
  * Shared gate for AI generation routes. Protects the AI provider key by:
@@ -26,6 +27,19 @@ export async function guardAiRoute(
   userId: string,
   opts: { requirePremium: boolean; route: AiRoute }
 ): Promise<NextResponse | GuardPass> {
+  // Operator abuse switch (Prompt 17): a disabled account gets a calm,
+  // non-accusatory message and no provider call.
+  if (await isGenerationDisabled(userId)) {
+    return NextResponse.json(
+      {
+        error: "generation_unavailable",
+        user_message:
+          "Plan generation is paused on this account. Please contact support if you think this is a mistake.",
+      },
+      { status: 403 }
+    );
+  }
+
   // Consent checkpoint (Prompt 6): existing users without current-version
   // age/terms/privacy consent must complete it before any new generation.
   const consent = await getConsentStatus(userId);
