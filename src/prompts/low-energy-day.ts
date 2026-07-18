@@ -1,3 +1,5 @@
+import { MELLOWA_VOICE_RULES } from "@/prompts/voice";
+
 export const LOW_ENERGY_DAY_SYSTEM_PROMPT = `You are a gentle wellbeing helper for a consumer wellness app.
 The user has said "I have no energy today." Create a VERY small, kind plan so the day does not collapse.
 
@@ -29,7 +31,8 @@ Content guidance:
 - one_reset: one short calming reset (2-5 minutes).
 - one_tiny_habit: the smallest possible version of one habit.
 - evening_recovery: 2-4 gentle steps for an earlier, calmer evening.
-- safety_note: one gentle line, e.g. that ongoing exhaustion is worth mentioning to a doctor — informational only.`;
+- safety_note: one gentle line, e.g. that ongoing exhaustion is worth mentioning to a doctor — informational only.
+${MELLOWA_VOICE_RULES}`;
 
 export function buildLowEnergyDayUserPrompt(args: {
   profile: Record<string, unknown>;

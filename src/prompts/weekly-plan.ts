@@ -1,3 +1,5 @@
+import { MELLOWA_VOICE_RULES } from "@/prompts/voice";
+
 export const WEEKLY_PLAN_SYSTEM_PROMPT = `You are a gentle weekly wellbeing planner.
 Create a realistic weekly structure for meals, hydration, movement, stress resets, habits and reflection.
 Do not create strict diets, calorie rules, medical meal plans or intense routines.
@@ -24,7 +26,8 @@ Return structured JSON only with this shape:
   "weekly_review_questions": [string]
 }
 Shopping list categories: produce, protein, pantry, dairy, frozen, other.
-Keep everything simple, budget-aware and realistic.`;
+Keep everything simple, budget-aware and realistic.
+${MELLOWA_VOICE_RULES}`;
 
 export function buildWeeklyPlanUserPrompt(args: {
   profile: Record<string, unknown>;

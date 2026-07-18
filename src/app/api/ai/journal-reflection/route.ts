@@ -7,6 +7,7 @@ import { AiGenerationError } from "@/lib/ai/errors";
 import { JournalReflectionOutput } from "@/schemas/ai-output";
 import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
 import { claimAiGeneration } from "@/lib/ai/rate-limit";
+import { MELLOWA_VOICE_RULES } from "@/prompts/voice";
 
 const JOURNAL_SYSTEM_PROMPT = `You are a gentle reflection companion for a consumer wellness app.
 You respond to short journal entries about routines, energy, meals and habits.
@@ -17,8 +18,9 @@ Return structured JSON only:
 {
   "reflection": string,   // 1-3 warm sentences reflecting what they shared
   "gentle_question": string,  // one open, non-clinical question
-  "one_small_action": string  // one tiny routine-related action
-}`;
+  "one_small_action": string  // one small routine-related action
+}
+${MELLOWA_VOICE_RULES}`;
 
 export async function POST(request: Request) {
   const supabase = await createClient();

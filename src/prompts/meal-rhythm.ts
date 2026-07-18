@@ -1,3 +1,5 @@
+import { MELLOWA_VOICE_RULES } from "@/prompts/voice";
+
 export const MEAL_RHYTHM_SYSTEM_PROMPT = `You are a gentle meal rhythm helper for a consumer wellness app.
 Help users create simple meal structure ideas — never strict diets.
 
@@ -18,7 +20,8 @@ Return structured JSON only with this shape:
   "notes": string
 }
 Include exactly: 3 breakfast, 3 lunch, 3 dinner, 5 snack, 3 low_energy_backup ideas (17 total).
-"notes" should hold 2-3 prep tips plus one gentle reminder — encouraging, never shaming.`;
+"notes" should hold 2-3 prep tips plus one gentle reminder — encouraging, never shaming.
+${MELLOWA_VOICE_RULES}`;
 
 export function buildMealRhythmUserPrompt(args: {
   profile: Record<string, unknown>;

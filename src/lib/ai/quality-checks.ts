@@ -27,6 +27,13 @@ const BANNED_PATTERNS: { pattern: RegExp; reason: string }[] = [
   { pattern: /\b(diagnos|prescri|treatment\s+plan|medication)\b/i, reason: "medical language" },
   { pattern: /\b(trauma|therapy\s+session|disorder)\b/i, reason: "therapy language" },
   { pattern: /\b(lazy|no\s+excuses|push\s+through\s+the\s+pain|shame)\b/i, reason: "shame language" },
+  // Voice rules (CE-18): no cheerleading, invented emotion, pseudo-clinical
+  // claims or moral food language in generated plans.
+  { pattern: /you'?ve\s+got\s+this/i, reason: "banned cheerleading phrase" },
+  { pattern: /you\s+seem\s+(anxious|stressed|depressed|sad|overwhelmed)/i, reason: "invented emotion" },
+  { pattern: /your\s+body\s+needs/i, reason: "invented bodily claim" },
+  { pattern: /(nervous\s+system|cortisol|hormon(e|al)|inflammation|metabolism|detox)/i, reason: "pseudo-clinical claim" },
+  { pattern: /(clean\s+eating|guilt[- ]free|cheat\s+(day|meal)|earned\s+(your|this)\s+(food|meal|treat))/i, reason: "moral food language" },
 ];
 
 const MAX_ITEMS_PER_SECTION = 6;
