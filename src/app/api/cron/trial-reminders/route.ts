@@ -4,6 +4,7 @@ import { serverEnv } from "@/lib/env";
 import { requireBearerSecret } from "@/lib/cron-auth";
 import { deliverEmail } from "@/lib/email/deliver";
 import { trialEndingEmail } from "@/lib/email/templates";
+import { getUserEmails } from "@/lib/email/recipients";
 
 /**
  * Daily cron — sends the "your trial ends tomorrow" email to trialing users
@@ -29,10 +30,13 @@ export async function GET(request: Request) {
     .gt("trial_end", now.toISOString())
     .lte("trial_end", in24h.toISOString());
 
+  // One batched RPC for all recipient emails (Prompt 15) — no per-user
+  // auth admin call inside the loop.
+  const emails = await getUserEmails(admin, (due ?? []).map((r) => r.user_id));
+
   let sent = 0;
   for (const row of due ?? []) {
-    const { data: userData } = await admin.auth.admin.getUserById(row.user_id);
-    const email = userData.user?.email;
+    const email = emails.get(row.user_id);
     if (!email) continue;
 
     const { subject, html } = trialEndingEmail();

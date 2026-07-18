@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireBearerSecret } from "@/lib/cron-auth";
 import { replayDeliveries } from "@/lib/email/deliver";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Email outbox worker (Launch audit v6, Prompt 4).
@@ -21,7 +22,22 @@ export async function POST(request: Request) {
   if (summary.permanent > 0 || summary.skippedNoPayload > 0) {
     console.error("[email-outbox] dead-lettered deliveries", summary);
   }
-  return NextResponse.json({ ok: true, ...summary });
+
+  // Queue observability (Prompt 15): depth, oldest due job, dead letters.
+  let queue: { queued: number; oldest_due: string | null; dead_lettered: number } | null = null;
+  const { data: stats } = await createAdminClient().rpc("email_outbox_stats");
+  const row = Array.isArray(stats) ? stats[0] : stats;
+  if (row) {
+    queue = {
+      queued: Number(row.queued ?? 0),
+      oldest_due: row.oldest_due ?? null,
+      dead_lettered: Number(row.dead_lettered ?? 0),
+    };
+    if (queue.queued > 100) {
+      console.error("[email-outbox] queue depth high", queue);
+    }
+  }
+  return NextResponse.json({ ok: true, ...summary, queue });
 }
 
 // Vercel cron uses GET; external pingers may use either.

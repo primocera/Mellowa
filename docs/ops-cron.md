@@ -69,3 +69,18 @@ curl -i -H "Authorization: Bearer wrong" https://<domain>/api/cron/trial-reminde
 curl -i -H "Authorization: Bearer $CRON_SECRET" https://<domain>/api/cron/trial-reminders
 curl -i -H "Authorization: Bearer $ADMIN_STATS_SECRET" https://<domain>/api/admin/stats
 ```
+
+## Scalable jobs (v6 Prompt 15)
+
+- **Daily reminders** scan profiles with keyset pagination (batches of 200,
+  50 s time budget, `truncated: true` when cut short — the next trigger
+  resumes; already-reminded users are skipped). Recipient emails come from one
+  `get_user_emails` RPC per batch — no per-user auth admin calls.
+- **Retention pruning** moved to its own route: `GET/POST /api/cron/retention`
+  (Bearer CRON_SECRET). Add a second cron-job.org job for it (daily is
+  enough). One job's failure can no longer hide the other's.
+- **Outbox metrics**: `/api/cron/email-outbox` responses now include
+  `queue: { queued, oldest_due, dead_lettered }` (from `email_outbox_stats`);
+  depth > 100 logs an error picked up by log monitoring.
+- Requires migration `024_mellowa_v6_jobs.sql` (get_user_emails +
+  email_outbox_stats RPCs, reminder scan index).
