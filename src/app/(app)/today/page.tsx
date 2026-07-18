@@ -6,6 +6,8 @@ import { TodayPlanV2 } from "@/components/dailyflow/today-plan-v2";
 import { LowEnergyDayCard } from "@/components/dailyflow/low-energy-day-card";
 import { isValidTimeZone, localDateFor } from "@/lib/dates/local-day";
 import { TimezoneRepair } from "@/components/dailyflow/timezone-repair";
+import { WeeklyRecapCard } from "@/components/dailyflow/weekly-recap";
+import { summarizeWeek } from "@/lib/retention/recap";
 
 export const metadata: Metadata = { title: "Today — Mellowa" };
 
@@ -45,6 +47,23 @@ export default async function TodayPage() {
     !!profileRow && !isValidTimeZone(profileRow.timezone);
 
   const plan = planRes.data;
+
+  // Neutral weekly recap (Prompt 22): plans created + feedback themes over the
+  // last 7 days. No adherence, streaks or mood — see summarizeWeek.
+  const weekAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const [{ data: weekPlans }, { data: weekFeedback }] = await Promise.all([
+    supabase
+      .from("daily_plans")
+      .select("created_at")
+      .eq("user_id", user.id)
+      .gte("created_at", weekAgoIso),
+    supabase
+      .from("plan_feedback")
+      .select("verdict, created_at")
+      .eq("user_id", user.id)
+      .gte("created_at", weekAgoIso),
+  ]);
+  const recap = summarizeWeek(weekPlans ?? [], weekFeedback ?? []);
   // Opt-in only (Prompt 7); a recent eating-disorder safety signal overrides
   // the preference so estimates never show to someone at risk.
   let showMacros = profileRes.data?.show_macros ?? false;
@@ -63,7 +82,10 @@ export default async function TodayPage() {
     return (
       <div className="space-y-4">
         {timezoneNeedsRepair && <TimezoneRepair />}
-        <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+        <p className="text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+        Today · no plan yet
+      </p>
+      <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
         <h1 className="text-xl font-semibold text-[#1F2937]">
           What kind of day is this?
         </h1>
@@ -79,6 +101,7 @@ export default async function TodayPage() {
         </Link>
         </div>
         <LowEnergyDayCard />
+        <WeeklyRecapCard recap={recap} />
       </div>
     );
   }
@@ -93,12 +116,16 @@ export default async function TodayPage() {
   return (
     <div className="space-y-4">
       {timezoneNeedsRepair && <TimezoneRepair />}
+      <p className="text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+        Today · plan ready
+      </p>
       <LowEnergyDayCard />
       <TodayPlanV2
         plan={plan}
         showMacros={showMacros}
         completedKeys={completedKeys}
       />
+      <WeeklyRecapCard recap={recap} />
     </div>
   );
 }
