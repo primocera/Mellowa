@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
 import { USER_DATA_REGISTRY } from "@/lib/privacy/registry";
+import { trackEvent } from "@/lib/analytics";
 
 const Input = z.object({
   // Explicit typed confirmation so deletion can never happen by accident.
@@ -74,6 +75,9 @@ export async function POST(request: Request) {
       }
     }
   }
+
+  // Record the deletion before the cascade nulls the event's user link.
+  trackEvent("account_deleted", { userId: user.id, properties: { surface: "settings" } });
 
   // 2. Delete the auth user — cascades all personal data across every table.
   const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);

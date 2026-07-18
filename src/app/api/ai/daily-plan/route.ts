@@ -315,7 +315,10 @@ export async function POST(request: Request) {
     if (!hasAllergies && isFlagEnabled("fallback_plan")) {
       console.error("[ai] daily plan generation failed, serving fallback", { code });
       plan = buildFallbackDailyPlan();
-      trackEvent("plan_fallback_served", user.id);
+      trackEvent("plan_fallback_served", {
+        userId: user.id,
+        properties: { surface: "today", outcome: "failure" },
+      });
     } else {
       await finish("failed");
       return NextResponse.json(
@@ -409,7 +412,10 @@ export async function POST(request: Request) {
 
   // 10. Return the saved plan
   await finish("succeeded", savedPlan.id);
-  trackEvent("checkin_completed", user.id);
-  trackEvent("plan_generated", user.id);
+  trackEvent("checkin_completed", { userId: user.id, properties: { surface: "check_in" } });
+  trackEvent("plan_generated", {
+    userId: user.id,
+    properties: { surface: "today", outcome: "success" },
+  });
   return NextResponse.json({ blocked: false, plan: savedPlan });
 }
