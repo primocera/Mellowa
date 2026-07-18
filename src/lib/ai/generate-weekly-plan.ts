@@ -48,6 +48,7 @@ export async function generateWeeklyPlan(args: {
   });
 
   return generateStructuredJson({
+      route: "weekly-plan",
     systemPrompt: WEEKLY_PLAN_SYSTEM_PROMPT,
     userPrompt: extraInstruction
       ? `${basePrompt}

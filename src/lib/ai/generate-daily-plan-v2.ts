@@ -60,6 +60,7 @@ export async function generateDailyPlanV2(args: {
   });
 
   return generateStructuredJson({
+      route: "daily-plan",
     systemPrompt: DAILY_PLAN_V2_SYSTEM_PROMPT,
     userPrompt: extraInstruction
       ? `${basePrompt}\n\nIMPORTANT CORRECTION: ${extraInstruction}`

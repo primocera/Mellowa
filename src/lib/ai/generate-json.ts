@@ -4,6 +4,17 @@ import { getAiClient, getAiModel } from "./client";
 import { AiGenerationError } from "./errors";
 import { isAiMockEnabled, mockFromSchema } from "./mock";
 import type { AiUsage } from "./usage";
+import { CircuitBreaker } from "./circuit-breaker";
+import { isKilled, policyFor, type AiRouteName } from "./model-policy";
+
+// Instance-local breaker (best-effort on serverless — see circuit-breaker.ts).
+const providerBreaker = new CircuitBreaker({ threshold: 5, openMs: 60_000 });
+
+/** Retryable provider statuses: rate limit and provider overload only. */
+function isRetryableProviderError(err: unknown): boolean {
+  const status = (err as { status?: number } | null)?.status;
+  return status === 429 || status === 529;
+}
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
@@ -19,6 +30,8 @@ type GenerateOptions<S extends z.ZodTypeAny> = {
   systemPrompt: string;
   userPrompt: string;
   zodSchema: S;
+  /** Route name — applies the model policy defaults + kill switch (Prompt 14). */
+  route?: AiRouteName;
   temperature?: number;
   maxTokens?: number;
   timeoutMs?: number;
@@ -39,12 +52,17 @@ export async function generateStructuredJson<S extends z.ZodTypeAny>({
   systemPrompt,
   userPrompt,
   zodSchema,
-  temperature = 0.6,
-  maxTokens = 4096,
-  timeoutMs = DEFAULT_TIMEOUT_MS,
+  route,
+  temperature,
+  maxTokens,
+  timeoutMs,
   usageSink,
 }: GenerateOptions<S>): Promise<z.infer<S>> {
-  const model = getAiModel();
+  const policy = route ? policyFor(route) : null;
+  const model = policy?.model ?? getAiModel();
+  const temp = temperature ?? policy?.temperature ?? 0.6;
+  const tokens = maxTokens ?? policy?.maxTokens ?? 4096;
+  const timeout = timeoutMs ?? policy?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const started = Date.now();
   const record = (
     status: AiUsage["status"],
@@ -71,22 +89,48 @@ export async function generateStructuredJson<S extends z.ZodTypeAny>({
     return mockFromSchema(zodSchema);
   }
 
+  // Kill switch by route/model (audited, env-controlled) — before any call.
+  if (isKilled({ route, model })) {
+    console.warn("[ai] kill switch tripped", { route, model });
+    record("provider_error");
+    throw new AiGenerationError("AI generation is disabled", "disabled");
+  }
+
+  // Circuit breaker: a warm instance stops hammering a failing provider.
+  if (providerBreaker.isOpen()) {
+    console.warn("[ai] circuit open — skipping provider call", { route, model });
+    record("provider_error");
+    throw new AiGenerationError("AI provider circuit open", "circuit_open");
+  }
+
   const client = getAiClient();
 
   let responseText: string;
   let inputTokens = 0;
   let outputTokens = 0;
   try {
-    const message = await client.messages.create(
-      {
-        model,
-        max_tokens: maxTokens,
-        temperature,
-        system: `${systemPrompt}\n\nRespond with a single valid JSON object only. No prose, no markdown.`,
-        messages: [{ role: "user", content: userPrompt }],
-      },
-      { timeout: timeoutMs }
-    );
+    const request = () =>
+      client.messages.create(
+        {
+          model,
+          max_tokens: tokens,
+          temperature: temp,
+          system: `${systemPrompt}\n\nRespond with a single valid JSON object only. No prose, no markdown.`,
+          messages: [{ role: "user", content: userPrompt }],
+        },
+        { timeout }
+      );
+
+    // Bounded retry: exactly one, only for rate-limit/overload, with jitter
+    // (backpressure, never a request storm).
+    let message;
+    try {
+      message = await request();
+    } catch (err) {
+      if (!isRetryableProviderError(err)) throw err;
+      await new Promise((r) => setTimeout(r, 500 + Math.random() * 1000));
+      message = await request();
+    }
 
     // Provider token truth — the basis for actual cost.
     inputTokens = message.usage?.input_tokens ?? 0;
@@ -103,12 +147,15 @@ export async function generateStructuredJson<S extends z.ZodTypeAny>({
       model,
       timeout: isTimeout,
     });
+    providerBreaker.recordFailure();
     record(isTimeout ? "timeout" : "provider_error");
     throw new AiGenerationError(
       "AI provider call failed",
       isTimeout ? "timeout" : "provider_error"
     );
   }
+
+  providerBreaker.recordSuccess();
 
   let parsed: unknown;
   try {

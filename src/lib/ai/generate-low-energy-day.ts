@@ -44,6 +44,7 @@ export async function generateLowEnergyDay(args: {
   });
 
   return generateStructuredJson({
+      route: "low-energy-day",
     systemPrompt: LOW_ENERGY_DAY_SYSTEM_PROMPT,
     userPrompt: args.extraInstruction
       ? `${basePrompt}\n\nIMPORTANT CORRECTION: ${args.extraInstruction}`

@@ -48,6 +48,7 @@ export async function checkInputSafety(
   let result: SafetyCheckOutputType;
   try {
     result = await generateStructuredJson({
+      route: "safety-check",
       systemPrompt: SAFETY_SYSTEM_PROMPT,
       userPrompt: `Source: ${source}\n\nUser input:\n"""${trimmed.slice(0, 4000)}"""`,
       zodSchema: SafetyCheckOutput,

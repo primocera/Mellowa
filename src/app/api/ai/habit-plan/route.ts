@@ -64,6 +64,7 @@ Suggest 1-3 small new habits as structured JSON.`;
   let plan;
   try {
     plan = await generateStructuredJson({
+      route: "habit-plan",
       systemPrompt: HABIT_PLAN_SYSTEM_PROMPT,
       userPrompt,
       zodSchema: HabitPlanOutput,
@@ -77,6 +78,7 @@ Suggest 1-3 small new habits as structured JSON.`;
     if (!quality.ok) {
       retried = true;
       plan = await generateStructuredJson({
+      route: "habit-plan",
         systemPrompt: HABIT_PLAN_SYSTEM_PROMPT,
         userPrompt: `${userPrompt}\n\nIMPORTANT CORRECTION: ${correctiveInstruction(quality.reasons)}`,
         zodSchema: HabitPlanOutput,

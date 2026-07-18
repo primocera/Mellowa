@@ -101,6 +101,7 @@ export async function POST(request: Request) {
   let ideas;
   try {
     ideas = await generateStructuredJson({
+      route: "meal-rhythm",
       systemPrompt: MEAL_RHYTHM_SYSTEM_PROMPT,
       userPrompt,
       zodSchema: MealRhythmOutput,
@@ -116,6 +117,7 @@ export async function POST(request: Request) {
       retried = true;
       const hadAllergen = quality.reasons.some((r) => r.startsWith("allergen:"));
       ideas = await generateStructuredJson({
+      route: "meal-rhythm",
         systemPrompt: MEAL_RHYTHM_SYSTEM_PROMPT,
         userPrompt: `${userPrompt}\n\nIMPORTANT CORRECTION: ${correctiveInstruction(quality.reasons)}${
           hadAllergen ? `\n\n${allergenExclusionInstruction(allergies)}` : ""

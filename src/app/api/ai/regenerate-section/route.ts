@@ -224,6 +224,7 @@ Return ONLY the regenerated part as a single JSON object matching the same shape
   let regenerated;
   try {
     regenerated = await generateStructuredJson({
+      route: "regenerate-section",
       systemPrompt: DAILY_PLAN_V2_SYSTEM_PROMPT,
       userPrompt,
       zodSchema: schema,
@@ -240,6 +241,7 @@ Return ONLY the regenerated part as a single JSON object matching the same shape
         quality: gate.quality,
       });
       regenerated = await generateStructuredJson({
+      route: "regenerate-section",
         systemPrompt: DAILY_PLAN_V2_SYSTEM_PROMPT,
         userPrompt: `${userPrompt}
 

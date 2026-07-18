@@ -87,6 +87,7 @@ export async function POST(request: Request) {
   let reflection;
   try {
     reflection = await generateStructuredJson({
+      route: "journal-reflection",
       systemPrompt: JOURNAL_SYSTEM_PROMPT,
       userPrompt: `Journal prompt: ${entry.prompt || "free writing"}\n\nUser's entry:\n"""${entry.answer}"""`,
       zodSchema: JournalReflectionOutput,
