@@ -8,19 +8,19 @@ const LINKS: HubLink[] = [
   {
     href: "/favourites",
     label: "Saved meals",
-    description: "Meals you loved, ready to reuse.",
+    description: "Meals worth using again.",
     icon: Heart,
   },
   {
     href: "/movement",
     label: "Movement",
-    description: "Small, doable ways to move today.",
+    description: "Short options for different energy levels.",
     icon: Footprints,
   },
   {
     href: "/stress-reset",
-    label: "Calm",
-    description: "Short resets for busy moments.",
+    label: "Resets",
+    description: "Brief practices for everyday tension or overload.",
     icon: Wind,
   },
 ];
@@ -30,10 +30,11 @@ export default function LibraryPage() {
     <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
-          Library
+          Useful things, ready when you need them
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
-          Saved meals, movement and calm — whenever you need them.
+          Saved meals and reviewed practices you can reuse without creating a
+          new plan.
         </p>
       </header>
       <HubLinks links={LINKS} />

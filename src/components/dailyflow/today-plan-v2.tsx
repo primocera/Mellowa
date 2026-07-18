@@ -15,6 +15,7 @@ import {
   Target,
   ChevronDown,
 } from "lucide-react";
+import Link from "next/link";
 import clsx from "clsx";
 import { SaveMealButton } from "@/components/dailyflow/save-meal-button";
 import { createClient } from "@/lib/supabase/client";
@@ -55,17 +56,25 @@ type PlanRow = {
 
 const INTENSITY_LABELS: Record<string, string> = {
   normal: "Balanced day",
-  low_energy: "Low-energy day",
+  low_energy: "Lighter day",
   high_stress: "Calm day",
   busy_day: "Busy day",
 };
 
 const MODE_LABELS: Record<string, string> = {
-  minimum: "Minimum day",
+  minimum: "Lightest version",
   balanced: "Balanced day",
   reset: "Reset day",
   custom: "Your custom day",
 };
+
+// AI-provided names may be verbose or clinical; they can label a block but
+// never override the canonical hierarchy (CE-8). Long or empty names fall
+// back to the canonical section title.
+function sectionName(aiName: string | undefined | null, fallback: string): string {
+  const n = (aiName ?? "").trim();
+  return n && n.length <= 48 ? n : fallback;
+}
 
 function greeting() {
   const h = new Date().getHours();
@@ -279,18 +288,26 @@ export function TodayPlanV2({
     <div className="space-y-4">
       {/* 1. Header + summary */}
       <div className="rounded-2xl bg-[#7C9A92] p-6 text-white">
-        <p className="text-sm text-white/80">{greeting()}</p>
+        <p className="text-sm text-white/80">{greeting()}. Here&apos;s what fits today.</p>
         <h1 className="mt-1 text-lg font-semibold">
-          {summary?.main_focus ?? "Your gentle plan for today"}
+          {summary?.main_focus ?? "A realistic plan for today"}
         </h1>
         {summary?.short_note && (
           <p className="mt-1 text-sm text-white/90">{summary.short_note}</p>
         )}
-        <span className="mt-3 inline-block rounded-full bg-white/20 px-3 py-0.5 text-xs font-medium">
-          {(plan.plan_mode && MODE_LABELS[plan.plan_mode]) ??
-            INTENSITY_LABELS[intensity] ??
-            "Balanced day"}
-        </span>
+        <div className="mt-3 flex items-center gap-3">
+          <span className="inline-block rounded-full bg-white/20 px-3 py-0.5 text-xs font-medium">
+            {(plan.plan_mode && MODE_LABELS[plan.plan_mode]) ??
+              INTENSITY_LABELS[intensity] ??
+              "Balanced day"}
+          </span>
+          <Link
+            href="/check-in"
+            className="text-xs text-white/80 underline underline-offset-2 hover:text-white"
+          >
+            Check in again
+          </Link>
+        </div>
       </div>
 
       {message && (
@@ -306,7 +323,7 @@ export function TodayPlanV2({
       {/* 2. Meal cards */}
       <div className="space-y-3">
         <h2 className="px-1 text-sm font-medium uppercase tracking-wide text-[#9CA3AF]">
-          Meal rhythm
+          Meals that fit today
         </h2>
         {meals.map((meal, mealIndex) => (
           <div
@@ -348,7 +365,7 @@ export function TodayPlanV2({
             <details className="group mt-3">
               <summary className="flex cursor-pointer list-none items-center gap-1 text-sm font-medium text-[#7C9A92]">
                 <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
-                Ingredients & steps
+                See ingredients
               </summary>
               <div className="mt-2 space-y-3">
                 <div>
@@ -382,7 +399,7 @@ export function TodayPlanV2({
                 </div>
                 {meal.low_energy_swap && (
                   <p className="text-xs text-[#6B7280]">
-                    <span className="font-medium">Low-energy swap:</span>{" "}
+                    <span className="font-medium">If today gets smaller:</span>{" "}
                     {meal.low_energy_swap}
                   </p>
                 )}
@@ -401,7 +418,7 @@ export function TodayPlanV2({
                 ) : (
                   <RefreshCw className="h-3 w-3" />
                 )}
-                Replace
+                Swap this meal
               </button>
               <button
                 onClick={() => regenerateMeal(meal.meal_type, "simplify")}
@@ -409,7 +426,7 @@ export function TodayPlanV2({
                 className="flex items-center gap-1 rounded-lg border border-[#E5E1DA] px-2.5 py-1.5 text-xs text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937] disabled:opacity-50"
               >
                 <Feather className="h-3 w-3" />
-                Simplify
+                Make it easier
               </button>
             </div>
           </div>
@@ -420,7 +437,7 @@ export function TodayPlanV2({
       {plan.hydration_plan_v2 && (
         <Section
           icon={<Droplets className="h-4 w-4 text-[#7C9A92]" />}
-          title="Hydration"
+          title="A simple water cue"
         >
           <p className="mt-1 text-sm text-[#1F2937]">{plan.hydration_plan_v2.goal}</p>
           <ul className="mt-2 space-y-1">
@@ -437,7 +454,7 @@ export function TodayPlanV2({
       {movement && (
         <Section
           icon={<Footprints className="h-4 w-4 text-[#7C9A92]" />}
-          title="Movement moment"
+          title="If movement feels useful"
           action={
             <button
               onClick={regenerateMovement}
@@ -449,7 +466,7 @@ export function TodayPlanV2({
               ) : (
                 <Feather className="h-3 w-3" />
               )}
-              Make easier
+              Make it easier
             </button>
           }
         >
@@ -478,13 +495,13 @@ export function TodayPlanV2({
       {/* 5. One calm reset (Prompt 11) — a single option, never all three */}
       {calmReset && (
         <h2 className="px-1 text-sm font-medium uppercase tracking-wide text-[#9CA3AF]">
-          One calm reset
+          One pause for today
         </h2>
       )}
       {calmReset === "breathing" && plan.breathing_exercise && (
         <Section
           icon={<Wind className="h-4 w-4 text-[#7C9A92]" />}
-          title={plan.breathing_exercise.name}
+          title={sectionName(plan.breathing_exercise.name, "A breathing pause")}
         >
           <p className="mt-0.5 text-xs text-[#9CA3AF]">
             {plan.breathing_exercise.duration_minutes} min ·{" "}
@@ -512,7 +529,7 @@ export function TodayPlanV2({
       {calmReset === "meditation" && plan.meditation_or_reflection && (
         <Section
           icon={<Brain className="h-4 w-4 text-[#7C9A92]" />}
-          title={plan.meditation_or_reflection.name}
+          title={sectionName(plan.meditation_or_reflection.name, "A short reflection")}
         >
           <p className="mt-0.5 text-xs text-[#9CA3AF]">
             {plan.meditation_or_reflection.duration_minutes} min
@@ -534,7 +551,7 @@ export function TodayPlanV2({
       {calmReset === "relaxation" && plan.relaxation_technique && (
         <Section
           icon={<Sparkles className="h-4 w-4 text-[#7C9A92]" />}
-          title={plan.relaxation_technique.name}
+          title={sectionName(plan.relaxation_technique.name, "A relaxation pause")}
         >
           <p className="mt-0.5 text-xs text-[#9CA3AF]">
             {plan.relaxation_technique.duration_minutes} min ·{" "}
@@ -555,7 +572,7 @@ export function TodayPlanV2({
       {showFocus && plan.focus_plan && (
         <Section
           icon={<Target className="h-4 w-4 text-[#7C9A92]" />}
-          title="Focus block"
+          title="One thing to protect"
         >
           <p className="mt-1 text-sm text-[#1F2937]">{plan.focus_plan.main_task}</p>
           {plan.focus_plan.method && (
@@ -573,7 +590,7 @@ export function TodayPlanV2({
       {plan.evening_routine && (
         <Section
           icon={<Moon className="h-4 w-4 text-[#7C9A92]" />}
-          title="Evening wind-down"
+          title="A softer landing"
         >
           {plan.evening_routine.time && (
             <p className="mt-0.5 text-xs text-[#9CA3AF]">
@@ -589,7 +606,7 @@ export function TodayPlanV2({
           </ul>
           {plan.evening_routine.simple_version && (
             <p className="mt-2 text-xs text-[#6B7280]">
-              <span className="font-medium">Simple version:</span>{" "}
+              <span className="font-medium">If today gets smaller:</span>{" "}
               {plan.evening_routine.simple_version}
             </p>
           )}
@@ -600,12 +617,12 @@ export function TodayPlanV2({
       {plan.habit_focus && (
         <Section
           icon={<Check className="h-4 w-4 text-[#7C9A92]" />}
-          title="One small habit"
+          title="One repeatable step"
         >
           <p className="mt-1 text-sm text-[#1F2937]">{plan.habit_focus.habit}</p>
           {plan.habit_focus.minimum_version && (
             <p className="mt-1 text-sm text-[#6B7280]">
-              Minimum version: {plan.habit_focus.minimum_version}
+              If today gets smaller: {plan.habit_focus.minimum_version}
             </p>
           )}
           <DoneToggle
@@ -624,6 +641,9 @@ export function TodayPlanV2({
       {plan.safety_note && (
         <p className="px-2 text-xs text-[#9CA3AF]">{plan.safety_note}</p>
       )}
+      <p className="px-2 text-center text-sm text-[#6B7280]">
+        Use the structure that helps. Leave the rest.
+      </p>
 
       {/* Gentle feedback (Prompt 10) */}
       <PlanFeedback planId={plan.id} />
@@ -637,12 +657,12 @@ export function TodayPlanV2({
         {simplifying ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            Making today lighter...
+            Making the day simpler…
           </>
         ) : (
           <>
             <Feather className="h-4 w-4" />
-            This feels like too much — simplify my day
+            Make today lighter
           </>
         )}
       </button>
@@ -662,7 +682,7 @@ function DoneToggle({ done, onClick }: { done: boolean; onClick: () => void }) {
       )}
     >
       <Check className="h-3.5 w-3.5" />
-      {done ? "Done" : "Mark done"}
+      {done ? "Undo" : "Done for now"}
     </button>
   );
 }

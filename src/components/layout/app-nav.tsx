@@ -18,9 +18,9 @@ import clsx from "clsx";
 // live inside these hubs and are still reachable by their original URLs.
 const NAV_ITEMS = [
   { href: "/today", label: "Today", icon: Sun },
-  { href: "/plan", label: "Plan", icon: CalendarDays },
+  { href: "/plan", label: "Week", icon: CalendarDays },
   { href: "/library", label: "Library", icon: BookHeart },
-  { href: "/progress", label: "Progress", icon: TrendingUp },
+  { href: "/progress", label: "Patterns", icon: TrendingUp },
   { href: "/you", label: "You", icon: User },
 ];
 

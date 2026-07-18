@@ -60,4 +60,12 @@ export const serverEnv = {
   get adminStatsSecret() {
     return process.env.ADMIN_STATS_SECRET ?? null;
   },
+  // Supabase user ids allowed to view the admin dashboard (comma-separated).
+  // Real per-user authorization for the UI — not only a shared bearer secret.
+  get adminUserIds(): string[] {
+    return (process.env.ADMIN_USER_IDS ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  },
 };

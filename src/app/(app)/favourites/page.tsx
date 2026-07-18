@@ -6,7 +6,7 @@ import {
   type FavouriteMeal,
 } from "@/components/dailyflow/favourites-view";
 
-export const metadata: Metadata = { title: "Favourites — Mellowa" };
+export const metadata: Metadata = { title: "Saved meals — Mellowa" };
 
 export default async function FavouritesPage() {
   const user = await requireUser();

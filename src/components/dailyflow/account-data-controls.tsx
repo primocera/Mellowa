@@ -68,10 +68,10 @@ export function AccountDataControls() {
 
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <h2 className="font-medium text-[#1F2937]">Your data &amp; privacy</h2>
+      <h2 className="font-medium text-[#1F2937]">Your data, under your control</h2>
       <p className="mt-1 text-sm text-[#6B7280]">
-        Download everything Mellowa stores about you, or permanently delete your
-        account.
+        Download a machine-readable copy or permanently delete your account and
+        linked data.
       </p>
 
       <div className="mt-4 space-y-3">

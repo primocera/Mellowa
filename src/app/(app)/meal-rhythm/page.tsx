@@ -24,11 +24,10 @@ export default async function MealRhythmPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
-          Meal rhythm
+          Make regular eating easier
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
-          Simple structure, not a strict diet — formulas you can repeat on
-          autopilot.
+          Choose the situation Mellowa should plan around.
         </p>
       </div>
       <MealRhythmView initial={(latest?.idea as MealRhythm) ?? null} />

@@ -1,7 +1,11 @@
+import type { Metadata } from "next";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { AppNav } from "@/components/layout/app-nav";
 import { TrialBanner } from "@/components/dailyflow/trial-banner";
 import { ConsentCheckpoint } from "@/components/dailyflow/consent-checkpoint";
+
+// Authenticated surfaces must never be indexed (Launch v6, Prompt 23).
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function AppLayout({
   children,

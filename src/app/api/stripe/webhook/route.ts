@@ -8,7 +8,14 @@ import {
   trialStartedEmail,
   trialEndedEmail,
   paymentFailedEmail,
+  paymentRecoveredEmail,
 } from "@/lib/email/templates";
+import {
+  factsFromSubscription,
+  factsFromInvoice,
+} from "@/lib/email/billing-facts";
+import { trackEvent } from "@/lib/analytics";
+import type { AnalyticsProperties } from "@/lib/analytics/taxonomy";
 
 /**
  * Stripe webhook — keeps the subscriptions table in sync (Prompt 14).
@@ -102,6 +109,24 @@ export async function POST(request: Request) {
     if (!userId) return null;
     const { data } = await admin.auth.admin.getUserById(userId);
     return data.user?.email ?? null;
+  }
+
+  async function userIdForCustomerId(customerId: string): Promise<string | null> {
+    const { data } = await admin
+      .from("subscriptions")
+      .select("user_id")
+      .eq("stripe_customer_id", customerId)
+      .maybeSingle();
+    return data?.user_id ?? null;
+  }
+
+  function intervalOf(subscription: Stripe.Subscription): AnalyticsProperties {
+    const priceId = subscription.items.data[0]?.price.id;
+    if (priceId === serverEnv.stripePriceProYearly)
+      return { surface: "billing", plan_interval: "yearly" };
+    if (priceId === serverEnv.stripePriceProMonthly)
+      return { surface: "billing", plan_interval: "monthly" };
+    return { surface: "billing" };
   }
 
   async function emailForCustomerId(customerId: string): Promise<string | null> {
@@ -215,6 +240,15 @@ export async function POST(request: Request) {
               : session.subscription.id
           );
           await syncSubscription(subscription);
+          const uid = await userIdForCustomerId(
+            typeof subscription.customer === "string"
+              ? subscription.customer
+              : subscription.customer.id
+          );
+          trackEvent("checkout_completed", {
+            userId: uid,
+            properties: intervalOf(subscription),
+          });
         }
         break;
       }
@@ -222,18 +256,19 @@ export async function POST(request: Request) {
         const subscription = event.data.object;
         await syncSubscription(subscription);
         if (subscription.status === "trialing") {
+          trackEvent("trial_started", {
+            userId: await userIdForCustomerId(
+              typeof subscription.customer === "string"
+                ? subscription.customer
+                : subscription.customer.id
+            ),
+            properties: intervalOf(subscription),
+          });
           const email = await emailForCustomer(subscription);
           if (email) {
-            const daysLeft = subscription.trial_end
-              ? Math.max(
-                  1,
-                  Math.ceil(
-                    (subscription.trial_end * 1000 - Date.now()) /
-                      (24 * 60 * 60 * 1000)
-                  )
-                )
-              : 3;
-            const { subject, html } = trialStartedEmail(daysLeft);
+            const { subject, html } = trialStartedEmail(
+              factsFromSubscription(subscription, "trial_end")
+            );
             await deliverEmail({
               eventKey: `trial_started:${subscription.id}`,
               template: "trial_started",
@@ -252,6 +287,14 @@ export async function POST(request: Request) {
           | Partial<Stripe.Subscription>
           | undefined;
         if (prev?.status === "trialing" && subscription.status === "active") {
+          trackEvent("trial_converted", {
+            userId: await userIdForCustomerId(
+              typeof subscription.customer === "string"
+                ? subscription.customer
+                : subscription.customer.id
+            ),
+            properties: intervalOf(subscription),
+          });
           const email = await emailForCustomer(subscription);
           if (email) {
             const { subject, html } = trialEndedEmail();
@@ -267,7 +310,24 @@ export async function POST(request: Request) {
         break;
       }
       case "customer.subscription.deleted": {
-        await syncSubscription(event.data.object);
+        const subscription = event.data.object;
+        await syncSubscription(subscription);
+        // Voluntary vs involuntary churn (Prompt 18): a subscription the user
+        // set to cancel ended voluntarily; one Stripe ended after failed
+        // payment retries (past_due/unpaid) ended involuntarily.
+        const churnType =
+          subscription.cancel_at_period_end ||
+          subscription.cancellation_details?.reason === "cancellation_requested"
+            ? "voluntary"
+            : "involuntary";
+        trackEvent("trial_canceled", {
+          userId: await userIdForCustomerId(
+            typeof subscription.customer === "string"
+              ? subscription.customer
+              : subscription.customer.id
+          ),
+          properties: { ...intervalOf(subscription), churn_type: churnType },
+        });
         break;
       }
       case "invoice.payment_failed": {
@@ -281,9 +341,15 @@ export async function POST(request: Request) {
             .from("subscriptions")
             .update({ status: "past_due" })
             .eq("stripe_customer_id", customerId);
+          trackEvent("payment_failed", {
+            userId: await userIdForCustomerId(customerId),
+            properties: { surface: "billing", outcome: "failure" },
+          });
           const email = await emailForCustomerId(customerId);
           if (email) {
-            const { subject, html } = paymentFailedEmail();
+            const { subject, html } = paymentFailedEmail(
+              factsFromInvoice(invoice)
+            );
             await deliverEmail({
               eventKey: `payment_failed:${invoice.id}`,
               template: "payment_failed",
@@ -302,11 +368,38 @@ export async function POST(request: Request) {
             ? invoice.customer
             : invoice.customer?.id;
         if (customerId) {
-          await admin
+          const { data: recovered } = await admin
             .from("subscriptions")
             .update({ status: "active" })
             .eq("stripe_customer_id", customerId)
-            .eq("status", "past_due");
+            .eq("status", "past_due")
+            .select("user_id");
+          const uid = await userIdForCustomerId(customerId);
+          // A past_due row that just went active is a dunning recovery; a
+          // clean paid invoice is a renewal. Distinguish the two truthfully.
+          if (recovered && recovered.length > 0) {
+            trackEvent("payment_recovered", {
+              userId: uid,
+              properties: { surface: "billing", outcome: "success" },
+            });
+            const email = await emailForCustomerId(customerId);
+            if (email) {
+              const { subject, html } = paymentRecoveredEmail();
+              await deliverEmail({
+                eventKey: `payment_recovered:${invoice.id}`,
+                userId: uid,
+                template: "payment_recovered",
+                to: email,
+                subject,
+                html,
+              });
+            }
+          } else if (invoice.billing_reason === "subscription_cycle") {
+            trackEvent("subscription_renewed", {
+              userId: uid,
+              properties: { surface: "billing", outcome: "success" },
+            });
+          }
         }
         break;
       }

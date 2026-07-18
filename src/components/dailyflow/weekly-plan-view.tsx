@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Copy, Check, Feather, CalendarPlus } from "lucide-react";
 import type { WeeklyPlan } from "@/types/dailyflow";
+import { errorCopy } from "@/lib/microcopy/errors";
 
 type PlanItem = { title: string; description?: string; time_hint?: string };
 type Section = { title: string; items: PlanItem[] };
@@ -25,32 +26,38 @@ function GenerateButton({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const idemKey = useRef<string | null>(null);
 
   async function generate() {
     setLoading(true);
     setMessage(null);
+    if (!idemKey.current) idemKey.current = crypto.randomUUID();
     try {
       const res = await fetch("/api/ai/weekly-plan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Idempotency-Key": idemKey.current,
+        },
         body: JSON.stringify({ notes: notes ?? "" }),
       });
       const data = await res.json();
       if (data.blocked) {
         setMessage(data.user_message);
       } else if (res.ok) {
+        idemKey.current = null;
         router.refresh();
       } else if (res.status === 402) {
         setMessage(
           data.error === "upgrade_required"
-            ? "Weekly reset is a Premium feature — start your 3-day free trial on the Billing page."
+            ? "Weekly reset is part of Premium — start 3 days free on the Billing page."
             : "You've reached this month's weekly plan limit — manage your plan on the Billing page."
         );
       } else {
-        setMessage("Couldn't create the plan right now — try again in a moment.");
+        setMessage(errorCopy("plan_provider_failure"));
       }
     } catch {
-      setMessage("Couldn't create the plan right now — try again in a moment.");
+      setMessage(errorCopy("plan_provider_failure"));
     }
     setLoading(false);
   }
@@ -75,13 +82,15 @@ function GenerateButton({
 export function WeeklyPlanEmpty() {
   return (
     <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
-      <h1 className="text-xl font-semibold text-[#1F2937]">No weekly plan yet</h1>
+      <h1 className="text-xl font-semibold text-[#1F2937]">
+        Start with the week you actually have
+      </h1>
       <p className="mx-auto mt-2 max-w-sm text-sm text-[#6B7280]">
-        One simple structure for the week — meals, movement, resets and a
-        shopping list. Less deciding, more living.
+        Add anything that will change the plan—busy evenings, meals out or days
+        with very little cooking time.
       </p>
       <div className="mt-6 flex justify-center">
-        <GenerateButton label="Create this week's plan" />
+        <GenerateButton label="Shape this week" />
       </div>
     </div>
   );
@@ -214,6 +223,10 @@ export function WeeklyPlanView({ plan }: { plan: WeeklyPlan }) {
               </div>
             ))}
           </div>
+          <p className="mt-4 text-xs text-[#9CA3AF]">
+            This list is editable. Keep what is useful, remove what you already
+            have and always check product labels for your allergies.
+          </p>
         </div>
       )}
 

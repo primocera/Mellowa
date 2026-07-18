@@ -76,3 +76,34 @@ test("keyboard navigation reaches the primary signup CTA", async ({ page }) => {
   const active = await page.evaluate(() => document.activeElement?.tagName ?? "");
   expect(["A", "INPUT", "BUTTON"]).toContain(active);
 });
+
+test("verify-email page shows next step, resend and change-email", async ({ page }) => {
+  await page.goto("/verify-email?email=person%40example.com");
+  await expect(page.getByText(/check your email to continue/i)).toBeVisible();
+  await expect(page.getByText("person@example.com")).toBeVisible();
+  await expect(page.getByRole("button", { name: /resend email/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /use a different email/i })).toBeVisible();
+});
+
+test("auth callback rejects a missing code and a malicious next URL", async ({ page }) => {
+  await page.goto("/auth/callback?next=https%3A%2F%2Fevil.com");
+  await expect(page).toHaveURL(/\/login\?error=verify_link_invalid/);
+  // Never leaves the origin.
+  expect(new URL(page.url()).hostname).not.toContain("evil.com");
+});
+
+test("hero leads with the free-sample funnel, not a trial promise", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: /create my free sample plan/i }).first()).toBeVisible();
+  await expect(page.getByText(/no card for the sample/i).first()).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(/start my 3-day free trial/i);
+});
+
+test("signup and login pages carry the elevated account copy", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.getByText(/create your mellowa account/i)).toBeVisible();
+  await expect(page.getByText(/no card required/i)).toBeVisible();
+  await expect(page.getByText(/use at least 8 characters/i)).toBeVisible();
+  await page.goto("/login");
+  await expect(page.getByText(/welcome back/i)).toBeVisible();
+});

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { SITE_URL } from "@/lib/seo/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -12,13 +13,30 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const TITLE = "Mellowa — A simple daily plan for food, energy, mood and habits";
+const DESCRIPTION =
+  "Realistic daily wellbeing plans that adapt to your energy, mood and schedule — without strict dieting or overwhelm.";
+
 export const metadata: Metadata = {
-  title: {
-    default: "Mellowa — A simple daily plan for food, energy, mood and habits",
-    template: "%s",
+  metadataBase: new URL(SITE_URL),
+  title: { default: TITLE, template: "%s · Mellowa" },
+  description: DESCRIPTION,
+  applicationName: "Mellowa",
+  openGraph: {
+    type: "website",
+    siteName: "Mellowa",
+    title: TITLE,
+    description: DESCRIPTION,
+    url: SITE_URL,
+    locale: "en",
   },
-  description:
-    "Realistic daily wellbeing plans that adapt to your energy, mood and schedule — without strict dieting or overwhelm.",
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+  // Default policy is indexable; private layouts/pages set their own noindex.
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({

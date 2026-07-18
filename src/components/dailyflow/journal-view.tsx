@@ -8,11 +8,11 @@ import clsx from "clsx";
 
 const PROMPTS = [
   { category: "Evening reflection", text: "What felt steady today, even if small?" },
-  { category: "Low-energy day", text: "Today was heavy — what would 'good enough' look like tonight?" },
+  { category: "Lighter day", text: "Today was heavy — what would 'good enough' look like tonight?" },
   { category: "Stress reset", text: "What helped you pause today, even for a moment?" },
   { category: "Food routine", text: "How did meals fit into your day — what felt easy, what felt rushed?" },
   { category: "Habit review", text: "Which habit felt natural this week, and which felt forced?" },
-  { category: "What worked", text: "Name one thing that worked today — however tiny." },
+  { category: "What worked", text: "Name one thing that worked today — however small." },
 ];
 
 type Reflection = {
@@ -129,7 +129,7 @@ export function JournalView({ entries }: { entries: JournalEntry[] }) {
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
           rows={5}
-          placeholder="No structure needed — write what comes."
+          placeholder="Write in your own words. No structure needed."
           className="mt-3 w-full rounded-xl border border-[#E5E1DA] px-4 py-3 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
         />
         <div className="mt-3 flex flex-wrap gap-6">

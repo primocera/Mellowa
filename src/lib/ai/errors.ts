@@ -6,6 +6,8 @@ export class AiGenerationError extends Error {
       | "timeout"
       | "invalid_json"
       | "schema_validation_failed"
+      | "circuit_open"
+      | "disabled"
   ) {
     super(message);
     this.name = "AiGenerationError";

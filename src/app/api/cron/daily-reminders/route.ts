@@ -2,125 +2,179 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
 import { requireBearerSecret } from "@/lib/cron-auth";
-import { pruneExpiredData } from "@/lib/privacy/retention";
 import { deliverEmail } from "@/lib/email/deliver";
-import {
-  isValidTimeZone,
-  localDateFor,
-  localMinutesFor,
-  instantForLocalTime,
-} from "@/lib/dates/local-day";
+import { getUserEmails } from "@/lib/email/recipients";
+import { planReminders, type ReminderProfile } from "@/lib/email/reminder-planner";
+import { onboardingNudgeEmail } from "@/lib/email/templates";
 
 /**
- * Daily cron (Prompts 9 + 12) — opt-in daily reminder email.
+ * Daily reminder cron (v6 Prompts 9/12/15) — opt-in daily reminder email.
  *
- * Vercel Hobby allows only one cron run per day, so exact-time delivery is
- * handed to Resend scheduled sending: the run computes each user's local
- * reminder_time as a UTC instant and schedules the email for it (or sends
- * immediately when the time already passed and we're outside quiet hours).
- * Users with an invalid timezone are skipped and counted — the app shows
- * them a repair prompt (TimezoneRepair) rather than failing silently.
+ * Scale-safe: profiles are scanned with keyset pagination (batches of
+ * BATCH_SIZE, bounded by a time budget), recipient emails are fetched in one
+ * RPC per batch (no per-user auth admin call), and delivery is idempotent via
+ * the email ledger's unique event key plus last_reminder_sent_date. A run cut
+ * short by the time budget resumes naturally on the next trigger: already-sent
+ * users are skipped by the planner.
+ *
+ * Retention pruning moved to /api/cron/retention (Prompt 15): one job's
+ * failure can no longer hide the other's.
  */
+
+const BATCH_SIZE = 200;
+const TIME_BUDGET_MS = 50_000;
+
 export async function GET(request: Request) {
   const denied = requireBearerSecret(request, serverEnv.cronSecret);
   if (denied) return denied;
 
   const admin = createAdminClient();
-  const { data: profiles } = await admin
-    .from("wellbeing_profiles")
-    .select(
-      "user_id, reminder_time, quiet_hours_start, quiet_hours_end, timezone, last_reminder_sent_date"
-    )
-    .eq("reminders_opt_in", true)
-    .not("reminder_time", "is", null);
+  const startedAt = Date.now();
+  const now = new Date();
 
+  let cursor: string | null = null;
   let sent = 0;
   let invalidTimezones = 0;
-  for (const p of profiles ?? []) {
-    const tz = p.timezone || "UTC";
-    if (!isValidTimeZone(tz)) {
-      invalidTimezones += 1;
-      continue; // repair prompt in-app; never mis-time an email
-    }
-    const now = new Date();
-    const localDate = localDateFor(tz, now);
-    const localMinutes = localMinutesFor(tz, now);
+  let scanned = 0;
+  let truncated = false;
 
-    if (p.last_reminder_sent_date === localDate) continue;
-
-    // Preferred reminder time still ahead today → schedule with the provider.
-    let scheduledAt: string | undefined;
-    const remMinutes = toMinutes(p.reminder_time);
-    if (remMinutes !== null && remMinutes > localMinutes) {
-      scheduledAt = instantForLocalTime(
-        tz,
-        localDate,
-        p.reminder_time.slice(0, 5)
-      ).toISOString();
-    } else if (inQuietHours(localMinutes, p.quiet_hours_start, p.quiet_hours_end)) {
-      // Time already passed and we're inside quiet hours — skip today.
-      continue;
+  for (;;) {
+    if (Date.now() - startedAt > TIME_BUDGET_MS) {
+      truncated = true; // next trigger continues; planner dedupes
+      break;
     }
 
-    const { data: userData } = await admin.auth.admin.getUserById(p.user_id);
-    const email = userData.user?.email;
-    if (!email) continue;
+    let query = admin
+      .from("wellbeing_profiles")
+      .select(
+        "user_id, reminder_time, quiet_hours_start, quiet_hours_end, timezone, last_reminder_sent_date"
+      )
+      .eq("reminders_opt_in", true)
+      .not("reminder_time", "is", null)
+      .order("user_id", { ascending: true })
+      .limit(BATCH_SIZE);
+    if (cursor) query = query.gt("user_id", cursor);
 
-    const result = await deliverEmail({
-      eventKey: `daily_reminder:${p.user_id}:${localDate}`,
-      userId: p.user_id,
-      template: "daily_reminder",
-      to: email,
-      scheduledAt,
-      subject: "A gentle nudge from Mellowa",
-      html: `<div style="font-family:sans-serif;color:#1F2937;line-height:1.6">
-        <p>Hi,</p>
-        <p>Just a soft reminder — whenever you have a minute, a quick check-in
-        can shape a plan that actually fits today.</p>
-        <p><a href="${serverEnv.appUrl}/check-in" style="color:#6D8C7D">Open Mellowa</a></p>
-        <p style="color:#6B7280;font-size:13px">No pressure — skipping days is
-        part of it. You can turn these reminders off any time in Settings.</p>
-      </div>`,
-    });
-
-    // Only record the local date after real delivery. Duplicate protection
-    // within a day comes from the delivery ledger's unique event key, so an
-    // unconfigured provider stays retryable without ever double-sending.
-    if (result.sent || result.status === "duplicate") {
-      await admin
-        .from("wellbeing_profiles")
-        .update({ last_reminder_sent_date: localDate })
-        .eq("user_id", p.user_id);
+    const { data: profiles, error } = await query;
+    if (error) {
+      console.error("[daily-reminders] profile scan failed", { message: error.message });
+      break;
     }
-    if (result.sent) sent += 1;
+    if (!profiles?.length) break;
+    scanned += profiles.length;
+    cursor = profiles[profiles.length - 1].user_id;
+
+    const plan = planReminders(profiles as ReminderProfile[], now);
+    invalidTimezones += plan.invalidTimezones;
+
+    if (plan.toDeliver.length) {
+      const emails = await getUserEmails(
+        admin,
+        plan.toDeliver.map((r) => r.userId)
+      );
+      const deliveredUserIds: string[] = [];
+      let deliveredLocalDate = "";
+
+      for (const r of plan.toDeliver) {
+        const email = emails.get(r.userId);
+        if (!email) continue;
+
+        const result = await deliverEmail({
+          eventKey: `daily_reminder:${r.userId}:${r.localDate}`,
+          userId: r.userId,
+          template: "daily_reminder",
+          to: email,
+          scheduledAt: r.scheduledAt,
+          subject: "A gentle nudge from Mellowa",
+          html: `<div style="font-family:sans-serif;color:#1F2937;line-height:1.6">
+            <p>Hi,</p>
+            <p>Just a soft reminder — whenever you have a minute, a quick check-in
+            can shape a plan that actually fits today.</p>
+            <p><a href="${serverEnv.appUrl}/check-in" style="color:#6D8C7D">Open Mellowa</a></p>
+            <p style="color:#6B7280;font-size:13px">No pressure — skipping days is
+            part of it. You can turn these reminders off any time in Settings.</p>
+          </div>`,
+        });
+
+        // Only record the local date after real delivery. Duplicate protection
+        // within a day comes from the ledger's unique event key, so an
+        // unconfigured provider stays retryable without ever double-sending.
+        if (result.sent || result.status === "duplicate") {
+          deliveredUserIds.push(r.userId);
+          deliveredLocalDate = r.localDate;
+        }
+        if (result.sent) sent += 1;
+      }
+
+      // One batched update per page instead of one per user. Users in a batch
+      // share dates except across timezone boundaries; group to stay correct.
+      if (deliveredUserIds.length) {
+        const byDate = new Map<string, string[]>();
+        for (const r of plan.toDeliver) {
+          if (deliveredUserIds.includes(r.userId)) {
+            const list = byDate.get(r.localDate) ?? [];
+            list.push(r.userId);
+            byDate.set(r.localDate, list);
+          }
+        }
+        for (const [localDate, ids] of byDate) {
+          await admin
+            .from("wellbeing_profiles")
+            .update({ last_reminder_sent_date: localDate })
+            .in("user_id", ids);
+        }
+        void deliveredLocalDate;
+      }
+    }
+
+    if (profiles.length < BATCH_SIZE) break;
   }
 
-  // Data-retention pruning piggybacks on the daily run (Prompt 4).
-  const pruned = await pruneExpiredData();
+  // One-time onboarding nudge (Prompt 19): accounts 1–14 days old with no
+  // wellbeing profile yet. Strictly once per user via the ledger event key;
+  // suppressed automatically once a profile exists or the account is deleted.
+  let nudged = 0;
+  if (!truncated) {
+    const dayAgo = new Date(now.getTime() - 24 * 3600_000).toISOString();
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 3600_000).toISOString();
+    const { data: recent } = await admin
+      .from("profiles")
+      .select("id")
+      .gte("created_at", twoWeeksAgo)
+      .lte("created_at", dayAgo)
+      .limit(500);
+    const ids = (recent ?? []).map((r) => r.id as string);
+    if (ids.length) {
+      const { data: withProfile } = await admin
+        .from("wellbeing_profiles")
+        .select("user_id")
+        .in("user_id", ids);
+      const done = new Set((withProfile ?? []).map((r) => r.user_id as string));
+      const pending = ids.filter((id) => !done.has(id));
+      const emails = await getUserEmails(admin, pending);
+      for (const userId of pending) {
+        const email = emails.get(userId);
+        if (!email) continue;
+        const { subject, html } = onboardingNudgeEmail();
+        const result = await deliverEmail({
+          eventKey: `onboarding_nudge:${userId}`,
+          userId,
+          template: "onboarding_nudge",
+          to: email,
+          subject,
+          html,
+        });
+        if (result.sent) nudged += 1;
+      }
+    }
+  }
 
   return NextResponse.json({
     ok: true,
     sent,
+    nudged,
+    scanned,
     invalid_timezones: invalidTimezones,
-    pruned,
+    truncated,
   });
-}
-
-function toMinutes(hhmm: string | null): number | null {
-  if (!hhmm) return null;
-  const m = /^(\d{1,2}):(\d{2})/.exec(hhmm);
-  if (!m) return null;
-  return Number(m[1]) * 60 + Number(m[2]);
-}
-
-/** Quiet window may wrap midnight (e.g. 21:00 → 07:00). */
-function inQuietHours(
-  minutes: number,
-  start: string | null,
-  end: string | null
-): boolean {
-  const s = toMinutes(start);
-  const e = toMinutes(end);
-  if (s === null || e === null || s === e) return false;
-  return s < e ? minutes >= s && minutes < e : minutes >= s || minutes < e;
 }

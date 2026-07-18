@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
+import { PRICING } from "@/lib/stripe/plans";
 import { UpgradeButton } from "@/components/dailyflow/upgrade-button";
 import { ManageBilling } from "@/components/dailyflow/manage-billing";
+import { readLegalConfig } from "@/lib/legal/config";
 
 export const metadata: Metadata = { title: "Billing — Mellowa" };
 
@@ -19,6 +21,12 @@ export default async function BillingPage() {
   const isActive = sub.status === "active";
   const isPastDue = sub.status === "past_due";
 
+  const isYearly = sub.planName === "pro_yearly";
+  const planLabel = isYearly ? PRICING.yearly.name : PRICING.monthly.name;
+  const priceLabel = isYearly
+    ? `${PRICING.yearly.price}${PRICING.yearly.cadence}`
+    : `${PRICING.monthly.price}${PRICING.monthly.cadence}`;
+
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
@@ -31,7 +39,7 @@ export default async function BillingPage() {
         {sub.isPremium ? (
           <>
             <p className="mt-2 inline-block rounded-full bg-[#DCFCE7] px-3 py-1 text-sm font-medium text-[#166534]">
-              {isTrialing ? "Free trial active" : "Mellowa Premium"}
+              {isTrialing ? "Trial active" : "Mellowa Premium"}
             </p>
 
             {isTrialing && sub.trialEndsAt && (
@@ -41,25 +49,21 @@ export default async function BillingPage() {
                   ` (${sub.daysLeftInTrial} ${
                     sub.daysLeftInTrial === 1 ? "day" : "days"
                   } left)`}
-                . You can cancel anytime before then.
+                . You&rsquo;ll be charged {priceLabel} for {planLabel} on that
+                date unless you cancel before then.
               </p>
             )}
 
             {isActive && sub.currentPeriodEnd && (
               <p className="mt-2 text-sm text-[#6B7280]">
-                Renews on {formatDate(sub.currentPeriodEnd)}.
-              </p>
-            )}
-
-            {sub.planName && (
-              <p className="mt-2 text-sm text-[#6B7280]">
-                Plan: {sub.planName === "pro_yearly" ? "Yearly (€59.99/year)" : "Monthly (€9.99/month)"}
+                {planLabel} renews for {priceLabel} on{" "}
+                {formatDate(sub.currentPeriodEnd)}.
               </p>
             )}
 
             <p className="mt-3 text-sm text-[#6B7280]">
-              You have full access to daily plans, weekly reset, meal rhythm,
-              journal and progress.
+              Full access: daily plans, weekly structure, meal rhythm, journal
+              reflections and patterns.
             </p>
 
             <ManageBilling
@@ -79,14 +83,14 @@ export default async function BillingPage() {
                   : "mt-2 inline-block rounded-full bg-[#FAF7F2] px-3 py-1 text-sm font-medium text-[#6B7280]"
               }
             >
-              {isPastDue ? "Payment issue" : "No active plan"}
+              {isPastDue ? "Payment needs attention" : "No active plan"}
             </p>
             {isPastDue ? (
               <>
                 <p className="mt-3 text-sm text-[#6B7280]">
-                  There was a problem with your last payment. Update your payment
-                  method to restore full access — your saved plans stay readable
-                  in the meantime.
+                  We couldn&rsquo;t process the latest payment. Your saved plans
+                  remain available; update your payment method to create new
+                  Premium plans.
                 </p>
                 <ManageBilling
                   cancelAtPeriodEnd={sub.cancelAtPeriodEnd}
@@ -97,32 +101,51 @@ export default async function BillingPage() {
             ) : (
               <>
                 <p className="mt-3 text-sm text-[#6B7280]">
-                  Start your 3-day free trial to unlock unlimited daily plans,
-                  weekly reset, meal rhythm, journal reflections and progress
-                  insights.
+                  Start 3 days free to create new daily plans, shape the week
+                  and use reflections — personalized plans come with fair-use
+                  safeguards.
                 </p>
                 <div className="mt-4 space-y-2">
                   <UpgradeButton
                     interval="monthly"
-                    label="Start 3-day free trial — €9.99/mo"
+                    label="Start 3 days free — €9.99/mo"
                     amount="€9.99"
                     cadence="/month"
                     highlight
                   />
                   <UpgradeButton
                     interval="yearly"
-                    label="Start 3-day free trial — €59.99/yr"
+                    label="Start 3 days free — €59.99/yr"
                     amount="€59.99"
                     cadence="/year"
                   />
                 </div>
                 <p className="mt-3 text-xs text-[#9CA3AF]">
-                  Cancel anytime before your trial ends.
+                  Payment method required. You&rsquo;ll see your exact charge
+                  date before checkout. Cancel anytime before your trial ends.
                 </p>
               </>
             )}
           </>
         )}
+      </div>
+
+      <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="font-medium text-[#1F2937]">Refunds</h2>
+        <p className="mt-2 text-sm text-[#6B7280]">
+          If a charge doesn&rsquo;t feel right, tell us — we review every
+          request personally, usually within 3 business days. Our{" "}
+          <Link href="/refund" className="text-[#7C9A92] hover:underline">
+            refund policy
+          </Link>{" "}
+          explains what&rsquo;s covered; statutory rights always apply.
+        </p>
+        <a
+          href={`mailto:${readLegalConfig().supportEmail}?subject=${encodeURIComponent("Refund request")}`}
+          className="mt-3 inline-block rounded-xl border border-[#E5E1DA] bg-white px-4 py-2 text-sm font-medium text-[#1F2937] transition hover:border-[#7C9A92]/50"
+        >
+          Request a refund
+        </a>
       </div>
 
       <p className="px-2 text-xs text-[#9CA3AF]">

@@ -4,11 +4,24 @@ import { createClient } from "@/lib/supabase/server";
 import { WeeklyPlanInput } from "@/schemas/wellbeing";
 import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateWeeklyPlan } from "@/lib/ai/generate-weekly-plan";
+import type { UsageSink } from "@/lib/ai/generate-json";
+import { finalizeAiUsage, releaseReservation } from "@/lib/ai/usage";
+import { promptVersionId } from "@/prompts/versions";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canUsePremiumFeature, canGenerateWeeklyPlan } from "@/lib/stripe/subscription";
 import { claimAiGeneration } from "@/lib/ai/rate-limit";
 import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
+import { checkWeeklyPlanOutput, correctiveInstruction } from "@/lib/ai/output-guards";
+import { allergenExclusionInstruction } from "@/lib/safety/allergens";
+import { sumUsage } from "@/lib/ai/usage";
+import {
+  claimGenerationRequest,
+  finishGenerationRequest,
+  isValidIdempotencyKey,
+} from "@/lib/ai/idempotency";
 import type { DailyCheckin, WellbeingProfile } from "@/types/dailyflow";
+
+const PROMPT_VERSION = promptVersionId("weekly-plan");
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -45,9 +58,47 @@ export async function POST(request: Request) {
     );
   }
 
+  // Idempotency (v6 Prompt 7): one provider call per intentional request,
+  // keyed per user/week so concurrent duplicates converge.
+  const idemKey = request.headers.get("x-idempotency-key");
+  const weekStartForClaim = format(
+    startOfWeek(new Date(), { weekStartsOn: 1 }),
+    "yyyy-MM-dd"
+  );
+  let requestId: string | null = null;
+  if (isValidIdempotencyKey(idemKey)) {
+    const idemClaim = await claimGenerationRequest(supabase, {
+      userId: user.id,
+      route: "weekly-plan",
+      idempotencyKey: idemKey,
+      localDate: weekStartForClaim,
+    });
+    if (!idemClaim.claimed) {
+      if (idemClaim.status === "succeeded" && idemClaim.resultId) {
+        const { data: existing } = await supabase
+          .from("weekly_plans")
+          .select("*")
+          .eq("id", idemClaim.resultId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (existing) {
+          return NextResponse.json({ blocked: false, plan: existing, deduplicated: true });
+        }
+      }
+      return NextResponse.json(
+        { error: "generation_in_progress", status: "in_progress" },
+        { status: 409 }
+      );
+    }
+    requestId = idemClaim.requestId;
+  }
+  const finish = (status: "succeeded" | "failed", resultId?: string | null) =>
+    finishGenerationRequest(supabase, { requestId, userId: user.id, status, resultId });
+
   // Abuse guard — atomic per-user rate limit + global cost ceiling.
   const claim = await claimAiGeneration(user.id, "weekly-plan");
   if (!claim.ok) {
+    await finish("failed");
     if (claim.scope === "capacity") {
       return NextResponse.json(
         {
@@ -65,6 +116,10 @@ export async function POST(request: Request) {
     );
   }
 
+  // Ledger row is reserved (claim.eventId). It is finalized with provider truth
+  // on a real generation, or released if we exit before calling the provider.
+  const usageSink: UsageSink = {};
+
   let body: unknown = {};
   try {
     body = await request.json();
@@ -74,6 +129,8 @@ export async function POST(request: Request) {
 
   const parsed = WeeklyPlanInput.safeParse(body ?? {});
   if (!parsed.success) {
+    await finish("failed");
+    await releaseReservation(claim.eventId);
     return NextResponse.json(
       { error: "Invalid input", issues: parsed.error.issues },
       { status: 400 }
@@ -85,6 +142,8 @@ export async function POST(request: Request) {
   if (notes) {
     const safety = await checkInputSafety(user.id, "weekly-plan", notes);
     if (safety.should_block_generation) {
+      await finish("failed");
+      await finalizeAiUsage(claim.eventId, { status: "safety_blocked", promptVersion: PROMPT_VERSION });
       return NextResponse.json(
         { blocked: true, user_message: safety.user_message },
         { status: 200 }
@@ -109,17 +168,63 @@ export async function POST(request: Request) {
       .eq("active", true),
   ]);
 
+  const genArgs = {
+    profile: profile as WellbeingProfile,
+    recentCheckins: (checkinsRes.data ?? []) as DailyCheckin[],
+    habits: (habitsRes.data ?? []).map((h) => h.name),
+    notes,
+    weekStart,
+  };
+  const allergies = ((profile.allergies as string[] | null) ?? []).filter(Boolean);
+  const retrySink: UsageSink = {};
+  let retried = false;
   let plan;
   try {
-    plan = await generateWeeklyPlan({
-      profile: profile as WellbeingProfile,
-      recentCheckins: (checkinsRes.data ?? []) as DailyCheckin[],
-      habits: (habitsRes.data ?? []).map((h) => h.name),
-      notes,
-      weekStart,
-    });
+    plan = await generateWeeklyPlan({ ...genArgs, usageSink });
+
+    // Output quality + deterministic allergen gate (Prompt 13): one corrective
+    // retry, then fail closed — an unsafe weekly plan is never saved.
+    let quality = checkWeeklyPlanOutput(plan, allergies);
+    if (!quality.ok) {
+      retried = true;
+      const hadAllergen = quality.reasons.some((r) => r.startsWith("allergen:"));
+      plan = await generateWeeklyPlan({
+        ...genArgs,
+        usageSink: retrySink,
+        extraInstruction: `${correctiveInstruction(quality.reasons)}${
+          hadAllergen ? `
+
+${allergenExclusionInstruction(allergies)}` : ""
+        }`,
+      });
+      quality = checkWeeklyPlanOutput(plan, allergies);
+      if (!quality.ok) {
+        const failedOnAllergen = quality.reasons.some((r) => r.startsWith("allergen:"));
+        await finish("failed");
+        await finalizeAiUsage(claim.eventId, {
+          status: failedOnAllergen ? "safety_blocked" : "quality_failed",
+          promptVersion: PROMPT_VERSION,
+          usage: sumUsage([usageSink.usage, retrySink.usage], "quality_failed"),
+          retryCount: 1,
+        });
+        return NextResponse.json(
+          { error: "quality_check_failed", reasons: quality.reasons },
+          { status: 502 }
+        );
+      }
+    }
   } catch (err) {
     const code = err instanceof AiGenerationError ? err.code : "provider_error";
+    await finish("failed");
+    // The precise outcome (timeout/provider_error/invalid_json/schema_failed)
+    // is captured in the sink; the provider may have been billed even on failure.
+    const failStatus = retrySink.usage?.status ?? usageSink.usage?.status ?? "provider_error";
+    await finalizeAiUsage(claim.eventId, {
+      status: failStatus,
+      promptVersion: PROMPT_VERSION,
+      usage: sumUsage([usageSink.usage, retrySink.usage], failStatus),
+      retryCount: retried ? 1 : 0,
+    });
     return NextResponse.json(
       { error: "Weekly plan generation failed", code },
       { status: 502 }
@@ -144,8 +249,25 @@ export async function POST(request: Request) {
     .single();
 
   if (saveError) {
+    await finish("failed");
+    // The provider call succeeded and was billed, so record the real cost even
+    // though persistence failed — the row is truthful, just without a result_id.
+    await finalizeAiUsage(claim.eventId, {
+      status: "success",
+      usage: sumUsage([usageSink.usage, retrySink.usage], "success"),
+      promptVersion: PROMPT_VERSION,
+      retryCount: retried ? 1 : 0,
+    });
     return NextResponse.json({ error: "Failed to save weekly plan" }, { status: 500 });
   }
 
+  await finish("succeeded", saved.id);
+  await finalizeAiUsage(claim.eventId, {
+    status: "success",
+    promptVersion: PROMPT_VERSION,
+    usage: sumUsage([usageSink.usage, retrySink.usage], "success"),
+    retryCount: retried ? 1 : 0,
+    resultId: saved.id,
+  });
   return NextResponse.json({ blocked: false, plan: saved });
 }

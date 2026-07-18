@@ -31,7 +31,7 @@ export function LowEnergyDayCard() {
         setMessage(data.user_message);
       } else if (res.status === 402) {
         setMessage(
-          "The low-energy day plan is part of Mellowa Premium. Start your free trial to unlock it."
+          "Make-today-lighter mode is part of Mellowa Premium. Start 3 days free on the Pricing page to unlock it."
         );
       } else if (res.ok && data.plan) {
         setPlan(data.plan);
@@ -56,10 +56,13 @@ export function LowEnergyDayCard() {
         </span>
         <span>
           <span className="block text-sm font-medium text-[#1F2937]">
-            Low-energy day?
+            Need less from today?
           </span>
           <span className="block text-sm text-[#6B7280]">
-            Get a very small plan so today doesn&apos;t collapse.
+            Build the lightest useful version from the energy, time and food you already have.
+          </span>
+          <span className="mt-1 block text-sm font-medium text-[#7C9A92]">
+            Make today lighter
           </span>
         </span>
       </button>
@@ -70,34 +73,34 @@ export function LowEnergyDayCard() {
     <div className="space-y-4 rounded-2xl border border-[#EDE9FE] bg-white p-5 shadow-sm">
       <div className="flex items-center gap-2">
         <BatteryLow className="h-5 w-5 text-[#7C9A92]" />
-        <h2 className="font-medium text-[#1F2937]">Low-energy day plan</h2>
+        <h2 className="font-medium text-[#1F2937]">What is available right now?</h2>
       </div>
 
       {!plan && (
         <>
           <p className="text-sm text-[#6B7280]">
-            No pressure today. Answer what you can — everything is optional.
+            Answer only what helps. Everything is optional. Your normal plan stays available.
           </p>
           <div className="space-y-3">
             <input
               value={availableTime}
               onChange={(e) => setAvailableTime(e.target.value)}
               maxLength={200}
-              placeholder="How much time/energy do you have? (e.g. almost none)"
+              placeholder="How limited is your capacity? (e.g. almost none)"
               className="w-full rounded-xl border border-[#E5E1DA] px-3 py-2 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
             />
             <input
               value={foodAvailable}
               onChange={(e) => setFoodAvailable(e.target.value)}
               maxLength={500}
-              placeholder="What food do you have at home? (optional)"
+              placeholder="What food is already available? (optional)"
               className="w-full rounded-xl border border-[#E5E1DA] px-3 py-2 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
             />
             <input
               value={mustDoTask}
               onChange={(e) => setMustDoTask(e.target.value)}
               maxLength={300}
-              placeholder="One thing that really must happen today? (optional)"
+              placeholder="What truly cannot wait? (optional)"
               className="w-full rounded-xl border border-[#E5E1DA] px-3 py-2 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
             />
           </div>
@@ -112,7 +115,7 @@ export function LowEnergyDayCard() {
               ) : (
                 <Sparkles className="h-4 w-4" />
               )}
-              {loading ? "Making it small..." : "Create my tiny plan"}
+              {loading ? "Making the day simpler…" : "Build the lightest version"}
             </button>
             <button
               type="button"
@@ -142,7 +145,7 @@ export function LowEnergyDayCard() {
 
           <div className="rounded-xl bg-[#FAF7F2] p-4">
             <p className="text-sm font-medium text-[#1F2937]">
-              Today&apos;s minimum
+              Enough for today
             </p>
             <ul className="mt-2 space-y-2">
               {plan.minimum_day_plan.map((item, i) => (
@@ -169,7 +172,7 @@ export function LowEnergyDayCard() {
           </div>
 
           <div className="rounded-xl bg-[#FAF7F2] p-4">
-            <p className="text-sm font-medium text-[#1F2937]">Easy food</p>
+            <p className="text-sm font-medium text-[#1F2937]">Easiest food option</p>
             <ul className="mt-2 space-y-2">
               {plan.easy_meals.map((m, i) => (
                 <li key={i} className="text-sm">
@@ -187,7 +190,7 @@ export function LowEnergyDayCard() {
 
           <div className="rounded-xl bg-[#EDE9FE]/50 p-4">
             <p className="text-sm font-medium text-[#1F2937]">
-              One small reset — {plan.one_reset.title}
+              One recovery cue — {plan.one_reset.title}
               {plan.one_reset.duration && (
                 <span className="ml-2 font-normal text-[#9CA3AF]">
                   {plan.one_reset.duration}
@@ -202,18 +205,18 @@ export function LowEnergyDayCard() {
           </div>
 
           <div className="rounded-xl bg-[#FAF7F2] p-4 text-sm">
-            <p className="font-medium text-[#1F2937]">One tiny habit</p>
+            <p className="font-medium text-[#1F2937]">One repeatable step</p>
             <p className="mt-1 text-[#6B7280]">
               {plan.one_tiny_habit.habit}{" "}
               <span className="text-[#9CA3AF]">
-                — minimum: {plan.one_tiny_habit.minimum_version}
+                — lightest version: {plan.one_tiny_habit.minimum_version}
               </span>
             </p>
           </div>
 
           <div className="rounded-xl bg-[#FAF7F2] p-4">
             <p className="flex items-center gap-2 text-sm font-medium text-[#1F2937]">
-              <Moon className="h-4 w-4 text-[#7C9A92]" /> Evening recovery
+              <Moon className="h-4 w-4 text-[#7C9A92]" /> A softer landing
             </p>
             <ul className="mt-2 space-y-1 text-sm text-[#6B7280]">
               {plan.evening_recovery.map((s, i) => (
@@ -222,6 +225,7 @@ export function LowEnergyDayCard() {
             </ul>
           </div>
 
+          <p className="text-sm font-medium text-[#1F2937]">Everything else can wait.</p>
           <p className="text-sm text-[#1F2937]">{plan.encouragement}</p>
           {plan.safety_note && (
             <p className="text-xs text-[#9CA3AF]">{plan.safety_note}</p>

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
 import { claimAiGeneration, type AiRoute } from "@/lib/ai/rate-limit";
 import { getConsentStatus } from "@/lib/consent/status";
+import { isGenerationDisabled } from "@/lib/admin/support";
 
 /**
  * Shared gate for AI generation routes. Protects the AI provider key by:
@@ -13,14 +14,32 @@ import { getConsentStatus } from "@/lib/consent/status";
  * The sample tier's single daily-plan preview is handled separately by
  * canGenerateDailyPlan; pass requirePremium: false there.
  *
- * Returns a NextResponse to short-circuit the route, or null to continue.
- * On a global-capacity block returns HTTP 503 so the route may serve a curated
- * fallback instead of a hard error.
+ * Returns a NextResponse to short-circuit the route, or a GuardPass (carrying
+ * the reserved ledger eventId) to continue. On a global-capacity block returns
+ * HTTP 503 so the route may serve a curated fallback instead of a hard error.
  */
+export interface GuardPass {
+  /** Reserved ai_usage_events row id, to finalize after generation (Prompt 11). */
+  eventId?: string;
+}
+
 export async function guardAiRoute(
   userId: string,
   opts: { requirePremium: boolean; route: AiRoute }
-): Promise<NextResponse | null> {
+): Promise<NextResponse | GuardPass> {
+  // Operator abuse switch (Prompt 17): a disabled account gets a calm,
+  // non-accusatory message and no provider call.
+  if (await isGenerationDisabled(userId)) {
+    return NextResponse.json(
+      {
+        error: "generation_unavailable",
+        user_message:
+          "Plan generation is paused on this account. Please contact support if you think this is a mistake.",
+      },
+      { status: 403 }
+    );
+  }
+
   // Consent checkpoint (Prompt 6): existing users without current-version
   // age/terms/privacy consent must complete it before any new generation.
   const consent = await getConsentStatus(userId);
@@ -64,5 +83,5 @@ export async function guardAiRoute(
     );
   }
 
-  return null;
+  return { eventId: claim.eventId };
 }

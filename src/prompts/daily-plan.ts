@@ -1,3 +1,5 @@
+import { MELLOWA_VOICE_RULES } from "@/prompts/voice";
+
 export const DAILY_PLAN_SYSTEM_PROMPT = `You are a gentle daily wellbeing planner.
 
 Your job is to create realistic daily routines that help users structure their day around food, energy, mood, habits, hydration, movement, stress resets and sleep.
@@ -36,7 +38,8 @@ Return structured JSON only matching this shape:
   "encouragement": string,
   "safety_note": string
 }
-Each section has 1-6 items. Keep items short and doable.`;
+Each section has 1-6 items. Keep items short and doable.
+${MELLOWA_VOICE_RULES}`;
 
 type ProfileContext = Record<string, unknown>;
 type CheckinContext = Record<string, unknown>;

@@ -27,7 +27,7 @@ describe("Today progressive disclosure (Prompt 11)", () => {
       join(__dirname, "..", "src", "app", "(app)", "today", "page.tsx"),
       "utf8"
     );
-    expect(page).toMatch(/How does today feel\?/);
+    expect(page).toMatch(/What kind of day is this\?/);
     expect(page).toMatch(/Check in for today/);
   });
 

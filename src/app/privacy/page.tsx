@@ -1,14 +1,22 @@
 import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal/legal-page";
+import { readLegalConfig } from "@/lib/legal/config";
+import { POLICY_VERSIONS } from "@/lib/consent/config";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — Mellowa",
   description: "How Mellowa collects, uses and protects your data.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {
+  const legal = readLegalConfig();
   return (
-    <LegalPage title="Privacy Policy" lastUpdated="July 2026">
+    <LegalPage
+      title="Privacy Policy"
+      lastUpdated="July 2026"
+      version={POLICY_VERSIONS.privacy}
+    >
       <p>
         Mellowa (&ldquo;we&rdquo;, &ldquo;us&rdquo;) is a consumer wellness app
         that helps you create gentle daily routines for food, energy, mood and
@@ -102,8 +110,8 @@ export default function PrivacyPage() {
       <LegalSection heading="Contact">
         <p>
           Questions about privacy? Email{" "}
-          <a href="mailto:support@mellowa.app" className="text-[#6D8C7D] underline">
-            support@mellowa.app
+          <a href={`mailto:${legal.privacyEmail}`} className="text-[#6D8C7D] underline">
+            {legal.privacyEmail}
           </a>
           .
         </p>

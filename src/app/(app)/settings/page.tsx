@@ -6,6 +6,7 @@ import { PlanPreferencesForm } from "@/components/dailyflow/plan-preferences-for
 import { AccountDataControls } from "@/components/dailyflow/account-data-controls";
 import { MellowaLearned } from "@/components/dailyflow/mellowa-learned";
 import type { WellbeingProfile } from "@/types/dailyflow";
+import { readLegalConfig } from "@/lib/legal/config";
 
 export const metadata: Metadata = { title: "Settings — Mellowa" };
 
@@ -23,9 +24,15 @@ export default async function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
-        Settings
-      </h1>
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
+          Shape how Mellowa plans
+        </h1>
+        <p className="mt-1 text-sm text-[#6B7280]">
+          Change the details that affect future plans. Your existing plans stay
+          as they are.
+        </p>
+      </header>
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="font-medium text-[#1F2937]">Account</h2>
@@ -122,16 +129,17 @@ export default async function SettingsPage() {
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="font-medium text-[#1F2937]">Support</h2>
+        <h2 className="font-medium text-[#1F2937]">Get help</h2>
         <p className="mt-1 text-sm text-[#6B7280]">
-          Questions, billing issues or feedback? We usually reply within two
-          business days.
+          For account, billing or privacy questions, email us. Paid support
+          replies within 2 business days. Mellowa does not monitor this inbox
+          for emergencies.
         </p>
         <a
-          href="mailto:support@mellowa.app"
+          href={`mailto:${readLegalConfig().supportEmail}`}
           className="mt-4 inline-block rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm font-medium text-[#1F2937] transition hover:border-[#7C9A92]/50"
         >
-          Email support@mellowa.app
+          Email {readLegalConfig().supportEmail}
         </a>
       </div>
 

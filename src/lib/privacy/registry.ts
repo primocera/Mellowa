@@ -43,6 +43,7 @@ export const USER_DATA_REGISTRY: UserTable[] = [
   { table: "email_deliveries", column: "user_id", onDelete: "cascade" },
   { table: "user_consents", column: "user_id", onDelete: "cascade" },
   { table: "subscriptions", column: "user_id", onDelete: "cascade" },
+  { table: "generation_requests", column: "user_id", onDelete: "cascade" },
 ];
 
 /**
@@ -54,6 +55,11 @@ export const EXEMPT_TABLES: { table: string; reason: string }[] = [
     table: "stripe_events",
     reason:
       "global webhook event ledger; payloads may reference any customer and are never exported per-user",
+  },
+  {
+    table: "account_flags",
+    reason:
+      "internal anti-abuse/ops flags set by support; no user-authored content; removed on account deletion via FK cascade (026)",
   },
 ];
 

@@ -17,17 +17,38 @@ Runs at 375px mobile + desktop. Screenshots/traces retained on failure in
 
 ### Authenticated journeys
 
-`e2e/journeys.spec.ts` needs a **test** Supabase project (never production)
-and a pre-seeded confirmed user:
+`e2e/journeys.spec.ts` logs in as a **synthetic, clearly-labelled test user**
+and walks the authenticated surfaces (dashboard, consent checkpoint, settings
+data controls, trial-aware pricing). It skips itself unless
+`E2E_SUPABASE_TEST=1`, so the default run stays green without secrets.
 
-```sh
-$env:E2E_SUPABASE_TEST="1"
-$env:E2E_TEST_EMAIL="e2e@example.com"
-$env:E2E_TEST_PASSWORD="..."
-npm run test:e2e
-```
+No separate Supabase project is required. The free tier caps you at two
+projects, so the test user lives in the **same live project** — this is safe
+because RLS scopes every row to its owner, so the synthetic user can only ever
+see its own data. Keep the account obviously non-real (`test@mellowa.local`)
+and delete its rows periodically (or via the in-app delete-account flow).
 
-Tests skip themselves when unconfigured, so CI stays green without secrets.
+1. Seed / reset the user (idempotent — resets the password each run):
+
+   ```sh
+   npm run seed:test-user
+   ```
+
+   It creates a confirmed user with a wellbeing profile and an active trial
+   subscription, using `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` from
+   `.env.local` (defaults `test@mellowa.local` / `Mellowa123!`).
+
+2. Run the authenticated suite:
+
+   ```sh
+   $env:E2E_SUPABASE_TEST="1"
+   $env:E2E_TEST_EMAIL="test@mellowa.local"
+   $env:E2E_TEST_PASSWORD="Mellowa123!"
+   npm run test:e2e
+   ```
+
+If you later provision a dedicated test project, point `.env.local` at it and
+the same commands work unchanged — nothing here hard-codes production.
 
 ### Stripe billing cycle (manual runbook until a dedicated test env exists)
 
@@ -39,9 +60,18 @@ Tests skip themselves when unconfigured, so CI stays green without secrets.
 5. Cancel at period end → distinct "ends on <date>" UI + reactivate works.
 6. Delete account → Stripe subscription canceled, export empty afterwards.
 
-## CI
+## No CI — run checks locally before pushing
 
-`.github/workflows/ci.yml`: npm ci → lint → typecheck → Vitest → production
-build → Playwright public suite (chromium, 1 worker) on pinned Node 22.
-Placeholder env only — no live Supabase/Stripe/Anthropic calls, keeping runs
-reliable on free plans.
+This project deliberately runs **no GitHub Actions / CI** (avoids failure-email
+spam and keeps everything on free tiers). Before pushing, run the gate locally:
+
+```sh
+npm run lint          # optional — eslint is very slow locally
+npm run typecheck
+npm run test
+npm run build
+npm run test:e2e:public
+```
+
+`npm run release-check` bundles the pre-launch gate. Vercel's build on deploy is
+the backstop for `next build`.

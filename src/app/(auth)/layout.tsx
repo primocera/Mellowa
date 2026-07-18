@@ -7,7 +7,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             Mellowa
           </h1>
           <p className="mt-1 text-sm text-[#6B7280]">
-            A simple daily plan for food, energy, mood and habits.
+            A realistic wellbeing plan for the day you actually have.
           </p>
         </div>
         <div className="rounded-2xl bg-white p-8 shadow-sm">{children}</div>

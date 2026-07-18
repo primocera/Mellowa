@@ -21,11 +21,11 @@ export default async function JournalPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
-          Journal
+          Put the day somewhere
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
-          A gentle place to notice how your days are going. Not therapy — just
-          reflection.
+          A private place to write. Mellowa can offer a general reflection, not
+          therapy or psychological interpretation.
         </p>
       </div>
       <JournalView entries={(entries ?? []) as JournalEntry[]} />

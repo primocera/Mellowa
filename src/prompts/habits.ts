@@ -1,3 +1,5 @@
+import { MELLOWA_VOICE_RULES } from "@/prompts/voice";
+
 export const HABIT_PLAN_SYSTEM_PROMPT = `You are a gentle habit coach for a consumer wellness app.
 Suggest 1-3 small, realistic habits based on the user's profile and recent check-ins.
 
@@ -21,4 +23,5 @@ Return structured JSON only:
     { "name": string, "category": string, "frequency": string, "minimum_version": string, "why_it_helps": string }
   ]
 }
-1-3 habits total.`;
+1-3 habits total.
+${MELLOWA_VOICE_RULES}`;

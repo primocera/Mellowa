@@ -36,6 +36,10 @@ export interface DeliverDeps {
     eventKey: string;
     userId: string | null;
     template: string;
+    /** Stored so the outbox worker can replay without the original caller. */
+    to?: string;
+    subject?: string;
+    html?: string;
   }): Promise<LedgerRow | null>;
   finalize(args: {
     id: string;
@@ -44,6 +48,8 @@ export interface DeliverDeps {
     providerId?: string | null;
     sentAt?: string | null;
     lastError?: string | null;
+    /** When the outbox worker should try again (retryable states only). */
+    nextAttemptAt?: string | null;
   }): Promise<void>;
   send(args: {
     to: string;
@@ -57,12 +63,19 @@ export interface DeliverDeps {
 function defaultDeps(): DeliverDeps {
   const admin = createAdminClient();
   return {
-    async claim({ eventKey, userId, template }) {
+    async claim({ eventKey, userId, template, to, subject, html }) {
       // Insert-or-read: the unique event_key makes this race-safe across
       // concurrent cron/webhook retries.
       const { data: inserted } = await admin
         .from("email_deliveries")
-        .insert({ event_key: eventKey, user_id: userId, template })
+        .insert({
+          event_key: eventKey,
+          user_id: userId,
+          template,
+          to_email: to ?? null,
+          subject: subject ?? null,
+          html: html ?? null,
+        })
         .select("id, status, attempts")
         .maybeSingle();
       if (inserted) return inserted as LedgerRow;
@@ -73,7 +86,7 @@ function defaultDeps(): DeliverDeps {
         .maybeSingle();
       return (existing as LedgerRow) ?? null;
     },
-    async finalize({ id, status, attempts, providerId, sentAt, lastError }) {
+    async finalize({ id, status, attempts, providerId, sentAt, lastError, nextAttemptAt }) {
       await admin
         .from("email_deliveries")
         .update({
@@ -82,6 +95,7 @@ function defaultDeps(): DeliverDeps {
           provider_id: providerId ?? null,
           sent_at: sentAt ?? null,
           last_error: lastError ?? null,
+          next_attempt_at: nextAttemptAt ?? null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", id);
@@ -108,6 +122,9 @@ export async function deliverEmail(
     eventKey: args.eventKey,
     userId: args.userId ?? null,
     template: args.template,
+    to: args.to,
+    subject: args.subject,
+    html: args.html,
   });
   if (!row) {
     return { sent: false, status: "failed_transient" };
@@ -145,6 +162,7 @@ export async function deliverEmail(
       status: "not_configured",
       attempts: row.attempts, // an unconfigured provider is not an attempt
       lastError: "email provider not configured",
+      nextAttemptAt: nextAttemptIso(row.attempts),
     });
     return { sent: false, status: "not_configured" };
   }
@@ -156,8 +174,144 @@ export async function deliverEmail(
     status,
     attempts,
     lastError: result.error ?? "send failed",
+    nextAttemptAt: permanent ? null : nextAttemptIso(attempts),
   });
   return { sent: false, status };
+}
+
+/**
+ * Exponential backoff with jitter for the outbox worker (v6 Prompt 4):
+ * ~5, 10, 20, 40, 80 minutes (±20%), capped at 2 hours.
+ */
+export function backoffDelayMinutes(
+  attempts: number,
+  random: () => number = Math.random
+): number {
+  const base = Math.min(5 * 2 ** Math.max(0, attempts - 1), 120);
+  const jitter = 1 + (random() * 0.4 - 0.2);
+  return Math.max(1, Math.round(base * jitter));
+}
+
+function nextAttemptIso(attempts: number): string {
+  return new Date(
+    Date.now() + backoffDelayMinutes(attempts) * 60_000
+  ).toISOString();
+}
+
+/** Row shape the outbox worker replays (see claim_due_emails RPC). */
+export interface OutboxRow {
+  id: string;
+  event_key: string;
+  template: string;
+  status: string;
+  attempts: number;
+  to_email: string | null;
+  subject: string | null;
+  html: string | null;
+}
+
+export interface ReplaySummary {
+  claimed: number;
+  sent: number;
+  transient: number;
+  permanent: number;
+  notConfigured: number;
+  skippedNoPayload: number;
+}
+
+/**
+ * Replays due retryable deliveries from the outbox. Runs from a protected
+ * scheduled route; overlap-safe because claim_due_emails uses SKIP LOCKED
+ * and leases each row. Independent of the request that created the row.
+ */
+export async function replayDeliveries(
+  limit = 20,
+  deps?: {
+    claimDue(limit: number): Promise<OutboxRow[]>;
+    finalize: DeliverDeps["finalize"];
+    send: DeliverDeps["send"];
+  }
+): Promise<ReplaySummary> {
+  const d = deps ?? {
+    async claimDue(l: number) {
+      const admin = createAdminClient();
+      const { data, error } = await admin.rpc("claim_due_emails", {
+        p_limit: l,
+      });
+      if (error) {
+        console.error("[email-outbox] claim failed", { message: error.message });
+        return [];
+      }
+      return (data ?? []) as OutboxRow[];
+    },
+    finalize: defaultDeps().finalize,
+    send: defaultDeps().send,
+  };
+
+  const rows = await d.claimDue(limit);
+  const summary: ReplaySummary = {
+    claimed: rows.length,
+    sent: 0,
+    transient: 0,
+    permanent: 0,
+    notConfigured: 0,
+    skippedNoPayload: 0,
+  };
+
+  for (const row of rows) {
+    if (!row.to_email || !row.subject || !row.html) {
+      // Legacy rows created before payload storage cannot be replayed.
+      summary.skippedNoPayload += 1;
+      await d.finalize({
+        id: row.id,
+        status: "failed_permanent",
+        attempts: row.attempts,
+        lastError: "no stored payload to replay",
+      });
+      continue;
+    }
+
+    const attempts = row.attempts + 1;
+    const result = await d.send({
+      to: row.to_email,
+      subject: row.subject,
+      html: row.html,
+      text: htmlToText(row.html),
+    });
+
+    if (result.sent) {
+      summary.sent += 1;
+      await d.finalize({
+        id: row.id,
+        status: "sent",
+        attempts,
+        providerId: result.providerId ?? null,
+        sentAt: new Date().toISOString(),
+      });
+    } else if (result.skipped) {
+      summary.notConfigured += 1;
+      await d.finalize({
+        id: row.id,
+        status: "not_configured",
+        attempts: row.attempts,
+        lastError: "email provider not configured",
+        nextAttemptAt: nextAttemptIso(row.attempts),
+      });
+    } else {
+      const permanent = result.permanent === true || attempts >= MAX_ATTEMPTS;
+      if (permanent) summary.permanent += 1;
+      else summary.transient += 1;
+      await d.finalize({
+        id: row.id,
+        status: permanent ? "failed_permanent" : "failed_transient",
+        attempts,
+        lastError: result.error ?? "send failed",
+        nextAttemptAt: permanent ? null : nextAttemptIso(attempts),
+      });
+    }
+  }
+
+  return summary;
 }
 
 /** Minimal HTML → plain-text alternative for email clients without HTML. */

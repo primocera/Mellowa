@@ -1,5 +1,5 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { estimateRouteCostUsd, globalDailyCeilingUsd } from "@/lib/ai/cost";
 
 /**
@@ -42,7 +42,9 @@ export async function claimAiGeneration(
   userId: string,
   route: AiRoute
 ): Promise<ClaimResult> {
-  const supabase = await createClient();
+  // Service-role call (migration 025): the RPC is no longer executable by
+  // authenticated users, so limits/cost can never be caller-chosen.
+  const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("claim_ai_generation", {
     p_user_id: userId,
     p_route: route,

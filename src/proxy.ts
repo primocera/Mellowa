@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isDevBypassEnabled } from "@/lib/auth/dev-bypass";
+import { parsePlanIntent, resolveDestination } from "@/lib/auth/intent";
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
@@ -56,14 +57,21 @@ export async function proxy(request: NextRequest) {
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone();
+    const next = url.pathname + url.search;
     url.pathname = "/login";
+    url.search = "";
+    url.searchParams.set("next", next);
     return NextResponse.redirect(url);
   }
 
   if (user && isAuthPage) {
+    // Preserve funnel intent (?plan / ?next) for already-authenticated users.
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    const dest = resolveDestination({
+      plan: parsePlanIntent(url.searchParams.get("plan")),
+      next: url.searchParams.get("next"),
+    });
+    return NextResponse.redirect(new URL(dest, url.origin));
   }
 
   return response;

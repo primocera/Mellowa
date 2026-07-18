@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
 import { USER_DATA_REGISTRY } from "@/lib/privacy/registry";
+import { trackEvent } from "@/lib/analytics";
+import { deliverEmail } from "@/lib/email/deliver";
+import { accountDeletedEmail } from "@/lib/email/templates";
 
 const Input = z.object({
   // Explicit typed confirmation so deletion can never happen by accident.
@@ -74,6 +77,24 @@ export async function POST(request: Request) {
       }
     }
   }
+
+  // Deletion confirmation must be sent before the auth user (and their email)
+  // is gone. userId stays null so the ledger row isn't cascaded away — it is
+  // the compliance record that the confirmation was sent.
+  if (user.email) {
+    const { subject, html } = accountDeletedEmail();
+    await deliverEmail({
+      eventKey: `account_deleted:${user.id}`,
+      userId: null,
+      template: "account_deleted",
+      to: user.email,
+      subject,
+      html,
+    });
+  }
+
+  // Record the deletion before the cascade nulls the event's user link.
+  trackEvent("account_deleted", { userId: user.id, properties: { surface: "settings" } });
 
   // 2. Delete the auth user — cascades all personal data across every table.
   const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);

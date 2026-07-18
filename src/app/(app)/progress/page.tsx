@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { DailyCheckin, Habit, HabitLog } from "@/types/dailyflow";
 import { metricTextSummary } from "@/lib/progress/neutral";
 
-export const metadata: Metadata = { title: "Progress — Mellowa" };
+export const metadata: Metadata = { title: "Patterns — Mellowa" };
 
 const METRICS = [
   { key: "energy_level", label: "Energy" },
@@ -87,16 +87,18 @@ export default async function ProgressPage() {
   if (checkins.length === 0 && habits.length === 0) {
     return (
       <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
-        <h1 className="text-xl font-semibold text-[#1F2937]">Nothing here yet</h1>
+        <h1 className="text-xl font-semibold text-[#1F2937]">
+          Patterns need a little time
+        </h1>
         <p className="mx-auto mt-2 max-w-sm text-sm text-[#6B7280]">
-          After a few check-ins, this page will gently show how your energy,
-          mood and habits are moving — gently, with no pressure.
+          After a few check-ins, you&apos;ll see your own entries across days.
+          Missing days stay missing—Mellowa does not treat them as failure.
         </p>
         <Link
           href="/check-in"
           className="mt-6 inline-block rounded-xl bg-[#7C9A92] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#6D8C7D]"
         >
-          Start a check-in
+          Check in for today
         </Link>
       </div>
     );
@@ -127,10 +129,10 @@ export default async function ProgressPage() {
     <div className="space-y-4">
       <div className="mb-2">
         <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
-          Progress
+          Notice what repeats, without scoring yourself
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
-          Gentle patterns, not report cards. Missed days are part of it.
+          A neutral view of your own check-ins, habits and reflections.
         </p>
         <div className="mt-3 flex gap-2">
           <Link
@@ -151,7 +153,7 @@ export default async function ProgressPage() {
       {/* Check-in history */}
       {checkins.length > 0 && (
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="font-medium text-[#1F2937]">Last two weeks</h2>
+          <h2 className="font-medium text-[#1F2937]">Your last two weeks</h2>
           <p className="mt-0.5 text-xs text-[#9CA3AF]">
             {checkins[0].checkin_date} → {checkins[checkins.length - 1].checkin_date}
           </p>
@@ -166,7 +168,7 @@ export default async function ProgressPage() {
       {/* Habit summary */}
       {habits.length > 0 && (
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="font-medium text-[#1F2937]">Habits this week</h2>
+          <h2 className="font-medium text-[#1F2937]">Habits you chose</h2>
           <ul className="mt-3 space-y-2">
             {habits.map((habit) => {
               const count = logs.filter((l) => l.habit_id === habit.id).length;
@@ -186,10 +188,10 @@ export default async function ProgressPage() {
         </div>
       )}
 
-      {/* Recent wins */}
+      {/* What repeated — neutral counts, no scores or praise */}
       {wins.length > 0 && (
         <div className="rounded-2xl bg-[#DCFCE7]/60 p-6">
-          <h2 className="font-medium text-[#1F2937]">Worth noticing</h2>
+          <h2 className="font-medium text-[#1F2937]">What repeated</h2>
           <ul className="mt-2 space-y-1.5">
             {wins.map((w, i) => (
               <li key={i} className="text-sm text-[#1F2937]">
@@ -202,9 +204,12 @@ export default async function ProgressPage() {
 
       {/* Weekly reflection (Prompt 11) — supportive, never a report card */}
       <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="font-medium text-[#1F2937]">A gentle weekly reflection</h2>
+        <h2 className="font-medium text-[#1F2937]">
+          Questions worth carrying forward
+        </h2>
         <p className="mt-1 text-sm text-[#6B7280]">
-          No numbers, no pressure. Just three small questions, whenever you like:
+          No numbers, no scoring. Three questions to carry into next week,
+          whenever you like:
         </p>
         <ul className="mt-3 space-y-1.5 text-sm text-[#1F2937]">
           <li>• What felt a little easier this week than before?</li>
@@ -220,8 +225,7 @@ export default async function ProgressPage() {
       </div>
 
       <p className="px-2 text-xs text-[#9CA3AF]">
-        These are gentle observations, not health conclusions. Patterns here
-        could be worth exploring, nothing more.
+        These are self-reported entries, not health conclusions or predictions.
       </p>
     </div>
   );

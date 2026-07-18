@@ -7,7 +7,7 @@ import {
 } from "@/components/dailyflow/weekly-plan-view";
 import type { WeeklyPlan } from "@/types/dailyflow";
 
-export const metadata: Metadata = { title: "Weekly plan — Mellowa" };
+export const metadata: Metadata = { title: "Week at a glance — Mellowa" };
 
 export default async function WeeklyPlanPage() {
   const user = await requireUser();

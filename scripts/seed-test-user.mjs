@@ -23,8 +23,12 @@ if (!url || !serviceKey) {
   process.exit(1);
 }
 
-const EMAIL = "test@mellowa.local";
-const PASSWORD = "Mellowa123!";
+// Credentials the Playwright journeys suite logs in with. Overridable via env
+// so the seed and the test read the exact same values (E2E_TEST_EMAIL /
+// E2E_TEST_PASSWORD). This user is a clearly-labelled synthetic account; RLS
+// isolates its rows, so it is safe to seed even in the single live project.
+const EMAIL = env.E2E_TEST_EMAIL || "test@mellowa.local";
+const PASSWORD = env.E2E_TEST_PASSWORD || "Mellowa123!";
 
 const admin = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },

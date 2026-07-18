@@ -147,7 +147,7 @@ export function HabitsView({
                     <p className="text-sm font-medium text-[#1F2937]">{habit.name}</p>
                     {habit.minimum_version && (
                       <p className="truncate text-xs text-[#6B7280]">
-                        Minimum: {habit.minimum_version}
+                        Easiest version: {habit.minimum_version}
                       </p>
                     )}
                   </div>
@@ -233,7 +233,7 @@ export function HabitsView({
             type="text"
             value={newMin}
             onChange={(e) => setNewMin(e.target.value)}
-            placeholder="Minimum version — e.g. walk to the mailbox"
+            placeholder="Easiest version — e.g. walk to the mailbox"
             className="w-full rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
           />
           <div className="flex flex-wrap gap-2">
@@ -265,7 +265,7 @@ export function HabitsView({
             {suggestions.map((s, i) => (
               <li key={i} className="rounded-xl bg-[#FAF7F2] px-4 py-3">
                 <p className="text-sm font-medium text-[#1F2937]">{s.name}</p>
-                <p className="text-xs text-[#6B7280]">Minimum: {s.minimum_version}</p>
+                <p className="text-xs text-[#6B7280]">Easiest version: {s.minimum_version}</p>
                 {s.why_it_helps && (
                   <p className="mt-0.5 text-xs text-[#9CA3AF]">{s.why_it_helps}</p>
                 )}

@@ -150,24 +150,24 @@ export function crisisMessage(category: string, locale?: string | null): string 
   const help = crisisGuidanceFor(locale);
 
   if (category === "eating_disorder") {
-    return `It sounds like you may be going through something really hard around food and eating. Mellowa isn't the right tool for this, and you deserve real support. ${help} You don't have to face this alone.`;
+    return `Mellowa won't create restrictive eating, fasting or weight-loss guidance. If eating feels unsafe or difficult to manage, please reach out to a qualified professional or someone you trust. ${help}`;
   }
   if (category === "harm_to_others") {
-    return `This isn't something Mellowa can help with. If you or someone else may be in danger, please reach out for immediate support. ${help}`;
+    return `Mellowa can't help with this. If you or someone else may be in danger, contact local emergency services or reach out for immediate support now. ${help}`;
   }
   if (category === "medical_emergency") {
-    return `This sounds like it could be a medical emergency, and Mellowa isn't able to help with that. Please contact your local emergency services right now, or ask someone near you to help you do so.`;
+    return `Severe chest pain, fainting or trouble getting air can need urgent medical attention. Please contact your local emergency services now, or ask someone near you to help you do so.`;
   }
   if (category === "medical_nutrition") {
-    return `Mellowa can't create meal plans for medical conditions — that needs a doctor or registered dietitian who knows your situation. We'd love to support your general daily rhythm once you have professional guidance.`;
+    return `Mellowa can't create condition-specific nutrition or treatment plans. A doctor or registered dietitian can help you make a plan that accounts for your medical needs. You can still use Mellowa for non-medical daily structure.`;
   }
   if (category === "pregnancy") {
-    return `Nutrition during pregnancy, postpartum or breastfeeding deserves guidance from your midwife, doctor or a registered dietitian — Mellowa isn't built for that. We're still here for gentle, general daily structure whenever it helps.`;
+    return `Nutrition during pregnancy, postpartum or breastfeeding needs guidance from your midwife, doctor or a registered dietitian — Mellowa isn't built for that. Non-medical daily structure remains available.`;
   }
   if (category === "substance_misuse") {
-    return `Coming off a substance is something to do with proper medical support — withdrawal can be dangerous to face alone. Please talk to a doctor or local support service. ${help}`;
+    return `Stopping a substance is something to do with proper medical support — withdrawal can be dangerous to face alone. Please talk to a doctor or local support service. ${help}`;
   }
   // self_harm / default
-  return `I'm really sorry you're feeling this way. Mellowa can't help with this, but please reach out to someone who can — you matter. ${help}`;
+  return `I'm sorry this feels urgent. Mellowa can't provide crisis support. Contact local emergency services now, or reach a trusted person who can stay with you. ${help}`;
 }
 

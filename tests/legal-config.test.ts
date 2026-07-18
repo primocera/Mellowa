@@ -40,3 +40,29 @@ describe("legal/production config (Prompt 17)", () => {
     expect(readLegalConfig(complete).privacyEmail).toBe("support@mellowa.app");
   });
 });
+
+describe("legal config is the single source of contact truth (v6 Prompt 3)", () => {
+  it("no customer surface hardcodes the support email", async () => {
+    const { readFileSync, readdirSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const full = join(dir, name);
+        if (statSync(full).isDirectory()) return walk(full);
+        return /\.(tsx|ts)$/.test(name) ? [full] : [];
+      });
+    const offenders = [...walk("src/app"), ...walk("src/components")].filter(
+      (f) => /support@mellowa\.app|privacy@mellowa\.app/.test(readFileSync(f, "utf8"))
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("configured emails flow through readLegalConfig", () => {
+    const cfg = readLegalConfig({
+      SUPPORT_EMAIL: "help@example.org",
+      PRIVACY_EMAIL: "privacy@example.org",
+    });
+    expect(cfg.supportEmail).toBe("help@example.org");
+    expect(cfg.privacyEmail).toBe("privacy@example.org");
+  });
+});

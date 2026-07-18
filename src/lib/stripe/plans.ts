@@ -91,7 +91,7 @@ export function entitlementFor(status: string | null | undefined): Entitlement {
 export const PREMIUM_FEATURES: readonly string[] = [
   "Personalized daily plans, with fair-use safeguards",
   "Weekly reset with meal rhythm & shopping list",
-  "Low-energy day mode",
+  "Make-today-lighter mode",
   "Journal reflections",
   "Progress insights",
 ];

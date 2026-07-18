@@ -1,6 +1,16 @@
 # DailyFlow AI — Deployment Checklist (Prompt 34)
 
-Production: **https://mellowaa.vercel.app** (bo postal **mellow.app** ko domena zakupljena — glej spodaj) · Repo: `primocera/Mellowa` · Vercel projekt: `mellowaa`
+Production: **https://mellowa.app** (domena zakupljena; Resend wired) · Repo: `primocera/Mellowa` · Vercel projekt: `mellowaa`
+
+## v6 launch gates (Launch & Scale Playbook, julij 2026)
+- [ ] Poženi migraciji **020** (idempotency) in **021** (email outbox) v Supabase SQL editorju
+- [ ] Supabase → Auth → Redirect URLs: dodaj `https://mellowa.app/auth/callback`
+- [ ] Zunanji cron pinger (cron-job.org): `POST https://mellowa.app/api/cron/email-outbox` z `Authorization: Bearer <CRON_SECRET>`, vsakih 10–15 min (glej docs/ops-cron.md)
+- [ ] UptimeRobot monitorja: `/api/health` (javno) in `/api/health/ready` (bearer `ADMIN_STATS_SECRET`)
+- [ ] `npm run release-check` lokalno s production env (`vercel env pull`); z `APP_URL=https://mellowa.app ADMIN_STATS_SECRET=…` doda live preverbe — nikoli ne izpiše vrednosti
+- [ ] Rotiraj SUPABASE_SERVICE_ROLE_KEY (bil deljen v chatu) — Supabase → Settings → API → regenerate, nato posodobi Vercel env
+- [ ] Backup restore drill: Supabase → Database → Backups → restore v nov (drugi free) projekt; zabeleži datum/izid
+- [ ] Rollback: Vercel → Deployments → Promote prejšnji deploy (en klik); migracije 020/021 sta aditivni (brez drop), rollback koda deluje brez njiju
 
 ## ⚠️ TODO ob nakupu domene mellow.app (NE POZABI)
 Ko je `mellow.app` zakupljena in vezana na Vercel projekt, popravi na VSEH mestih:

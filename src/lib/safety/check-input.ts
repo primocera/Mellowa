@@ -20,7 +20,7 @@ const BLOCKED_FALLBACK: SafetyCheckOutputType = {
   risk_types: ["other"],
   should_block_generation: true,
   user_message:
-    "We couldn't safely process this right now. If you're going through something urgent or health-related, please reach out to a qualified professional or local emergency services.",
+    "Mellowa can't safely review this request right now, so it won't create a plan. Please try again later. If the situation feels urgent, contact local emergency services or someone you trust.",
   internal_reason: "safety classifier unavailable — failing closed",
 };
 
@@ -48,6 +48,7 @@ export async function checkInputSafety(
   let result: SafetyCheckOutputType;
   try {
     result = await generateStructuredJson({
+      route: "safety-check",
       systemPrompt: SAFETY_SYSTEM_PROMPT,
       userPrompt: `Source: ${source}\n\nUser input:\n"""${trimmed.slice(0, 4000)}"""`,
       zodSchema: SafetyCheckOutput,

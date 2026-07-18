@@ -30,10 +30,11 @@ export default async function HabitsPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
-          Habits
+          Keep one thing easy to repeat
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
-          One to three small habits — each with a minimum version for hard days.
+          Choose a habit and define the easiest version that still counts for
+          you.
         </p>
       </div>
       <HabitsView

@@ -6,6 +6,11 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  resolveDestination,
+  serializeIntent,
+  type PlanIntent,
+} from "@/lib/auth/intent";
 
 type AuthValues = {
   email: string;
@@ -14,7 +19,15 @@ type AuthValues = {
   policies: boolean;
 };
 
-export function AuthForm({ mode }: { mode: "login" | "signup" }) {
+export function AuthForm({
+  mode,
+  plan = null,
+  next = null,
+}: {
+  mode: "login" | "signup";
+  plan?: PlanIntent | null;
+  next?: string | null;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -26,35 +39,87 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
   const isLogin = mode === "login";
 
+  // Map provider errors to safe, non-enumerating customer copy — raw
+  // Supabase strings are never shown (CE v6, Prompt 5).
+  function safeAuthError(message: string): string {
+    if (/invalid login credentials/i.test(message)) {
+      return "That email and password combination didn't work. Try again or reset your password.";
+    }
+    if (/rate limit|too many/i.test(message)) {
+      return "Too many attempts just now. Wait a minute and try again.";
+    }
+    if (/password/i.test(message) && /short|weak|at least/i.test(message)) {
+      return "Please use a longer password — at least 8 characters.";
+    }
+    return "That didn't go through. Please try again.";
+  }
+
   async function onSubmit(values: AuthValues) {
     setError(null);
     setLoading(true);
     const supabase = createClient();
 
-    const { error } = isLogin
-      ? await supabase.auth.signInWithPassword(values)
-      : await supabase.auth.signUp(values);
+    const intentQuery = serializeIntent({ plan, next });
+
+    if (isLogin) {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: values.email,
+        password: values.password,
+      });
+      if (error) {
+        setError(safeAuthError(error.message));
+        setLoading(false);
+        return;
+      }
+      router.push(resolveDestination({ plan, next }));
+      router.refresh();
+      return;
+    }
+
+    // Signup: consents travel in user metadata; the auth callback records
+    // them server-side after the email is verified. Never assume a live
+    // session here — with email confirmation enabled there is none.
+    const { data, error } = await supabase.auth.signUp({
+      email: values.email,
+      password: values.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback${intentQuery}`,
+        data: { age_18_plus: true, terms_and_privacy: true },
+      },
+    });
 
     if (error) {
-      setError(error.message);
+      // Non-enumerating: an already-registered address gets the same
+      // verify-email screen as a new one instead of a revealing error.
+      if (/already registered/i.test(error.message)) {
+        router.push(
+          `/verify-email${serializeIntent({ plan, next })}${intentQuery ? "&" : "?"}email=${encodeURIComponent(values.email)}`
+        );
+        return;
+      }
+      setError(safeAuthError(error.message));
       setLoading(false);
       return;
     }
 
-    if (!isLogin) {
-      // Record the explicit age + policy consents (Prompt 6). If the session
-      // isn't live yet (email confirmation flows), the in-app consent
-      // checkpoint collects them before any generation instead.
-      void fetch("/api/consent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ age_18_plus: true, terms_and_privacy: true }),
-      }).catch(() => {});
-      // Best-effort welcome email — never blocks the redirect.
-      void fetch("/api/email/welcome", { method: "POST" }).catch(() => {});
+    if (!data.session) {
+      // Email confirmation is enabled — verification continues over email.
+      router.push(
+        `/verify-email${intentQuery}${intentQuery ? "&" : "?"}email=${encodeURIComponent(values.email)}`
+      );
+      return;
     }
 
-    router.push("/dashboard");
+    // Confirmation disabled (e.g. local dev): record consents and send the
+    // welcome email directly, then continue to the destination.
+    void fetch("/api/consent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ age_18_plus: true, terms_and_privacy: true }),
+    }).catch(() => {});
+    void fetch("/api/email/welcome", { method: "POST" }).catch(() => {});
+
+    router.push(resolveDestination({ plan, next }));
     router.refresh();
   }
 
@@ -92,6 +157,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             minLength: { value: 8, message: "At least 8 characters" },
           })}
         />
+        {!isLogin && !errors.password && (
+          <p className="mt-1 text-sm text-[#6B7280]">Use at least 8 characters.</p>
+        )}
         {errors.password && (
           <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
         )}
