@@ -24,6 +24,12 @@ export default async function LoginPage({
           get a new one.
         </div>
       )}
+      <div>
+        <h2 className="text-xl font-semibold text-[#1F2937]">Welcome back</h2>
+        <p className="mt-1 text-sm text-[#6B7280]">
+          Sign in to see today&rsquo;s plan or check in again.
+        </p>
+      </div>
       <AuthForm
         mode="login"
         plan={parsePlanIntent(plan)}

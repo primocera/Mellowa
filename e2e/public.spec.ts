@@ -98,3 +98,12 @@ test("hero leads with the free-sample funnel, not a trial promise", async ({ pag
   await expect(page.getByText(/no card for the sample/i).first()).toBeVisible();
   await expect(page.locator("body")).not.toContainText(/start my 3-day free trial/i);
 });
+
+test("signup and login pages carry the elevated account copy", async ({ page }) => {
+  await page.goto("/signup");
+  await expect(page.getByText(/create your mellowa account/i)).toBeVisible();
+  await expect(page.getByText(/no card required/i)).toBeVisible();
+  await expect(page.getByText(/use at least 8 characters/i)).toBeVisible();
+  await page.goto("/login");
+  await expect(page.getByText(/welcome back/i)).toBeVisible();
+});

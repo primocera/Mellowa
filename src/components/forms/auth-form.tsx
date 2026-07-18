@@ -39,6 +39,21 @@ export function AuthForm({
 
   const isLogin = mode === "login";
 
+  // Map provider errors to safe, non-enumerating customer copy — raw
+  // Supabase strings are never shown (CE v6, Prompt 5).
+  function safeAuthError(message: string): string {
+    if (/invalid login credentials/i.test(message)) {
+      return "That email and password combination didn't work. Try again or reset your password.";
+    }
+    if (/rate limit|too many/i.test(message)) {
+      return "Too many attempts just now. Wait a minute and try again.";
+    }
+    if (/password/i.test(message) && /short|weak|at least/i.test(message)) {
+      return "Please use a longer password — at least 8 characters.";
+    }
+    return "That didn't go through. Please try again.";
+  }
+
   async function onSubmit(values: AuthValues) {
     setError(null);
     setLoading(true);
@@ -52,7 +67,7 @@ export function AuthForm({
         password: values.password,
       });
       if (error) {
-        setError(error.message);
+        setError(safeAuthError(error.message));
         setLoading(false);
         return;
       }
@@ -82,7 +97,7 @@ export function AuthForm({
         );
         return;
       }
-      setError(error.message);
+      setError(safeAuthError(error.message));
       setLoading(false);
       return;
     }
@@ -142,6 +157,9 @@ export function AuthForm({
             minLength: { value: 8, message: "At least 8 characters" },
           })}
         />
+        {!isLogin && !errors.password && (
+          <p className="mt-1 text-sm text-[#6B7280]">Use at least 8 characters.</p>
+        )}
         {errors.password && (
           <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
         )}

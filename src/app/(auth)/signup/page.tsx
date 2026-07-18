@@ -12,10 +12,20 @@ export default async function SignupPage({
   const { plan, next } = await searchParams;
 
   return (
-    <AuthForm
-      mode="signup"
-      plan={parsePlanIntent(plan)}
-      next={sanitizeNextPath(next)}
-    />
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-xl font-semibold text-[#1F2937]">
+          Create your Mellowa account
+        </h2>
+        <p className="mt-1 text-sm text-[#6B7280]">
+          Your free sample day starts after a short setup. No card required.
+        </p>
+      </div>
+      <AuthForm
+        mode="signup"
+        plan={parsePlanIntent(plan)}
+        next={sanitizeNextPath(next)}
+      />
+    </div>
   );
 }
