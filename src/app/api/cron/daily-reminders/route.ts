@@ -5,6 +5,7 @@ import { requireBearerSecret } from "@/lib/cron-auth";
 import { deliverEmail } from "@/lib/email/deliver";
 import { getUserEmails } from "@/lib/email/recipients";
 import { planReminders, type ReminderProfile } from "@/lib/email/reminder-planner";
+import { onboardingNudgeEmail } from "@/lib/email/templates";
 
 /**
  * Daily reminder cron (v6 Prompts 9/12/15) — opt-in daily reminder email.
@@ -129,9 +130,49 @@ export async function GET(request: Request) {
     if (profiles.length < BATCH_SIZE) break;
   }
 
+  // One-time onboarding nudge (Prompt 19): accounts 1–14 days old with no
+  // wellbeing profile yet. Strictly once per user via the ledger event key;
+  // suppressed automatically once a profile exists or the account is deleted.
+  let nudged = 0;
+  if (!truncated) {
+    const dayAgo = new Date(now.getTime() - 24 * 3600_000).toISOString();
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 3600_000).toISOString();
+    const { data: recent } = await admin
+      .from("profiles")
+      .select("id")
+      .gte("created_at", twoWeeksAgo)
+      .lte("created_at", dayAgo)
+      .limit(500);
+    const ids = (recent ?? []).map((r) => r.id as string);
+    if (ids.length) {
+      const { data: withProfile } = await admin
+        .from("wellbeing_profiles")
+        .select("user_id")
+        .in("user_id", ids);
+      const done = new Set((withProfile ?? []).map((r) => r.user_id as string));
+      const pending = ids.filter((id) => !done.has(id));
+      const emails = await getUserEmails(admin, pending);
+      for (const userId of pending) {
+        const email = emails.get(userId);
+        if (!email) continue;
+        const { subject, html } = onboardingNudgeEmail();
+        const result = await deliverEmail({
+          eventKey: `onboarding_nudge:${userId}`,
+          userId,
+          template: "onboarding_nudge",
+          to: email,
+          subject,
+          html,
+        });
+        if (result.sent) nudged += 1;
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     sent,
+    nudged,
     scanned,
     invalid_timezones: invalidTimezones,
     truncated,

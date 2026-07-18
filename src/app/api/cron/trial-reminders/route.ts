@@ -5,6 +5,7 @@ import { requireBearerSecret } from "@/lib/cron-auth";
 import { deliverEmail } from "@/lib/email/deliver";
 import { trialEndingEmail } from "@/lib/email/templates";
 import { getUserEmails } from "@/lib/email/recipients";
+import { PRICING } from "@/lib/stripe/plans";
 
 /**
  * Daily cron — sends the "your trial ends tomorrow" email to trialing users
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
 
   const { data: due } = await admin
     .from("subscriptions")
-    .select("id, user_id, trial_end")
+    .select("id, user_id, trial_end, plan_name")
     .eq("status", "trialing")
     .eq("trial_reminder_sent", false)
     .gt("trial_end", now.toISOString())
@@ -39,7 +40,18 @@ export async function GET(request: Request) {
     const email = emails.get(row.user_id);
     if (!email) continue;
 
-    const { subject, html } = trialEndingEmail();
+    // Exact charge disclosure (Prompt 19): "You'll be charged [PRICE] on
+    // [DATE] for [PLAN] unless you cancel before then."
+    const tier = row.plan_name === "pro_yearly" ? PRICING.yearly : PRICING.monthly;
+    const { subject, html } = trialEndingEmail({
+      plan: tier.name,
+      price: tier.price,
+      date: new Date(row.trial_end).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }),
+    });
     const result = await deliverEmail({
       eventKey: `trial_ending:${row.id}:${row.trial_end}`,
       userId: row.user_id,

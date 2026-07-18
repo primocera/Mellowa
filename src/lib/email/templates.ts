@@ -193,3 +193,43 @@ export function paymentFailedEmail(facts: BillingFacts = {}): Email {
     ),
   };
 }
+
+/** Payment recovered — dunning success confirmation (Launch v6, Prompt 19). */
+export function paymentRecoveredEmail(): Email {
+  return {
+    subject: "Your Mellowa payment went through",
+    html: shell(
+      `${p("Your latest payment was processed and your subscription is active again. Nothing else to do.")}
+       <p style="margin:24px 0;">${button("Open Mellowa", `${appUrl()}/today`)}</p>`,
+      "Your subscription is active again."
+    ),
+  };
+}
+
+/** Account deletion confirmed — sent before the auth user is removed. */
+export function accountDeletedEmail(): Email {
+  return {
+    subject: "Your Mellowa account has been deleted",
+    html: shell(
+      `${p("Your account and its data have been deleted as requested. Any active subscription was canceled — you won't be charged again.")}
+       ${p("If this wasn't you, contact support right away.")}`,
+      "Your data has been removed. You won't be charged again."
+    ),
+  };
+}
+
+/**
+ * One-time onboarding nudge — sent once if setup wasn't finished within a day.
+ * Optional category: never repeated, suppressed the moment a profile exists.
+ */
+export function onboardingNudgeEmail(): Email {
+  return {
+    subject: "Finish your Mellowa setup",
+    html: shell(
+      `${p("You created a Mellowa account but haven't finished setup. It takes about two minutes, then your free sample day is ready to create.")}
+       <p style="margin:24px 0;">${button("Finish setup", `${appUrl()}/onboarding`)}</p>
+       ${p("This is the only reminder we'll send about setup.")}`,
+      "Two minutes of setup, then your free sample day."
+    ),
+  };
+}

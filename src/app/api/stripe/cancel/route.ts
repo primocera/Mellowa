@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
 import { trackEvent } from "@/lib/analytics";
+import { deliverEmail } from "@/lib/email/deliver";
+import { canceledEmail } from "@/lib/email/templates";
 
 const Input = z.object({
   action: z.enum(["cancel", "reactivate"]),
@@ -41,7 +43,7 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   const { data: sub } = await admin
     .from("subscriptions")
-    .select("stripe_subscription_id, status")
+    .select("stripe_subscription_id, status, current_period_end, trial_end")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -65,6 +67,31 @@ export async function POST(request: Request) {
       .eq("user_id", user.id);
 
     if (cancelAtPeriodEnd) {
+      // Cancellation confirmation with the exact access-end date (Prompt 19).
+      // Idempotent per subscription+period via the delivery ledger event key.
+      const untilIso =
+        sub.status === "trialing" ? sub.trial_end : sub.current_period_end;
+      if (user.email) {
+        const { subject, html } = canceledEmail(
+          untilIso
+            ? {
+                date: new Date(untilIso).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                }),
+              }
+            : {}
+        );
+        await deliverEmail({
+          eventKey: `canceled:${sub.stripe_subscription_id}:${untilIso ?? "period"}`,
+          userId: user.id,
+          template: "canceled",
+          to: user.email,
+          subject,
+          html,
+        });
+      }
       trackEvent("cancellation_requested", {
         userId: user.id,
         properties: {

@@ -8,6 +8,7 @@ import {
   trialStartedEmail,
   trialEndedEmail,
   paymentFailedEmail,
+  paymentRecoveredEmail,
 } from "@/lib/email/templates";
 import {
   factsFromSubscription,
@@ -381,6 +382,18 @@ export async function POST(request: Request) {
               userId: uid,
               properties: { surface: "billing", outcome: "success" },
             });
+            const email = await emailForCustomerId(customerId);
+            if (email) {
+              const { subject, html } = paymentRecoveredEmail();
+              await deliverEmail({
+                eventKey: `payment_recovered:${invoice.id}`,
+                userId: uid,
+                template: "payment_recovered",
+                to: email,
+                subject,
+                html,
+              });
+            }
           } else if (invoice.billing_reason === "subscription_cycle") {
             trackEvent("subscription_renewed", {
               userId: uid,

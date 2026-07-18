@@ -29,7 +29,9 @@ import {
   pickEvening,
 } from "@/lib/content/wellbeing-library";
 import { AiGenerationError } from "@/lib/ai/errors";
-import { canGenerateDailyPlan } from "@/lib/stripe/subscription";
+import { canGenerateDailyPlan, getUserPlan } from "@/lib/stripe/subscription";
+import { deliverEmail } from "@/lib/email/deliver";
+import { sampleReadyEmail } from "@/lib/email/templates";
 import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
 import { resolvePlanDate } from "@/lib/dates/local-day";
 import { guardAiRoute } from "@/lib/ai/guard";
@@ -496,6 +498,25 @@ export async function POST(request: Request) {
     retryCount: Math.max(genAttempts - 1, 0),
     resultId: savedPlan.id,
   });
+  // First-sample milestone (Prompt 19): a sample-tier user's plan is their
+  // free sample. Ledger event key makes the email strictly once per user.
+  if ((await getUserPlan(user.id)) === "sample") {
+    trackEvent("sample_plan_generated", {
+      userId: user.id,
+      properties: { surface: "today", outcome: "success" },
+    });
+    if (user.email) {
+      const { subject, html } = sampleReadyEmail();
+      await deliverEmail({
+        eventKey: `sample_ready:${user.id}`,
+        userId: user.id,
+        template: "sample_ready",
+        to: user.email,
+        subject,
+        html,
+      });
+    }
+  }
   trackEvent("checkin_completed", { userId: user.id, properties: { surface: "check_in" } });
   trackEvent("plan_generated", {
     userId: user.id,
