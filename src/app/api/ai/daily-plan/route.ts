@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { DailyCheckinInput } from "@/schemas/wellbeing";
 import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateDailyPlanV2 } from "@/lib/ai/generate-daily-plan-v2";
+import type { UsageSink } from "@/lib/ai/generate-json";
+import { finalizeAiUsage, releaseReservation, type AiUsage } from "@/lib/ai/usage";
 import { resolvePlanMode, planModeInstruction } from "@/lib/ai/plan-mode";
 import {
   findPlanAllergenViolations,
@@ -128,10 +130,14 @@ export async function POST(request: Request) {
     requirePremium: false,
     route: "daily-plan",
   });
-  if (guard) {
+  if (guard instanceof NextResponse) {
     await finish("failed");
     return guard;
   }
+  // Reserved ledger row; finalized with provider truth after generation, or
+  // released/blocked if we exit before or without a real provider call.
+  const usageEventId = guard.eventId;
+  const usageSink: UsageSink = {};
 
   // 4. Safety check BEFORE any generation
   const freeText = [checkin.today_focus, checkin.notes, checkin.hunger_pattern]
@@ -147,6 +153,7 @@ export async function POST(request: Request) {
   // 5. Blocked → return safety message, no plan
   if (safety.should_block_generation) {
     await finish("failed");
+    await finalizeAiUsage(usageEventId, { status: "safety_blocked" });
     return NextResponse.json(
       { blocked: true, user_message: safety.user_message },
       { status: 200 }
@@ -182,6 +189,7 @@ export async function POST(request: Request) {
 
   if (checkinError) {
     await finish("failed");
+    await releaseReservation(usageEventId); // no provider call happened
     return NextResponse.json(
       { error: "Failed to save check-in" },
       { status: 500 }
@@ -221,6 +229,32 @@ export async function POST(request: Request) {
   );
   if (learnedHints) modeInstruction += `\n${learnedHints}`;
 
+  // Accumulate provider token truth across the initial call and any retries so
+  // the ledger records the real, summed cost of the whole generation (Prompt 11).
+  let genIn = 0;
+  let genOut = 0;
+  let genModel = "";
+  let genLatency = 0;
+  let genAttempts = 0;
+  let usedFallback = false;
+  const accumulate = () => {
+    const u = usageSink.usage;
+    if (!u) return;
+    genIn += u.inputTokens;
+    genOut += u.outputTokens;
+    genModel = u.model;
+    genLatency = u.latencyMs;
+    genAttempts += 1;
+  };
+  const summedUsage = (status: AiUsage["status"]): AiUsage => ({
+    provider: "anthropic",
+    model: genModel,
+    inputTokens: genIn,
+    outputTokens: genOut,
+    latencyMs: genLatency,
+    status,
+  });
+
   let plan;
   try {
     plan = await generateDailyPlanV2({
@@ -229,7 +263,9 @@ export async function POST(request: Request) {
       habits,
       date: today,
       modeInstruction,
+      usageSink,
     });
+    accumulate();
 
     // Quality gate — one safer regeneration attempt if the plan fails
     const quality = checkDailyPlanV2Quality(plan, {
@@ -249,13 +285,21 @@ export async function POST(request: Request) {
         extraInstruction: `The previous plan failed quality review (${quality.reasons.join(
           "; "
         )}). Create a LIGHTER, gentler plan: simpler meals with a clear safety note, gentle movement with a caution note, short calm-reset steps, no medical or diet language, warm encouragement, and a clear minimum version for the habit.`,
+        usageSink,
       });
+      accumulate();
       const retryQuality = checkDailyPlanV2Quality(plan, {
         energy_level: checkin.energy_level,
         stress_level: checkin.stress_level,
       });
       if (!retryQuality.ok) {
         await finish("failed");
+        // Both provider calls were billed even though quality was rejected.
+        await finalizeAiUsage(usageEventId, {
+          status: "quality_failed",
+          usage: summedUsage("success"),
+          retryCount: genAttempts - 1,
+        });
         return NextResponse.json(
           { error: "quality_check_failed", reasons: retryQuality.reasons },
           { status: 502 }
@@ -282,7 +326,9 @@ export async function POST(request: Request) {
           date: today,
           modeInstruction,
           extraInstruction: allergenExclusionInstruction(allergies),
+          usageSink,
         });
+        accumulate();
         violations = findPlanAllergenViolations(plan.meal_cards, allergies);
         if (violations.length) {
           console.error("[safety] allergen violation after retry, failing closed", {
@@ -291,6 +337,12 @@ export async function POST(request: Request) {
             ),
           });
           await finish("failed");
+          // Provider calls were billed; record real cost with the safety outcome.
+          await finalizeAiUsage(usageEventId, {
+            status: "safety_blocked",
+            usage: summedUsage("success"),
+            retryCount: genAttempts - 1,
+          });
           return NextResponse.json(
             {
               error: "allergen_check_failed",
@@ -308,6 +360,7 @@ export async function POST(request: Request) {
     }
   } catch (err) {
     const code = err instanceof AiGenerationError ? err.code : "provider_error";
+    accumulate(); // capture the failing attempt's tokens (may be >0 on bad JSON)
     // Curated fallback (Prompt 16): rather than an error screen during a
     // provider outage, serve a gentle pre-written Minimum Day. It is static and
     // cannot honour an allergy list, so only offer it to users with none.
@@ -315,12 +368,18 @@ export async function POST(request: Request) {
     if (!hasAllergies && isFlagEnabled("fallback_plan")) {
       console.error("[ai] daily plan generation failed, serving fallback", { code });
       plan = buildFallbackDailyPlan();
+      usedFallback = true; // ledger is finalized once, at the success path below
       trackEvent("plan_fallback_served", {
         userId: user.id,
         properties: { surface: "today", outcome: "failure" },
       });
     } else {
       await finish("failed");
+      await finalizeAiUsage(usageEventId, {
+        status: usageSink.usage?.status ?? "provider_error",
+        usage: summedUsage(usageSink.usage?.status ?? "provider_error"),
+        retryCount: Math.max(genAttempts - 1, 0),
+      });
       return NextResponse.json(
         { error: "Plan generation failed", code },
         { status: 502 }
@@ -377,6 +436,14 @@ export async function POST(request: Request) {
 
   if (planError) {
     await finish("failed");
+    // Generation succeeded and was billed; record the real cost even though the
+    // save failed (no result_id). A fallback plan has no tokens → cost 0.
+    await finalizeAiUsage(usageEventId, {
+      status: usedFallback ? "fallback" : "success",
+      usage: summedUsage(usedFallback ? "fallback" : "success"),
+      fallbackUsed: usedFallback,
+      retryCount: Math.max(genAttempts - 1, 0),
+    });
     return NextResponse.json({ error: "Failed to save plan" }, { status: 500 });
   }
 
@@ -412,6 +479,15 @@ export async function POST(request: Request) {
 
   // 10. Return the saved plan
   await finish("succeeded", savedPlan.id);
+  // Finalize the ledger with real tokens/cost/latency, retries and the outcome.
+  // A fallback plan carries no tokens, so it is recorded at zero cost.
+  await finalizeAiUsage(usageEventId, {
+    status: usedFallback ? "fallback" : "success",
+    usage: summedUsage(usedFallback ? "fallback" : "success"),
+    fallbackUsed: usedFallback,
+    retryCount: Math.max(genAttempts - 1, 0),
+    resultId: savedPlan.id,
+  });
   trackEvent("checkin_completed", { userId: user.id, properties: { surface: "check_in" } });
   trackEvent("plan_generated", {
     userId: user.id,

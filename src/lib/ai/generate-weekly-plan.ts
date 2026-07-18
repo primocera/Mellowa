@@ -1,5 +1,5 @@
 import "server-only";
-import { generateStructuredJson } from "@/lib/ai/generate-json";
+import { generateStructuredJson, type UsageSink } from "@/lib/ai/generate-json";
 import {
   WEEKLY_PLAN_SYSTEM_PROMPT,
   buildWeeklyPlanUserPrompt,
@@ -13,8 +13,9 @@ export async function generateWeeklyPlan(args: {
   habits: string[];
   notes: string;
   weekStart: string;
+  usageSink?: UsageSink;
 }): Promise<WeeklyPlanOutputType> {
-  const { profile, recentCheckins, habits, notes, weekStart } = args;
+  const { profile, recentCheckins, habits, notes, weekStart, usageSink } = args;
 
   const profileContext = {
     primary_goal: profile.primary_goal,
@@ -49,5 +50,6 @@ export async function generateWeeklyPlan(args: {
     zodSchema: WeeklyPlanOutput,
     temperature: 0.6,
     maxTokens: 8192,
+    usageSink,
   });
 }

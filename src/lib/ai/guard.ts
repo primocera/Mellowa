@@ -13,14 +13,19 @@ import { getConsentStatus } from "@/lib/consent/status";
  * The sample tier's single daily-plan preview is handled separately by
  * canGenerateDailyPlan; pass requirePremium: false there.
  *
- * Returns a NextResponse to short-circuit the route, or null to continue.
- * On a global-capacity block returns HTTP 503 so the route may serve a curated
- * fallback instead of a hard error.
+ * Returns a NextResponse to short-circuit the route, or a GuardPass (carrying
+ * the reserved ledger eventId) to continue. On a global-capacity block returns
+ * HTTP 503 so the route may serve a curated fallback instead of a hard error.
  */
+export interface GuardPass {
+  /** Reserved ai_usage_events row id, to finalize after generation (Prompt 11). */
+  eventId?: string;
+}
+
 export async function guardAiRoute(
   userId: string,
   opts: { requirePremium: boolean; route: AiRoute }
-): Promise<NextResponse | null> {
+): Promise<NextResponse | GuardPass> {
   // Consent checkpoint (Prompt 6): existing users without current-version
   // age/terms/privacy consent must complete it before any new generation.
   const consent = await getConsentStatus(userId);
@@ -64,5 +69,5 @@ export async function guardAiRoute(
     );
   }
 
-  return null;
+  return { eventId: claim.eventId };
 }

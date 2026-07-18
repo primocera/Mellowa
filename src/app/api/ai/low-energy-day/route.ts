@@ -55,7 +55,7 @@ export async function POST(request: Request) {
 
   // Premium/trial gate + rate limit.
   const guard = await guardAiRoute(user.id, { requirePremium: true, route: "low-energy-day" });
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   // 4. Safety check BEFORE any generation
   const freeText = [input.notes, input.must_do_task, input.food_available]

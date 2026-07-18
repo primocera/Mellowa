@@ -1,5 +1,5 @@
 import "server-only";
-import { generateStructuredJson } from "@/lib/ai/generate-json";
+import { generateStructuredJson, type UsageSink } from "@/lib/ai/generate-json";
 import {
   DAILY_PLAN_V2_SYSTEM_PROMPT,
   buildDailyPlanV2UserPrompt,
@@ -20,8 +20,9 @@ export async function generateDailyPlanV2(args: {
   modeInstruction?: string;
   /** Extra corrective instruction, e.g. after a failed quality check. */
   extraInstruction?: string;
+  usageSink?: UsageSink;
 }): Promise<DailyPlanV2OutputType> {
-  const { profile, checkin, habits, date, modeInstruction, extraInstruction } = args;
+  const { profile, checkin, habits, date, modeInstruction, extraInstruction, usageSink } = args;
 
   const profileContext = {
     primary_goal: profile.primary_goal,
@@ -66,5 +67,6 @@ export async function generateDailyPlanV2(args: {
     zodSchema: DailyPlanV2Output,
     temperature: 0.6,
     maxTokens: 8192,
+    usageSink,
   });
 }

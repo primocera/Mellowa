@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
   // Premium-only + rate limit — protects the AI provider key.
   const guard = await guardAiRoute(user.id, { requirePremium: true, route: "meal-rhythm" });
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   let body: unknown = {};
   try {

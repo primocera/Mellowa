@@ -15,7 +15,7 @@ export async function POST() {
 
   // Premium-only + rate limit — protects the AI provider key.
   const guard = await guardAiRoute(user.id, { requirePremium: true, route: "habit-plan" });
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   const [profileRes, checkinsRes, habitsRes] = await Promise.all([
     supabase

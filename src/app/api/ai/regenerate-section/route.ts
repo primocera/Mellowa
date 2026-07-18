@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
   // Premium-only + rate limit — regeneration is a provider call.
   const guard = await guardAiRoute(user.id, { requirePremium: true, route: "regenerate-section" });
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   let body: unknown;
   try {

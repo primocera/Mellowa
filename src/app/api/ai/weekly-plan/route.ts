@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { WeeklyPlanInput } from "@/schemas/wellbeing";
 import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateWeeklyPlan } from "@/lib/ai/generate-weekly-plan";
+import type { UsageSink } from "@/lib/ai/generate-json";
+import { finalizeAiUsage, releaseReservation } from "@/lib/ai/usage";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canUsePremiumFeature, canGenerateWeeklyPlan } from "@/lib/stripe/subscription";
 import { claimAiGeneration } from "@/lib/ai/rate-limit";
@@ -108,6 +110,10 @@ export async function POST(request: Request) {
     );
   }
 
+  // Ledger row is reserved (claim.eventId). It is finalized with provider truth
+  // on a real generation, or released if we exit before calling the provider.
+  const usageSink: UsageSink = {};
+
   let body: unknown = {};
   try {
     body = await request.json();
@@ -118,6 +124,7 @@ export async function POST(request: Request) {
   const parsed = WeeklyPlanInput.safeParse(body ?? {});
   if (!parsed.success) {
     await finish("failed");
+    await releaseReservation(claim.eventId);
     return NextResponse.json(
       { error: "Invalid input", issues: parsed.error.issues },
       { status: 400 }
@@ -130,6 +137,7 @@ export async function POST(request: Request) {
     const safety = await checkInputSafety(user.id, "weekly-plan", notes);
     if (safety.should_block_generation) {
       await finish("failed");
+      await finalizeAiUsage(claim.eventId, { status: "safety_blocked" });
       return NextResponse.json(
         { blocked: true, user_message: safety.user_message },
         { status: 200 }
@@ -162,10 +170,17 @@ export async function POST(request: Request) {
       habits: (habitsRes.data ?? []).map((h) => h.name),
       notes,
       weekStart,
+      usageSink,
     });
   } catch (err) {
     const code = err instanceof AiGenerationError ? err.code : "provider_error";
     await finish("failed");
+    // The precise outcome (timeout/provider_error/invalid_json/schema_failed)
+    // is captured in the sink; the provider may have been billed even on failure.
+    await finalizeAiUsage(claim.eventId, {
+      status: usageSink.usage?.status ?? "provider_error",
+      usage: usageSink.usage,
+    });
     return NextResponse.json(
       { error: "Weekly plan generation failed", code },
       { status: 502 }
@@ -191,9 +206,17 @@ export async function POST(request: Request) {
 
   if (saveError) {
     await finish("failed");
+    // The provider call succeeded and was billed, so record the real cost even
+    // though persistence failed — the row is truthful, just without a result_id.
+    await finalizeAiUsage(claim.eventId, { status: "success", usage: usageSink.usage });
     return NextResponse.json({ error: "Failed to save weekly plan" }, { status: 500 });
   }
 
   await finish("succeeded", saved.id);
+  await finalizeAiUsage(claim.eventId, {
+    status: "success",
+    usage: usageSink.usage,
+    resultId: saved.id,
+  });
   return NextResponse.json({ blocked: false, plan: saved });
 }
