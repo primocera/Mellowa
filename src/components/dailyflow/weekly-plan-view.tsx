@@ -49,7 +49,7 @@ function GenerateButton({
       } else if (res.status === 402) {
         setMessage(
           data.error === "upgrade_required"
-            ? "Weekly reset is a Premium feature — start your 3-day free trial on the Billing page."
+            ? "Weekly reset is part of Premium — start 3 days free on the Billing page."
             : "You've reached this month's weekly plan limit — manage your plan on the Billing page."
         );
       } else {

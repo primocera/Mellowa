@@ -97,27 +97,28 @@ export default async function BillingPage() {
             ) : (
               <>
                 <p className="mt-3 text-sm text-[#6B7280]">
-                  Start your 3-day free trial to unlock personalized daily
-                  plans with fair-use safeguards, weekly reset, meal rhythm,
-                  journal reflections and progress insights.
+                  Start 3 days free to create new daily plans, shape the week
+                  and use reflections — personalized plans come with fair-use
+                  safeguards.
                 </p>
                 <div className="mt-4 space-y-2">
                   <UpgradeButton
                     interval="monthly"
-                    label="Start 3-day free trial — €9.99/mo"
+                    label="Start 3 days free — €9.99/mo"
                     amount="€9.99"
                     cadence="/month"
                     highlight
                   />
                   <UpgradeButton
                     interval="yearly"
-                    label="Start 3-day free trial — €59.99/yr"
+                    label="Start 3 days free — €59.99/yr"
                     amount="€59.99"
                     cadence="/year"
                   />
                 </div>
                 <p className="mt-3 text-xs text-[#9CA3AF]">
-                  Cancel anytime before your trial ends.
+                  Payment method required. You&rsquo;ll see your exact charge
+                  date before checkout. Cancel anytime before your trial ends.
                 </p>
               </>
             )}
