@@ -7,26 +7,27 @@ export const metadata: Metadata = { title: "You — Mellowa" };
 const LINKS: HubLink[] = [
   {
     href: "/settings",
-    label: "Profile & preferences",
-    description: "How your plans are shaped.",
+    label: "Plan preferences",
+    description:
+      "Schedule, food, plan size, reminders and optional nutrition details.",
     icon: SlidersHorizontal,
   },
   {
     href: "/billing",
-    label: "Billing",
-    description: "Your plan, trial and payments.",
+    label: "Membership & billing",
+    description: "Trial, renewal, payment method and cancellation.",
     icon: CreditCard,
   },
   {
     href: "/settings#data",
-    label: "Your data",
-    description: "Export or delete anything you've shared.",
+    label: "Data & privacy",
+    description: "Export, correct or delete what you have shared.",
     icon: ShieldCheck,
   },
   {
-    href: "/terms",
-    label: "Support & policies",
-    description: "Terms, privacy and how to reach us.",
+    href: "/help",
+    label: "Help & policies",
+    description: "Support, Terms, Privacy and Refund Policy.",
     icon: LifeBuoy,
   },
 ];
@@ -36,10 +37,10 @@ export default function YouPage() {
     <div className="space-y-5">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
-          You
+          Your Mellowa
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
-          Your profile, billing, data and support.
+          Shape your plans, manage membership and control your data.
         </p>
       </header>
       <HubLinks links={LINKS} />

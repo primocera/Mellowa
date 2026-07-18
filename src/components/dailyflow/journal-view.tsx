@@ -129,7 +129,7 @@ export function JournalView({ entries }: { entries: JournalEntry[] }) {
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
           rows={5}
-          placeholder="No structure needed — write what comes."
+          placeholder="Write in your own words. No structure needed."
           className="mt-3 w-full rounded-xl border border-[#E5E1DA] px-4 py-3 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
         />
         <div className="mt-3 flex flex-wrap gap-6">

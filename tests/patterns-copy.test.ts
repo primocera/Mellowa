@@ -47,7 +47,7 @@ describe("patterns copy (CE-12)", () => {
 
   it("journal is framed as general reflection, not therapy", () => {
     expect(journalPage.replace(/\s+/g, " ")).toContain(
-      "General reflection, not therapy."
+      "not therapy or psychological interpretation."
     );
   });
 });

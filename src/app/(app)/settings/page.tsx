@@ -24,9 +24,15 @@ export default async function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
-        Settings
-      </h1>
+      <header>
+        <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
+          Shape how Mellowa plans
+        </h1>
+        <p className="mt-1 text-sm text-[#6B7280]">
+          Change the details that affect future plans. Your existing plans stay
+          as they are.
+        </p>
+      </header>
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="font-medium text-[#1F2937]">Account</h2>
@@ -123,10 +129,11 @@ export default async function SettingsPage() {
       </div>
 
       <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="font-medium text-[#1F2937]">Support</h2>
+        <h2 className="font-medium text-[#1F2937]">Get help</h2>
         <p className="mt-1 text-sm text-[#6B7280]">
-          Questions, billing issues or feedback? We usually reply within two
-          business days. This inbox is not monitored for emergencies.
+          For account, billing or privacy questions, email us. Paid support
+          replies within 2 business days. Mellowa does not monitor this inbox
+          for emergencies.
         </p>
         <a
           href={`mailto:${readLegalConfig().supportEmail}`}
