@@ -31,19 +31,26 @@ export async function GET() {
 
   // Single authoritative registry (Prompt 4) — includes every user-owned
   // table (favourite_meals, plan_feedback, user-linked app_events, ...).
+  // Paginated per table (Prompt 16): the export stays complete but every
+  // query is bounded, so one huge table can't blow the statement timeout.
+  const PAGE = 1000;
   for (const { table, column } of USER_DATA_REGISTRY) {
-    const { data: rows, error } = await admin
-      .from(table)
-      .select("*")
-      .eq(column, user.id);
-    if (error) {
-      console.error("[account/export] failed to read table", { table });
-      return NextResponse.json(
-        { error: "export_failed" },
-        { status: 500 }
-      );
+    const all: unknown[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data: rows, error } = await admin
+        .from(table)
+        .select("*")
+        .eq(column, user.id)
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) {
+        console.error("[account/export] failed to read table", { table });
+        return NextResponse.json({ error: "export_failed" }, { status: 500 });
+      }
+      all.push(...(rows ?? []));
+      if (!rows || rows.length < PAGE) break;
     }
-    data[table] = rows ?? [];
+    data[table] = all;
   }
 
   const filename = `mellowa-data-export-${new Date().toISOString().slice(0, 10)}.json`;
