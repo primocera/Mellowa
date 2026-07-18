@@ -65,11 +65,11 @@ export default async function TodayPage() {
         {timezoneNeedsRepair && <TimezoneRepair />}
         <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
         <h1 className="text-xl font-semibold text-[#1F2937]">
-          How does today feel?
+          What kind of day is this?
         </h1>
         <p className="mt-2 text-sm text-[#6B7280]">
-          A quick check-in is all it takes — your plan adapts to how today
-          actually feels, with meal ideas, gentle movement and a calm reset.
+          A one-minute check-in shapes meals, a water cue, optional movement and
+          one pause around the time and energy you actually have.
         </p>
         <Link
           href="/check-in"

@@ -43,24 +43,28 @@ export function PlanFeedback({
     );
   }
 
+  // Fit-to-day framing (CE-8): the question is about the day, not a rating of
+  // the user. Stored verdict values are unchanged.
   const REASONS: { v: Verdict; label: string }[] = [
     { v: "too_much", label: "Too much" },
-    { v: "too_little_time", label: "Too little time" },
-    { v: "didnt_fit_food", label: "Didn't fit food" },
-    { v: "not_for_me", label: "Just not for me" },
+    { v: "too_little_time", label: "Needed less time" },
+    { v: "didnt_fit_food", label: "Food didn't fit" },
+    { v: "not_for_me", label: "Wrong kind of support" },
   ];
 
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="flex items-center justify-center gap-2">
-        <span className="text-xs text-[#9CA3AF]">How was today&apos;s plan?</span>
+        <span className="text-xs text-[#9CA3AF]">
+          Did this plan fit the day you had?
+        </span>
         <button
           type="button"
           onClick={() => send("helpful")}
           className="flex items-center gap-1.5 rounded-full border border-[#E5E1DA] bg-white px-3 py-1.5 text-xs text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937]"
         >
           <ThumbsUp className="h-3.5 w-3.5" />
-          Helpful
+          Mostly
         </button>
         <button
           type="button"
@@ -69,7 +73,7 @@ export function PlanFeedback({
           className="flex items-center gap-1.5 rounded-full border border-[#E5E1DA] bg-white px-3 py-1.5 text-xs text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937]"
         >
           <ThumbsDown className="h-3.5 w-3.5" />
-          Not for me
+          Not today
         </button>
       </div>
       {showReasons && (
