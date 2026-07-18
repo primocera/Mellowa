@@ -4,11 +4,13 @@ import { Check } from "lucide-react";
 import { readLegalConfig } from "@/lib/legal/config";
 import { TERMS } from "@/lib/content/terminology";
 import { TrackedCta } from "@/components/dailyflow/tracked-cta";
+import { SITE_URL } from "@/lib/seo/site";
 
 export const metadata: Metadata = {
   title: "Mellowa — A realistic plan for the day you actually have",
   description:
     "Tell Mellowa how much energy and time you have. It shapes a doable plan for meals, movement, focus and a calmer end to the day — without calorie targets, streaks or pressure.",
+  alternates: { canonical: "/" },
 };
 
 const STEPS = [
@@ -97,8 +99,44 @@ const FAQ = [
 
 export default function LandingPage() {
   const legal = readLegalConfig();
+
+  // Structured data — only claims visible on this page (Prompt 23). The
+  // SoftwareApplication carries no rating/review (we have none), and the FAQ
+  // mirrors the on-page FAQ verbatim.
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        name: "Mellowa",
+        applicationCategory: "HealthApplication",
+        operatingSystem: "Web",
+        url: SITE_URL,
+        description:
+          "Realistic daily wellbeing plans that adapt to your energy, mood and schedule — not medical care, therapy or emergency support.",
+        offers: [
+          { "@type": "Offer", price: "9.99", priceCurrency: "EUR", name: "Mellowa Monthly" },
+          { "@type": "Offer", price: "59.99", priceCurrency: "EUR", name: "Mellowa Yearly" },
+        ],
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: FAQ.map((item) => ({
+          "@type": "Question",
+          name: item.q,
+          acceptedAnswer: { "@type": "Answer", text: item.a },
+        })),
+      },
+    ],
+  };
+
   return (
     <div className="min-h-screen bg-[#FAF7F2] text-[#1F2937]">
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Nav */}
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
         <span className="text-lg font-semibold tracking-tight">Mellowa</span>

@@ -6,6 +6,7 @@ import { POLICY_VERSIONS } from "@/lib/consent/config";
 export const metadata: Metadata = {
   title: "Terms of Service — Mellowa",
   description: "The terms for using Mellowa.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

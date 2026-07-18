@@ -5,7 +5,10 @@ import { PRICING } from "@/lib/stripe/plans";
 import { UpgradeButton } from "@/components/dailyflow/upgrade-button";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata: Metadata = { title: "Pricing — Mellowa" };
+export const metadata: Metadata = {
+  title: "Pricing — Mellowa",
+  alternates: { canonical: "/pricing" },
+};
 
 /**
  * A user who already consumed their one trial must see "Pay today" copy, not

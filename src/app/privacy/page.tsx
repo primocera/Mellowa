@@ -6,6 +6,7 @@ import { POLICY_VERSIONS } from "@/lib/consent/config";
 export const metadata: Metadata = {
   title: "Privacy Policy — Mellowa",
   description: "How Mellowa collects, uses and protects your data.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {

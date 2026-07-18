@@ -5,6 +5,7 @@ import { readLegalConfig } from "@/lib/legal/config";
 export const metadata: Metadata = {
   title: "Refund & Cancellation Policy — Mellowa",
   description: "How refunds and cancellations work at Mellowa.",
+  alternates: { canonical: "/refund" },
 };
 
 export default function RefundPage() {
