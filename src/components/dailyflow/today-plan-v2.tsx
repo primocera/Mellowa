@@ -55,7 +55,7 @@ type PlanRow = {
 
 const INTENSITY_LABELS: Record<string, string> = {
   normal: "Balanced day",
-  low_energy: "Low-energy day",
+  low_energy: "Lighter day",
   high_stress: "Calm day",
   busy_day: "Busy day",
 };
@@ -382,7 +382,7 @@ export function TodayPlanV2({
                 </div>
                 {meal.low_energy_swap && (
                   <p className="text-xs text-[#6B7280]">
-                    <span className="font-medium">Low-energy swap:</span>{" "}
+                    <span className="font-medium">If today gets smaller:</span>{" "}
                     {meal.low_energy_swap}
                   </p>
                 )}

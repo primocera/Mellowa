@@ -8,11 +8,11 @@ import clsx from "clsx";
 
 const PROMPTS = [
   { category: "Evening reflection", text: "What felt steady today, even if small?" },
-  { category: "Low-energy day", text: "Today was heavy — what would 'good enough' look like tonight?" },
+  { category: "Lighter day", text: "Today was heavy — what would 'good enough' look like tonight?" },
   { category: "Stress reset", text: "What helped you pause today, even for a moment?" },
   { category: "Food routine", text: "How did meals fit into your day — what felt easy, what felt rushed?" },
   { category: "Habit review", text: "Which habit felt natural this week, and which felt forced?" },
-  { category: "What worked", text: "Name one thing that worked today — however tiny." },
+  { category: "What worked", text: "Name one thing that worked today — however small." },
 ];
 
 type Reflection = {
