@@ -6,6 +6,7 @@ import clsx from "clsx";
 import type { MealCardType } from "@/schemas/ai-output-v2";
 import type { ShoppingCategory } from "@/lib/shopping/aggregate";
 import { formatItem } from "@/lib/shopping/aggregate";
+import { errorCopy } from "@/lib/microcopy/errors";
 
 export type FavouriteMeal = {
   id: string;
@@ -68,7 +69,7 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
       setCategories((data.categories as ShoppingCategory[]) ?? []);
       setExcluded((data.excluded_meals as string[]) ?? []);
     } catch {
-      setError("Couldn't build the shopping list. Please try again.");
+      setError(errorCopy("generic"));
     }
     setBuilding(false);
   }

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Copy, Check, Feather, CalendarPlus } from "lucide-react";
 import type { WeeklyPlan } from "@/types/dailyflow";
+import { errorCopy } from "@/lib/microcopy/errors";
 
 type PlanItem = { title: string; description?: string; time_hint?: string };
 type Section = { title: string; items: PlanItem[] };
@@ -53,10 +54,10 @@ function GenerateButton({
             : "You've reached this month's weekly plan limit — manage your plan on the Billing page."
         );
       } else {
-        setMessage("Couldn't create the plan right now — try again in a moment.");
+        setMessage(errorCopy("plan_provider_failure"));
       }
     } catch {
-      setMessage("Couldn't create the plan right now — try again in a moment.");
+      setMessage(errorCopy("plan_provider_failure"));
     }
     setLoading(false);
   }
