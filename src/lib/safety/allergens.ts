@@ -221,3 +221,26 @@ export const SEVERE_ALLERGY_MESSAGE =
 
 export const ALLERGEN_DISCLAIMER =
   "Meals are checked against your listed allergies, but Mellowa cannot guarantee allergy safety — always verify product labels, especially for severe allergies.";
+
+/**
+ * Text-level allergen scan for non-meal-card outputs (weekly meal structures,
+ * shopping items, meal rhythm ideas, low-energy easy meals). Returns matched
+ * allergen categories only — never free text.
+ */
+export function findAllergenCategoriesInText(
+  text: string,
+  allergies: string[]
+): string[] {
+  if (!allergies.length || !text) return [];
+  const normalized = normalizeAllergies(allergies);
+  const allTerms = [
+    ...termsForCategories(normalized.categories),
+    ...normalized.customTerms.map((t) => ({ term: t, category: `custom:${t}` })),
+  ];
+  const lower = text.toLowerCase();
+  const hits = new Set<string>();
+  for (const { term, category } of allTerms) {
+    if (new RegExp(`\\b${escapeRegExp(term)}\\b`, "i").test(lower)) hits.add(category);
+  }
+  return [...hits];
+}

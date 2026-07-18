@@ -34,8 +34,11 @@ describe("AI voice rules (CE-18)", () => {
   });
 
   it("is embedded in the journal reflection prompt", () => {
+    // The prompt moved to src/prompts/journal.ts (LS-12/13 versioning).
+    const prompt = readFileSync("src/prompts/journal.ts", "utf8");
+    expect(prompt).toContain("MELLOWA_VOICE_RULES");
     const route = readFileSync("src/app/api/ai/journal-reflection/route.ts", "utf8");
-    expect(route).toContain("MELLOWA_VOICE_RULES");
+    expect(route).toContain("JOURNAL_SYSTEM_PROMPT");
   });
 
   it("quality gate bans cheerleading, invented emotion and pseudo-clinical claims", () => {

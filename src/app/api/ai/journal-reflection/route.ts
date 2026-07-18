@@ -2,25 +2,17 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { JournalInput } from "@/schemas/wellbeing";
 import { checkInputSafety } from "@/lib/safety/check-input";
-import { generateStructuredJson } from "@/lib/ai/generate-json";
+import { generateStructuredJson, type UsageSink } from "@/lib/ai/generate-json";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { JournalReflectionOutput } from "@/schemas/ai-output";
 import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
 import { claimAiGeneration } from "@/lib/ai/rate-limit";
-import { MELLOWA_VOICE_RULES } from "@/prompts/voice";
+import { JOURNAL_SYSTEM_PROMPT } from "@/prompts/journal";
+import { finalizeAiUsage, sumUsage } from "@/lib/ai/usage";
+import { promptVersionId } from "@/prompts/versions";
+import { checkJournalReflectionOutput, correctiveInstruction } from "@/lib/ai/output-guards";
 
-const JOURNAL_SYSTEM_PROMPT = `You are a gentle reflection companion for a consumer wellness app.
-You respond to short journal entries about routines, energy, meals and habits.
-You are NOT a therapist. Do not analyze trauma, diagnose emotional states, or give therapy instructions.
-Reflect back what the user noticed, ask one gentle question, and suggest one small doable action related to daily routine.
-
-Return structured JSON only:
-{
-  "reflection": string,   // 1-3 warm sentences reflecting what they shared
-  "gentle_question": string,  // one open, non-clinical question
-  "one_small_action": string  // one small routine-related action
-}
-${MELLOWA_VOICE_RULES}`;
+const PROMPT_VERSION = promptVersionId("journal");
 
 export async function POST(request: Request) {
   const supabase = await createClient();

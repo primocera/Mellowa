@@ -5,6 +5,7 @@ import { LOW_ENERGY_DAY_SYSTEM_PROMPT } from "@/prompts/low-energy-day";
 import { MEAL_RHYTHM_SYSTEM_PROMPT } from "@/prompts/meal-rhythm";
 import { SAFETY_SYSTEM_PROMPT } from "@/prompts/safety";
 import { WEEKLY_PLAN_SYSTEM_PROMPT } from "@/prompts/weekly-plan";
+import { JOURNAL_SYSTEM_PROMPT } from "@/prompts/journal";
 
 /**
  * Immutable prompt version registry (Launch v6, Prompt 12).
@@ -57,6 +58,11 @@ export const PROMPT_VERSIONS = {
     id: "meal-rhythm@1",
     sha256: "b0e4420c2b2aeb04e34aa31d16b8784ca5b7deb865a9d0d073d8d4780de7858d",
     systemPrompt: MEAL_RHYTHM_SYSTEM_PROMPT,
+  },
+  journal: {
+    id: "journal@1",
+    sha256: "d73c0791f0e7b43c1e425a549d9d38f7bf15eec320e2fb6b4c18f645e920a1d2",
+    systemPrompt: JOURNAL_SYSTEM_PROMPT,
   },
   safety: {
     id: "safety@1",

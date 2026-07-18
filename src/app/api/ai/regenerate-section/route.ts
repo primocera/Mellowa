@@ -13,6 +13,10 @@ import {
 } from "@/schemas/ai-output-v2";
 import type { MealCardType } from "@/schemas/ai-output-v2";
 import { guardAiRoute } from "@/lib/ai/guard";
+import type { UsageSink } from "@/lib/ai/generate-json";
+import { finalizeAiUsage, releaseReservation, sumUsage } from "@/lib/ai/usage";
+import { promptVersionId } from "@/prompts/versions";
+import { checkRegeneratedMealOutput, correctiveInstruction } from "@/lib/ai/output-guards";
 import {
   findMealAllergenViolations,
   allergenExclusionInstruction,
@@ -76,6 +80,8 @@ const REASON_INSTRUCTIONS: Record<string, string> = {
   custom: "Follow the user's note below.",
 };
 
+const PROMPT_VERSION = promptVersionId("daily-plan-v2");
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
@@ -86,16 +92,19 @@ export async function POST(request: Request) {
   // Premium-only + rate limit — regeneration is a provider call.
   const guard = await guardAiRoute(user.id, { requirePremium: true, route: "regenerate-section" });
   if (guard instanceof NextResponse) return guard;
+  const eventId = guard.eventId;
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
+    await releaseReservation(eventId);
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   const parsed = RegenerateInput.safeParse(body);
   if (!parsed.success) {
+    await releaseReservation(eventId);
     return NextResponse.json(
       { error: "Invalid input", issues: parsed.error.issues },
       { status: 400 }
@@ -111,12 +120,16 @@ export async function POST(request: Request) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+  if (!plan) {
+    await releaseReservation(eventId);
+    return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+  }
 
   // Safety check on the free-text note
   if (user_note) {
     const safety = await checkInputSafety(user.id, "regenerate-section", user_note);
     if (safety.should_block_generation) {
+      await finalizeAiUsage(eventId, { status: "safety_blocked", promptVersion: PROMPT_VERSION });
       return NextResponse.json(
         { blocked: true, user_message: safety.user_message },
         { status: 200 }
@@ -160,6 +173,8 @@ export async function POST(request: Request) {
       .update({ [SECTION_COLUMN[section_name]]: curated })
       .eq("id", plan_id)
       .eq("user_id", user.id);
+    // Curated content = no provider call; release the reservation.
+    await releaseReservation(eventId);
     if (curatedError) {
       return NextResponse.json({ error: "Failed to save section" }, { status: 500 });
     }
@@ -191,6 +206,21 @@ ${JSON.stringify(plan.plan_summary, null, 2)}
 
 Return ONLY the regenerated part as a single JSON object matching the same shape. Keep it consistent with the rest of the plan and follow all Mellowa safety rules.`;
 
+  // Combined deterministic gate (Prompts 5 + 13): allergens are zero-tolerance
+  // and quality (banned language, required safety notes, usable steps) shares
+  // the single allowed corrective retry, then we fail closed.
+  const allergies = (profile?.allergies ?? []).filter(Boolean);
+  const gateReasons = (meal: MealCardType): { allergen: string[]; quality: string[] } => {
+    const allergen = allergies.length
+      ? findMealAllergenViolations(meal, allergies).map((v) => v.category)
+      : [];
+    const q = checkRegeneratedMealOutput(meal);
+    return { allergen, quality: q.ok ? [] : q.reasons };
+  };
+
+  const sink1: UsageSink = {};
+  const sink2: UsageSink = {};
+  let retried = false;
   let regenerated;
   try {
     regenerated = await generateStructuredJson({
@@ -199,47 +229,62 @@ Return ONLY the regenerated part as a single JSON object matching the same shape
       zodSchema: schema,
       temperature: 0.7,
       maxTokens: 3072,
+      usageSink: sink1,
     });
 
-    // Deterministic allergen gate for regenerated meals (Prompt 5).
-    const allergies = (profile?.allergies ?? []).filter(Boolean);
-    if (section_name === "meal_card" && allergies.length) {
-      let violations = findMealAllergenViolations(
-        regenerated as MealCardType,
-        allergies
-      );
-      if (violations.length) {
-        console.error("[safety] allergen violation in regenerated meal, retrying", {
-          categories: violations.map((v) => v.category),
+    let gate = gateReasons(regenerated as MealCardType);
+    if (gate.allergen.length || gate.quality.length) {
+      retried = true;
+      console.error("[safety] regenerated meal failed gate, retrying", {
+        allergen: gate.allergen,
+        quality: gate.quality,
+      });
+      regenerated = await generateStructuredJson({
+        systemPrompt: DAILY_PLAN_V2_SYSTEM_PROMPT,
+        userPrompt: `${userPrompt}
+
+IMPORTANT CORRECTION: ${correctiveInstruction([
+          ...gate.allergen.map((c) => `allergen:${c}`),
+          ...gate.quality,
+        ])}${gate.allergen.length ? `
+
+${allergenExclusionInstruction(allergies)}` : ""}`,
+        zodSchema: schema,
+        temperature: 0.5,
+        maxTokens: 3072,
+        usageSink: sink2,
+      });
+      gate = gateReasons(regenerated as MealCardType);
+      if (gate.allergen.length || gate.quality.length) {
+        console.error("[safety] regenerated meal failed gate after retry, failing closed", {
+          allergen: gate.allergen,
+          quality: gate.quality,
         });
-        regenerated = await generateStructuredJson({
-          systemPrompt: DAILY_PLAN_V2_SYSTEM_PROMPT,
-          userPrompt: `${userPrompt}\n\n${allergenExclusionInstruction(allergies)}`,
-          zodSchema: schema,
-          temperature: 0.5,
-          maxTokens: 3072,
+        await finalizeAiUsage(eventId, {
+          status: gate.allergen.length ? "safety_blocked" : "quality_failed",
+          promptVersion: PROMPT_VERSION,
+          usage: sumUsage([sink1.usage, sink2.usage], "quality_failed"),
+          retryCount: 1,
         });
-        violations = findMealAllergenViolations(
-          regenerated as MealCardType,
-          allergies
+        return NextResponse.json(
+          {
+            error: gate.allergen.length ? "allergen_check_failed" : "quality_check_failed",
+            user_message:
+              "We couldn't create a replacement we're confident is right for you, so we kept your current one. Please try again.",
+          },
+          { status: 502 }
         );
-        if (violations.length) {
-          console.error("[safety] allergen violation after retry, failing closed", {
-            categories: violations.map((v) => v.category),
-          });
-          return NextResponse.json(
-            {
-              error: "allergen_check_failed",
-              user_message:
-                "We couldn't create a replacement meal that we're confident avoids your listed allergies, so we kept your current one. Please try again.",
-            },
-            { status: 502 }
-          );
-        }
       }
     }
   } catch (err) {
     const code = err instanceof AiGenerationError ? err.code : "provider_error";
+    const failStatus = sink2.usage?.status ?? sink1.usage?.status ?? "provider_error";
+    await finalizeAiUsage(eventId, {
+      status: failStatus,
+      promptVersion: PROMPT_VERSION,
+      usage: sumUsage([sink1.usage, sink2.usage], failStatus),
+      retryCount: retried ? 1 : 0,
+    });
     return NextResponse.json(
       { error: "Regeneration failed", code },
       { status: 502 }
@@ -258,10 +303,17 @@ Return ONLY the regenerated part as a single JSON object matching the same shape
     .eq("id", plan_id)
     .eq("user_id", user.id);
 
+  const finalUsage = {
+    status: "success" as const,
+    promptVersion: PROMPT_VERSION,
+    usage: sumUsage([sink1.usage, sink2.usage], "success"),
+    retryCount: retried ? 1 : 0,
+  };
   if (updateError) {
+    await finalizeAiUsage(eventId, finalUsage);
     return NextResponse.json({ error: "Failed to save section" }, { status: 500 });
   }
 
-
+  await finalizeAiUsage(eventId, { ...finalUsage, resultId: plan_id });
   return NextResponse.json({ blocked: false, section: regenerated });
 }

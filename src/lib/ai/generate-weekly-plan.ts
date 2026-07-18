@@ -13,9 +13,10 @@ export async function generateWeeklyPlan(args: {
   habits: string[];
   notes: string;
   weekStart: string;
+  extraInstruction?: string;
   usageSink?: UsageSink;
 }): Promise<WeeklyPlanOutputType> {
-  const { profile, recentCheckins, habits, notes, weekStart, usageSink } = args;
+  const { profile, recentCheckins, habits, notes, weekStart, extraInstruction, usageSink } = args;
 
   const profileContext = {
     primary_goal: profile.primary_goal,
@@ -38,15 +39,21 @@ export async function generateWeeklyPlan(args: {
     sleep: c.sleep_quality,
   }));
 
+  const basePrompt = buildWeeklyPlanUserPrompt({
+    profile: profileContext,
+    recentCheckins: checkinContext,
+    habits,
+    notes,
+    weekStart,
+  });
+
   return generateStructuredJson({
     systemPrompt: WEEKLY_PLAN_SYSTEM_PROMPT,
-    userPrompt: buildWeeklyPlanUserPrompt({
-      profile: profileContext,
-      recentCheckins: checkinContext,
-      habits,
-      notes,
-      weekStart,
-    }),
+    userPrompt: extraInstruction
+      ? `${basePrompt}
+
+IMPORTANT CORRECTION: ${extraInstruction}`
+      : basePrompt,
     zodSchema: WeeklyPlanOutput,
     temperature: 0.6,
     maxTokens: 8192,

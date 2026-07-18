@@ -11,6 +11,9 @@ import { AiGenerationError } from "@/lib/ai/errors";
 import { canUsePremiumFeature, canGenerateWeeklyPlan } from "@/lib/stripe/subscription";
 import { claimAiGeneration } from "@/lib/ai/rate-limit";
 import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
+import { checkWeeklyPlanOutput, correctiveInstruction } from "@/lib/ai/output-guards";
+import { allergenExclusionInstruction } from "@/lib/safety/allergens";
+import { sumUsage } from "@/lib/ai/usage";
 import {
   claimGenerationRequest,
   finishGenerationRequest,
@@ -165,25 +168,62 @@ export async function POST(request: Request) {
       .eq("active", true),
   ]);
 
+  const genArgs = {
+    profile: profile as WellbeingProfile,
+    recentCheckins: (checkinsRes.data ?? []) as DailyCheckin[],
+    habits: (habitsRes.data ?? []).map((h) => h.name),
+    notes,
+    weekStart,
+  };
+  const allergies = ((profile.allergies as string[] | null) ?? []).filter(Boolean);
+  const retrySink: UsageSink = {};
+  let retried = false;
   let plan;
   try {
-    plan = await generateWeeklyPlan({
-      profile: profile as WellbeingProfile,
-      recentCheckins: (checkinsRes.data ?? []) as DailyCheckin[],
-      habits: (habitsRes.data ?? []).map((h) => h.name),
-      notes,
-      weekStart,
-      usageSink,
-    });
+    plan = await generateWeeklyPlan({ ...genArgs, usageSink });
+
+    // Output quality + deterministic allergen gate (Prompt 13): one corrective
+    // retry, then fail closed — an unsafe weekly plan is never saved.
+    let quality = checkWeeklyPlanOutput(plan, allergies);
+    if (!quality.ok) {
+      retried = true;
+      const hadAllergen = quality.reasons.some((r) => r.startsWith("allergen:"));
+      plan = await generateWeeklyPlan({
+        ...genArgs,
+        usageSink: retrySink,
+        extraInstruction: `${correctiveInstruction(quality.reasons)}${
+          hadAllergen ? `
+
+${allergenExclusionInstruction(allergies)}` : ""
+        }`,
+      });
+      quality = checkWeeklyPlanOutput(plan, allergies);
+      if (!quality.ok) {
+        const failedOnAllergen = quality.reasons.some((r) => r.startsWith("allergen:"));
+        await finish("failed");
+        await finalizeAiUsage(claim.eventId, {
+          status: failedOnAllergen ? "safety_blocked" : "quality_failed",
+          promptVersion: PROMPT_VERSION,
+          usage: sumUsage([usageSink.usage, retrySink.usage], "quality_failed"),
+          retryCount: 1,
+        });
+        return NextResponse.json(
+          { error: "quality_check_failed", reasons: quality.reasons },
+          { status: 502 }
+        );
+      }
+    }
   } catch (err) {
     const code = err instanceof AiGenerationError ? err.code : "provider_error";
     await finish("failed");
     // The precise outcome (timeout/provider_error/invalid_json/schema_failed)
     // is captured in the sink; the provider may have been billed even on failure.
+    const failStatus = retrySink.usage?.status ?? usageSink.usage?.status ?? "provider_error";
     await finalizeAiUsage(claim.eventId, {
-      status: usageSink.usage?.status ?? "provider_error",
+      status: failStatus,
       promptVersion: PROMPT_VERSION,
-      usage: usageSink.usage,
+      usage: sumUsage([usageSink.usage, retrySink.usage], failStatus),
+      retryCount: retried ? 1 : 0,
     });
     return NextResponse.json(
       { error: "Weekly plan generation failed", code },
@@ -212,7 +252,12 @@ export async function POST(request: Request) {
     await finish("failed");
     // The provider call succeeded and was billed, so record the real cost even
     // though persistence failed — the row is truthful, just without a result_id.
-    await finalizeAiUsage(claim.eventId, { status: "success", usage: usageSink.usage, promptVersion: PROMPT_VERSION });
+    await finalizeAiUsage(claim.eventId, {
+      status: "success",
+      usage: sumUsage([usageSink.usage, retrySink.usage], "success"),
+      promptVersion: PROMPT_VERSION,
+      retryCount: retried ? 1 : 0,
+    });
     return NextResponse.json({ error: "Failed to save weekly plan" }, { status: 500 });
   }
 
@@ -220,7 +265,8 @@ export async function POST(request: Request) {
   await finalizeAiUsage(claim.eventId, {
     status: "success",
     promptVersion: PROMPT_VERSION,
-    usage: usageSink.usage,
+    usage: sumUsage([usageSink.usage, retrySink.usage], "success"),
+    retryCount: retried ? 1 : 0,
     resultId: saved.id,
   });
   return NextResponse.json({ blocked: false, plan: saved });

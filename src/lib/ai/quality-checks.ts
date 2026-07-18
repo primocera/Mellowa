@@ -19,7 +19,7 @@ export type QualityResult =
   | { ok: false; reasons: string[] };
 
 // Language that must never appear in a wellness plan
-const BANNED_PATTERNS: { pattern: RegExp; reason: string }[] = [
+export const BANNED_PATTERNS: { pattern: RegExp; reason: string }[] = [
   { pattern: /\b\d+\s*(k?cal|calorie)/i, reason: "calorie framing" },
   { pattern: /\b(lose|losing)\s+\d+\s*(kg|lbs|pounds|kilo)/i, reason: "weight-loss promise" },
   { pattern: /\b(burn\s+fat|fat[- ]burning|cutting\s+weight)\b/i, reason: "diet-culture language" },
@@ -193,4 +193,14 @@ export function checkDailyPlanV2Quality(
   }
 
   return reasons.length ? { ok: false, reasons } : { ok: true };
+}
+
+/** Scans any serializable value for banned language; returns matched reasons. */
+export function bannedLanguageReasons(value: unknown): string[] {
+  const text = JSON.stringify(value).toLowerCase();
+  const reasons: string[] = [];
+  for (const { pattern, reason } of BANNED_PATTERNS) {
+    if (pattern.test(text)) reasons.push(reason);
+  }
+  return reasons;
 }

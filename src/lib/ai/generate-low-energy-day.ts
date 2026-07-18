@@ -1,5 +1,5 @@
 import "server-only";
-import { generateStructuredJson } from "@/lib/ai/generate-json";
+import { generateStructuredJson, type UsageSink } from "@/lib/ai/generate-json";
 import {
   LOW_ENERGY_DAY_SYSTEM_PROMPT,
   buildLowEnergyDayUserPrompt,
@@ -17,6 +17,8 @@ export async function generateLowEnergyDay(args: {
   foodAvailable: string;
   mustDoTask: string;
   notes: string;
+  extraInstruction?: string;
+  usageSink?: UsageSink;
 }): Promise<LowEnergyDayOutputType> {
   const { profile, checkin } = args;
 
@@ -32,18 +34,23 @@ export async function generateLowEnergyDay(args: {
     preferred_tone: profile.preferred_tone,
   };
 
+  const basePrompt = buildLowEnergyDayUserPrompt({
+    profile: profileContext,
+    checkin,
+    availableTime: args.availableTime,
+    foodAvailable: args.foodAvailable,
+    mustDoTask: args.mustDoTask,
+    notes: args.notes,
+  });
+
   return generateStructuredJson({
     systemPrompt: LOW_ENERGY_DAY_SYSTEM_PROMPT,
-    userPrompt: buildLowEnergyDayUserPrompt({
-      profile: profileContext,
-      checkin,
-      availableTime: args.availableTime,
-      foodAvailable: args.foodAvailable,
-      mustDoTask: args.mustDoTask,
-      notes: args.notes,
-    }),
+    userPrompt: args.extraInstruction
+      ? `${basePrompt}\n\nIMPORTANT CORRECTION: ${args.extraInstruction}`
+      : basePrompt,
     zodSchema: LowEnergyDayOutput,
     temperature: 0.6,
     maxTokens: 4096,
+    usageSink: args.usageSink,
   });
 }

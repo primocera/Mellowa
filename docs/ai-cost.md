@@ -61,11 +61,12 @@ without any prompt/response content.
 
 ## Wiring status
 
-Finalized end-to-end: **daily-plan** (incl. quality/allergen retries and
-fallback) and **weekly-plan**. Other AI routes still reserve and rate-limit
-correctly; their rows remain `reserved` until finalized in a follow-up (they
-follow the same `UsageSink` → `finalizeAiUsage` pattern). Because the ceiling
-uses same-day rows only, unfinalized reservations don't distort future days.
+All AI routes are finalized end-to-end (LS-13): **daily-plan** (incl.
+quality/allergen retries and fallback), **weekly-plan**, **habit-plan**,
+**low-energy-day**, **meal-rhythm**, **journal-reflection** and
+**regenerate-section** (curated sections release the reservation — no provider
+call, no cost). Every row carries `prompt_version`, summed tokens across the
+single allowed corrective retry, `retry_count` and the outcome status.
 
 ## Budget alerts
 

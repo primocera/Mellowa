@@ -88,6 +88,28 @@ export async function finalizeAiUsage(
   }
 }
 
+/**
+ * Sums provider usage across up to N attempts (initial + corrective retries)
+ * into one ledger-ready record. Returns undefined when no attempt reached the
+ * provider at all.
+ */
+export function sumUsage(
+  usages: (AiUsage | null | undefined)[],
+  status: AiStatus
+): AiUsage | undefined {
+  const real = usages.filter((u): u is AiUsage => u != null);
+  if (!real.length) return undefined;
+  const last = real[real.length - 1];
+  return {
+    provider: last.provider,
+    model: last.model,
+    inputTokens: real.reduce((a, u) => a + u.inputTokens, 0),
+    outputTokens: real.reduce((a, u) => a + u.outputTokens, 0),
+    latencyMs: real.reduce((a, u) => a + u.latencyMs, 0),
+    status,
+  };
+}
+
 /** Classify a reservation whose provider call never happened. */
 export async function releaseReservation(
   eventId: string | null | undefined
