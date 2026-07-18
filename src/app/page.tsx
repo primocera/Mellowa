@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { readLegalConfig } from "@/lib/legal/config";
 import { TERMS } from "@/lib/content/terminology";
+import { TrackedCta } from "@/components/dailyflow/tracked-cta";
 
 export const metadata: Metadata = {
   title: "Mellowa — A realistic plan for the day you actually have",
@@ -25,6 +26,41 @@ const STEPS = [
     step: "3",
     title: "Adjust without starting over",
     text: "Swap a meal, make the day lighter or tell Mellowa what did not fit.",
+  },
+];
+
+// One concrete, anonymized example day: a meal rhythm, one movement moment
+// and one calm reset. Illustrative only — no fabricated data or outcomes.
+const SAMPLE_DAY = [
+  {
+    time: "8:00",
+    title: "Breakfast that travels",
+    detail: "Overnight oats with fruit and yoghurt — made the night before.",
+  },
+  {
+    time: "12:30",
+    title: "Lunch, no cooking",
+    detail: "A grain bowl from last night's leftovers plus a handful of greens.",
+  },
+  {
+    time: "15:00",
+    title: "Movement moment",
+    detail: "A 10-minute walk after your busiest meeting — only if it helps.",
+  },
+  {
+    time: "16:30",
+    title: "Calm reset",
+    detail: "Three slow breaths and a glass of water before the afternoon dip.",
+  },
+  {
+    time: "19:00",
+    title: "Dinner in 20 minutes",
+    detail: "Sheet-pan chicken and vegetables you can leave in the oven.",
+  },
+  {
+    time: "21:30",
+    title: "Wind-down",
+    detail: "Screens down, lights low, one page of anything you like.",
   },
 ];
 
@@ -94,7 +130,7 @@ export default function LandingPage() {
           Daily wellbeing, shaped around real life.
         </p>
         <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-          A realistic plan for the day you actually have.
+          {TERMS.promise}
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-lg text-[#6B7280]">
           Tell Mellowa how much energy and time you have. It shapes a doable
@@ -102,12 +138,14 @@ export default function LandingPage() {
           calorie targets, streaks or pressure.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link
+          <TrackedCta
             href="/signup"
+            event="landing_cta_clicked"
+            surface="landing"
             className="rounded-xl bg-[#7C9A92] px-6 py-3.5 font-medium text-white transition hover:bg-[#6D8C7D]"
           >
             {TERMS.sampleCta}
-          </Link>
+          </TrackedCta>
           <a
             href="#sample-plan"
             className="rounded-xl border border-[#E5E1DA] bg-white px-6 py-3.5 font-medium text-[#1F2937] transition hover:border-[#7C9A92]/50"
@@ -155,31 +193,82 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 4. Sample plan preview */}
+      {/* 4. Sample plan preview — one concrete, anonymized day */}
       <section id="sample-plan" className="mx-auto max-w-3xl px-6 py-12">
-        <div className="mx-auto max-w-md rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="font-medium text-[#1F2937]">Today&rsquo;s shape</h2>
-          <ul className="mt-4 space-y-3">
-            {[
-              "Three easy meals that fit your cooking time",
-              "One movement option — only if it feels useful",
-              "One short reset for the busiest part of the day",
-              "A simpler evening landing",
-            ].map((line) => (
-              <li key={line} className="flex items-start gap-3">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#7C9A92]" />
-                <span className="text-sm text-[#374151]">{line}</span>
+        <h2 className="text-center text-2xl font-semibold tracking-tight">
+          One real day, start to finish
+        </h2>
+        <p className="mx-auto mt-2 max-w-xl text-center text-[#6B7280]">
+          An example for a busy weekday with medium energy and about 20 minutes
+          to cook. Yours is shaped by your own check-in.
+        </p>
+        <div className="mx-auto mt-8 max-w-md rounded-2xl bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium text-[#1F2937]">Wednesday</h3>
+            <span className="rounded-full bg-[#7C9A92]/10 px-2.5 py-0.5 text-xs font-medium text-[#6D8C7D]">
+              Medium energy · 20-min cooking
+            </span>
+          </div>
+          <ul className="mt-5 space-y-4">
+            {SAMPLE_DAY.map((item) => (
+              <li key={item.time} className="flex gap-3">
+                <span className="w-16 shrink-0 text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+                  {item.time}
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-[#1F2937]">{item.title}</p>
+                  <p className="text-sm text-[#6B7280]">{item.detail}</p>
+                </div>
               </li>
             ))}
           </ul>
         </div>
         <p className="mt-3 text-center text-sm text-[#9CA3AF]">
-          A sample of the structure — not a promise that every day needs every
-          part.
+          An illustrative example, not a fixed template — a low-energy day would
+          be smaller, and nothing here is a rule you have to follow.
         </p>
       </section>
 
-      {/* 5. How it works */}
+      {/* 5. Who it's for / how personalization works / what the AI does */}
+      <section className="mx-auto max-w-3xl px-6 py-12">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl bg-white p-6 shadow-sm">
+            <h3 className="font-medium text-[#1F2937]">Who it&rsquo;s for</h3>
+            <p className="mt-2 text-sm text-[#6B7280]">
+              People with full, changeable days who want a simple, realistic
+              rhythm for food, movement, focus and winding down — without
+              dieting or tracking everything.
+            </p>
+          </div>
+          <div className="rounded-2xl bg-white p-6 shadow-sm">
+            <h3 className="font-medium text-[#1F2937]">Who it&rsquo;s not for</h3>
+            <p className="mt-2 text-sm text-[#6B7280]">
+              It isn&rsquo;t medical care, therapy or crisis support, and
+              won&rsquo;t create disease-specific or weight-loss diets. Medical,
+              crisis and severe-allergy needs are redirected to qualified help.
+            </p>
+          </div>
+          <div className="rounded-2xl bg-white p-6 shadow-sm">
+            <h3 className="font-medium text-[#1F2937]">How personalization works</h3>
+            <p className="mt-2 text-sm text-[#6B7280]">
+              A short check-in — your energy, time, schedule, diet preference and
+              allergies — shapes each plan. You can tell Mellowa what didn&rsquo;t
+              fit, and remove anything it learned at any time.
+            </p>
+          </div>
+          <div className="rounded-2xl bg-white p-6 shadow-sm">
+            <h3 className="font-medium text-[#1F2937]">What the AI does</h3>
+            <p className="mt-2 text-sm text-[#6B7280]">
+              It turns your check-in into a structured day using general
+              wellbeing guidance. Every request is safety-checked first. It
+              never diagnoses conditions and isn&rsquo;t a source of medical
+              nutrition advice.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* 6. How it works */}
       <section id="how-it-works" className="mx-auto max-w-5xl px-6 py-12">
         <h2 className="text-center text-2xl font-semibold tracking-tight">
           From check-in to a clearer day
@@ -197,7 +286,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 6. Difference */}
+      {/* 7. Difference */}
       <section className="mx-auto max-w-3xl px-6 py-12">
         <h2 className="text-center text-2xl font-semibold tracking-tight">
           Not more wellness tasks. Fewer decisions.
@@ -215,7 +304,7 @@ export default function LandingPage() {
         </ul>
       </section>
 
-      {/* 7. Offer */}
+      {/* 8. Offer */}
       <section className="mx-auto max-w-3xl px-6 py-12 text-center">
         <h2 className="text-2xl font-semibold tracking-tight">
           See one day before you choose a plan.
@@ -226,8 +315,11 @@ export default function LandingPage() {
           Yearly.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-4">
-          <Link
+          <TrackedCta
             href="/signup?plan=monthly"
+            event="landing_cta_clicked"
+            surface="pricing"
+            planInterval="monthly"
             className="block w-64 rounded-2xl bg-white p-6 text-left shadow-sm transition hover:shadow-md hover:ring-2 hover:ring-[#7C9A92]/40"
           >
             <h3 className="font-medium">Mellowa Monthly</h3>
@@ -238,28 +330,37 @@ export default function LandingPage() {
             <span className="mt-4 inline-block rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white">
               Start with a free sample
             </span>
-          </Link>
-          <Link
+          </TrackedCta>
+          <TrackedCta
             href="/signup?plan=yearly"
+            event="landing_cta_clicked"
+            surface="pricing"
+            planInterval="yearly"
             className="block w-64 rounded-2xl border-2 border-[#7C9A92] bg-white p-6 text-left shadow-sm transition hover:shadow-md"
           >
             <div className="flex items-center justify-between">
               <h3 className="font-medium">Mellowa Yearly</h3>
               <span className="rounded-full bg-[#7C9A92]/10 px-2.5 py-0.5 text-xs font-medium text-[#6D8C7D]">
-                Save 50%
+                Save €59.89
               </span>
             </div>
             <p className="mt-1 text-2xl font-semibold">
               €59.99<span className="text-base font-normal text-[#6B7280]">/yr</span>
             </p>
             <p className="mt-1 text-sm text-[#6B7280]">
-              About €5.00/month. 3 days free.
+              About €5.00/month, billed yearly. That&rsquo;s €59.99 instead of
+              €119.88 (12 × €9.99) — a 50% saving. 3 days free.
             </p>
             <span className="mt-4 inline-block rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white">
               Start with a free sample
             </span>
-          </Link>
+          </TrackedCta>
         </div>
+        <p className="mx-auto mt-4 max-w-xl text-xs text-[#9CA3AF]">
+          No card for the sample. A trial only begins when you choose a plan and
+          continue to checkout — you&rsquo;ll see the exact charge date first,
+          and it renews automatically unless you cancel before the trial ends.
+        </p>
         <Link
           href="/pricing"
           className="mt-6 inline-block text-sm font-medium text-[#7C9A92] hover:underline"
@@ -268,7 +369,7 @@ export default function LandingPage() {
         </Link>
       </section>
 
-      {/* 8. FAQ */}
+      {/* 9. FAQ */}
       <section className="mx-auto max-w-3xl px-6 py-12">
         <h2 className="text-center text-2xl font-semibold tracking-tight">
           Questions, answered
@@ -285,7 +386,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 9. Final CTA */}
+      {/* 10. Final CTA */}
       <section className="mx-auto max-w-3xl px-6 pb-20 pt-8 text-center">
         <h2 className="text-2xl font-semibold tracking-tight">
           Give today a clearer shape.
@@ -293,12 +394,14 @@ export default function LandingPage() {
         <p className="mt-2 text-[#6B7280]">
           One check-in. One realistic plan. Room for real life.
         </p>
-        <Link
+        <TrackedCta
           href="/signup"
+          event="landing_cta_clicked"
+          surface="landing"
           className="mt-6 inline-block rounded-xl bg-[#7C9A92] px-6 py-3.5 font-medium text-white transition hover:bg-[#6D8C7D]"
         >
           {TERMS.sampleCta}
-        </Link>
+        </TrackedCta>
       </section>
 
       <footer className="border-t border-[#EDE9E2] py-8 text-center text-xs text-[#9CA3AF]">

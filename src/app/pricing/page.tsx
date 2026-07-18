@@ -107,6 +107,9 @@ export default async function PricingPage() {
                 ? "About €5.00/month • 3 days free, then billed yearly"
                 : "About €5.00/month • Billed yearly, starting today"}
             </p>
+            <p className="mt-1 text-xs text-[#6B7280]">
+              €59.99/year instead of €119.88 (12 × €9.99) — you save €59.89.
+            </p>
             <FeatureList features={PRICING.yearly.features} />
             <div className="mt-6">
               <UpgradeButton
