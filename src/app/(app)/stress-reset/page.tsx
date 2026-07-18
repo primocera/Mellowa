@@ -18,11 +18,11 @@ export default function StressResetPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
-          Resets
+          A short pause, when one would help
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
-          Brief practices for everyday tension or overload. Pick whatever fits
-          the moment.
+          Everyday breathing, attention and relaxation practices—not treatment
+          for panic, anxiety, trauma or depression.
         </p>
       </div>
 

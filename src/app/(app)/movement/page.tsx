@@ -12,11 +12,11 @@ export default function MovementPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
-          Movement
+          Choose what fits your body today
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
-          Gentle movement that fits your energy — nothing intense, always
-          optional.
+          Short, general movement ideas. Stop if anything causes pain, dizziness
+          or unusual discomfort.
         </p>
       </div>
 

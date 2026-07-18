@@ -75,9 +75,13 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
 
   if (meals.length === 0) {
     return (
-      <div className="rounded-2xl bg-white p-6 text-sm text-[#6B7280] shadow-sm">
-        No saved meals yet. Tap the heart on any meal in your daily plan to save
-        it here for quick reuse.
+      <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <h2 className="font-medium text-[#1F2937]">
+          Nothing saved yet—and nothing to organize.
+        </h2>
+        <p className="mt-1 text-sm text-[#6B7280]">
+          Save a meal from Today when it genuinely feels reusable.
+        </p>
       </div>
     );
   }

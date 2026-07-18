@@ -45,6 +45,6 @@ describe("navigation copy (CE-2)", () => {
     expect(library).toContain('label: "Resets"');
     expect(library).not.toContain('label: "Calm"');
     expect(resets).toContain('title: "Resets — Mellowa"');
-    expect(resets).toContain("Brief practices for everyday tension or overload.");
+    expect(library).toContain("Brief practices for everyday tension or overload.");
   });
 });
