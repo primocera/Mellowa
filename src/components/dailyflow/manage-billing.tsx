@@ -84,10 +84,11 @@ export function ManageBilling({
 
       {confirmCancel && (
         <div className="rounded-xl border border-[#E5E1DA] bg-[#FAF7F2] p-4 text-sm">
-          <p className="text-[#1F2937]">
-            Your access continues until{" "}
-            <strong>{periodEndLabel ?? "the end of the current period"}</strong>,
-            then it won&apos;t renew. Nothing else changes today.
+          <p className="font-medium text-[#1F2937]">Cancel renewal?</p>
+          <p className="mt-1 text-[#1F2937]">
+            Your plan will stay available until{" "}
+            <strong>{periodEndLabel ?? "the end of the current period"}</strong>.
+            You won&apos;t be charged again after cancellation.
           </p>
           <div className="mt-3 flex gap-2">
             <button
@@ -111,9 +112,9 @@ export function ManageBilling({
       {canCancel && cancelAtPeriodEnd && (
         <div className="rounded-xl bg-[#FEE2E2]/60 p-4 text-sm">
           <p className="text-[#1F2937]">
-            Your subscription is set to end
-            {periodEndLabel ? ` on ${periodEndLabel}` : " at the period end"}. You
-            keep full access until then.
+            Your plan is canceled. Premium stays available until
+            {periodEndLabel ? ` ${periodEndLabel}` : " the period end"}. You
+            won&apos;t be charged again.
           </p>
           <button
             onClick={() => setCancel("reactivate")}
@@ -121,7 +122,7 @@ export function ManageBilling({
             className="mt-2 flex items-center gap-2 rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6D8C7D] disabled:opacity-70"
           >
             {busy === "reactivate" && <Loader2 className="h-4 w-4 animate-spin" />}
-            Reactivate subscription
+            Reactivate membership
           </button>
         </div>
       )}

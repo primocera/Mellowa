@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
+import { PRICING } from "@/lib/stripe/plans";
 import { UpgradeButton } from "@/components/dailyflow/upgrade-button";
 import { ManageBilling } from "@/components/dailyflow/manage-billing";
 
@@ -19,6 +20,12 @@ export default async function BillingPage() {
   const isActive = sub.status === "active";
   const isPastDue = sub.status === "past_due";
 
+  const isYearly = sub.planName === "pro_yearly";
+  const planLabel = isYearly ? PRICING.yearly.name : PRICING.monthly.name;
+  const priceLabel = isYearly
+    ? `${PRICING.yearly.price}${PRICING.yearly.cadence}`
+    : `${PRICING.monthly.price}${PRICING.monthly.cadence}`;
+
   return (
     <div className="mx-auto max-w-lg space-y-4">
       <h1 className="text-2xl font-semibold tracking-tight text-[#1F2937]">
@@ -31,7 +38,7 @@ export default async function BillingPage() {
         {sub.isPremium ? (
           <>
             <p className="mt-2 inline-block rounded-full bg-[#DCFCE7] px-3 py-1 text-sm font-medium text-[#166534]">
-              {isTrialing ? "Free trial active" : "Mellowa Premium"}
+              {isTrialing ? "Trial active" : "Mellowa Premium"}
             </p>
 
             {isTrialing && sub.trialEndsAt && (
@@ -41,25 +48,21 @@ export default async function BillingPage() {
                   ` (${sub.daysLeftInTrial} ${
                     sub.daysLeftInTrial === 1 ? "day" : "days"
                   } left)`}
-                . You can cancel anytime before then.
+                . You&rsquo;ll be charged {priceLabel} for {planLabel} on that
+                date unless you cancel before then.
               </p>
             )}
 
             {isActive && sub.currentPeriodEnd && (
               <p className="mt-2 text-sm text-[#6B7280]">
-                Renews on {formatDate(sub.currentPeriodEnd)}.
-              </p>
-            )}
-
-            {sub.planName && (
-              <p className="mt-2 text-sm text-[#6B7280]">
-                Plan: {sub.planName === "pro_yearly" ? "Yearly (€59.99/year)" : "Monthly (€9.99/month)"}
+                {planLabel} renews for {priceLabel} on{" "}
+                {formatDate(sub.currentPeriodEnd)}.
               </p>
             )}
 
             <p className="mt-3 text-sm text-[#6B7280]">
-              You have full access to daily plans, weekly reset, meal rhythm,
-              journal and progress.
+              Full access: daily plans, weekly structure, meal rhythm, journal
+              reflections and patterns.
             </p>
 
             <ManageBilling
@@ -79,14 +82,14 @@ export default async function BillingPage() {
                   : "mt-2 inline-block rounded-full bg-[#FAF7F2] px-3 py-1 text-sm font-medium text-[#6B7280]"
               }
             >
-              {isPastDue ? "Payment issue" : "No active plan"}
+              {isPastDue ? "Payment needs attention" : "No active plan"}
             </p>
             {isPastDue ? (
               <>
                 <p className="mt-3 text-sm text-[#6B7280]">
-                  There was a problem with your last payment. Update your payment
-                  method to restore full access — your saved plans stay readable
-                  in the meantime.
+                  We couldn&rsquo;t process the latest payment. Your saved plans
+                  remain available; update your payment method to create new
+                  Premium plans.
                 </p>
                 <ManageBilling
                   cancelAtPeriodEnd={sub.cancelAtPeriodEnd}
