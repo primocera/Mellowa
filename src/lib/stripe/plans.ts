@@ -91,10 +91,22 @@ export function entitlementFor(status: string | null | undefined): Entitlement {
   return { read: true, generate: false, checkout: false };
 }
 
+/**
+ * MW-S09: Premium is packaged around three real jobs — adapt today, reuse
+ * what works, carry decisions into next week. Only implemented capabilities
+ * are named; no outcome claims (calm, health, adherence, productivity) and
+ * never "unlimited".
+ */
 export const PREMIUM_FEATURES: readonly string[] = [
-  "Personalized daily plans, with fair-use safeguards",
-  "Weekly reset with meal rhythm & shopping list",
+  // Adapt today
+  "Ongoing daily plans, with fair-use safeguards",
+  "Adjust the rest of today in one pass, with free Undo",
   "Make-today-lighter mode",
+  // Reuse what works
+  "Preference learning you can see, edit and remove",
+  "Saved meals, leftovers and shopping drafts that reuse what you liked",
+  // Carry into next week
+  "Weekly plans with a reflection that carries your choices forward",
   "Journal reflections",
   "Progress insights",
 ];

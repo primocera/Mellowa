@@ -82,6 +82,9 @@ export const EVENT_NAMES = [
   "reminder_paused",
   "reminder_disabled",
   "reminder_link_opened",
+  // v8 (MW-S09): premium packaging.
+  "premium_value_viewed",
+  "reactivation_started",
 ] as const;
 
 export type AppEvent = (typeof EVENT_NAMES)[number];
@@ -122,6 +125,7 @@ export const SERVER_AUTHORITATIVE_EVENTS = new Set<AppEvent>([
   "carry_forward_saved",
   "next_week_plan_created",
   "sample_value_action_completed",
+  "reactivation_started",
 ]);
 
 /** Client-describable events (views/clicks). Everything else is server-only. */

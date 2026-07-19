@@ -100,6 +100,12 @@ export async function POST(request: Request) {
           ...(parsed.data.reason ? { cancel_reason: parsed.data.reason } : {}),
         },
       });
+    } else {
+      // MW-S09: reactivation is a server-confirmed billing action.
+      trackEvent("reactivation_started", {
+        userId: user.id,
+        properties: { surface: "billing" },
+      });
     }
 
     return NextResponse.json({

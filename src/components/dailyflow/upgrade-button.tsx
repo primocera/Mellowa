@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { TRIAL_DAYS } from "@/lib/stripe/plans";
+import { trackClient } from "@/lib/analytics/client";
 
 /** Human-readable local date, e.g. "18 July 2026". */
 function formatChargeDate(daysFromNow: number): string {
@@ -42,6 +43,12 @@ export function UpgradeButton({
   const [confirm, setConfirm] = useState<{ url: string; trial: boolean } | null>(
     null
   );
+
+  useEffect(() => {
+    // MW-S09: the Premium value proposition was rendered (highlighted plan
+    // only, so a page with two buttons fires once).
+    if (highlight) trackClient("premium_value_viewed", { surface: "billing" });
+  }, [highlight]);
 
   async function start() {
     setLoading(true);
