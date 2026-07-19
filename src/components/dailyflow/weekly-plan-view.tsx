@@ -50,8 +50,8 @@ function GenerateButton({
       } else if (res.status === 402) {
         setMessage(
           data.error === "upgrade_required"
-            ? "Weekly reset is part of Premium — start 3 days free on the Billing page."
-            : "You've reached this month's weekly plan limit — manage your plan on the Billing page."
+            ? "Weekly reset is part of Premium — see your options on the Billing page."
+            : "You've reached this month's weekly plan fair-use limit — it resets next month. Your existing plans stay readable."
         );
       } else {
         setMessage(errorCopy("plan_provider_failure"));
@@ -159,6 +159,10 @@ export function WeeklyPlanView({ plan }: { plan: WeeklyPlan }) {
           Week of {plan.week_start}
         </p>
         <h1 className="mt-1 text-lg font-semibold">{plan.weekly_focus}</h1>
+        <p className="mt-2 text-sm text-white/85">
+          A flexible draft, not a schedule — swap meals, skip days and change
+          anything that doesn&rsquo;t fit the week you actually get.
+        </p>
       </div>
 
       {/* 2. Meal structure */}
@@ -224,8 +228,9 @@ export function WeeklyPlanView({ plan }: { plan: WeeklyPlan }) {
             ))}
           </div>
           <p className="mt-4 text-xs text-[#9CA3AF]">
-            This list is editable. Keep what is useful, remove what you already
-            have and always check product labels for your allergies.
+            This is a shopping draft — quantities come from the planned meals
+            and servings, so check your pantry and adjust amounts before you
+            shop. Always check product labels for your allergies.
           </p>
         </div>
       )}

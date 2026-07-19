@@ -24,9 +24,24 @@ describe("week & meals copy (CE-10)", () => {
     expect(weeklyView).not.toContain("No weekly plan yet");
   });
 
-  it("makes shopping editing and allergen label-checking explicit", () => {
-    expect(weeklyView).toContain("This list is editable.");
+  it("frames the shopping list as a reviewable draft with allergen label-checking", () => {
+    expect(weeklyView).toContain("shopping draft");
+    expect(weeklyView).toMatch(/quantities come from the planned meals/i);
+    expect(weeklyView).toMatch(/check your pantry/i);
     expect(weeklyView).toContain("check product labels for your allergies");
+  });
+
+  it("MW-05: weekly plan is a flexible draft with trial-neutral Premium copy", () => {
+    expect(weeklyView).toContain("A flexible draft, not a schedule");
+    expect(weeklyView).not.toMatch(/start 3 days free/i);
+    expect(weeklyView).toMatch(/fair-use limit/i);
+  });
+
+  it("MW-05: meal challenges use neutral planning language and a boundary note", () => {
+    const mealViewSrc = mealView;
+    expect(mealViewSrc).toContain("Evening hunger is hard to plan");
+    expect(mealViewSrc).not.toMatch(/overeat|binge|junk food|bad food/i);
+    expect(mealViewSrc).toMatch(/not condition-specific\s*nutrition/i);
   });
 
   it("frames meal rhythm around the user's situation", () => {
