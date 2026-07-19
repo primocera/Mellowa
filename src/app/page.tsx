@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { readLegalConfig } from "@/lib/legal/config";
+import { PRICING } from "@/lib/stripe/plans";
 import { TERMS } from "@/lib/content/terminology";
 import { TrackedCta } from "@/components/dailyflow/tracked-cta";
 import { SITE_URL } from "@/lib/seo/site";
@@ -9,7 +10,7 @@ import { SITE_URL } from "@/lib/seo/site";
 export const metadata: Metadata = {
   title: "Mellowa — A realistic plan for the day you actually have",
   description:
-    "Tell Mellowa how much energy and time you have. It shapes a doable plan for meals, movement, focus and a calmer end to the day — without calorie targets, streaks or pressure.",
+    "Tell Mellowa how much energy and time you have. It shapes a doable plan: a meal rhythm, hydration cues, optional movement, one calm reset, an evening wind-down and one small habit — without calorie targets, streaks or pressure.",
   alternates: { canonical: "/" },
 };
 
@@ -40,6 +41,11 @@ const SAMPLE_DAY = [
     detail: "Overnight oats with fruit and yoghurt — made the night before.",
   },
   {
+    time: "10:30",
+    title: "Hydration cue",
+    detail: "A glass of water with your mid-morning break — before the coffee refill.",
+  },
+  {
     time: "12:30",
     title: "Lunch, no cooking",
     detail: "A grain bowl from last night's leftovers plus a handful of greens.",
@@ -60,10 +66,25 @@ const SAMPLE_DAY = [
     detail: "Sheet-pan chicken and vegetables you can leave in the oven.",
   },
   {
+    time: "21:00",
+    title: "One small habit",
+    detail: "Lay out tomorrow's water bottle — the minimum version is just filling it.",
+  },
+  {
     time: "21:30",
-    title: "Wind-down",
+    title: "Evening wind-down",
     detail: "Screens down, lights low, one page of anything you like.",
   },
+];
+
+// The exact categories every daily plan contains — mirrors the plan schema.
+const PLAN_CATEGORIES = [
+  "A flexible meal rhythm",
+  "Hydration cues",
+  "Optional movement",
+  "One calm reset",
+  "An evening wind-down",
+  "One small habit with a minimum version",
 ];
 
 const DIFFERENCE = [
@@ -77,7 +98,11 @@ const DIFFERENCE = [
 const FAQ = [
   {
     q: "What does the free sample include?",
-    a: "One personalized day plan after a short setup. No payment method is required for the sample.",
+    a: "One personalized day plan after a short setup — a one-time sample per account. No payment method is required for the account, the setup or the sample.",
+  },
+  {
+    q: "How long does the daily check-in take?",
+    a: "The core check-in — energy, stress and available time — takes about a minute. Optional details like mood, sleep or notes add a little more if you want a more tailored plan.",
   },
   {
     q: "When does the trial begin?",
@@ -94,6 +119,10 @@ const FAQ = [
   {
     q: "What happens on a day with almost no energy?",
     a: "You tell Mellowa capacity is low and the plan gets smaller: the easiest food option, one necessary thing, one recovery cue. Everything else can wait.",
+  },
+  {
+    q: "Can Mellowa replace my doctor, dietitian or therapist?",
+    a: "No. Mellowa never replaces professional care. For medical conditions, pregnancy nutrition, injury recovery, eating-disorder support or mental-health treatment, please work with a qualified professional — Mellowa will point you there when a request needs it.",
   },
 ];
 
@@ -115,8 +144,18 @@ export default function LandingPage() {
         description:
           "Realistic daily wellbeing plans that adapt to your energy, mood and schedule — not medical care, therapy or emergency support.",
         offers: [
-          { "@type": "Offer", price: "9.99", priceCurrency: "EUR", name: "Mellowa Monthly" },
-          { "@type": "Offer", price: "59.99", priceCurrency: "EUR", name: "Mellowa Yearly" },
+          {
+            "@type": "Offer",
+            price: PRICING.monthly.price.replace("€", ""),
+            priceCurrency: "EUR",
+            name: PRICING.monthly.name,
+          },
+          {
+            "@type": "Offer",
+            price: PRICING.yearly.price.replace("€", ""),
+            priceCurrency: "EUR",
+            name: PRICING.yearly.name,
+          },
         ],
       },
       {
@@ -172,8 +211,9 @@ export default function LandingPage() {
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-lg text-[#6B7280]">
           Tell Mellowa how much energy and time you have. It shapes a doable
-          plan for meals, movement, focus and a calmer end to the day — without
-          calorie targets, streaks or pressure.
+          plan — a meal rhythm, hydration cues, optional movement, one calm
+          reset, an evening wind-down and one small habit — without calorie
+          targets, streaks or pressure.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <TrackedCta
@@ -197,7 +237,7 @@ export default function LandingPage() {
       {/* Trust strip */}
       <section className="mx-auto max-w-3xl px-6 pb-4">
         <p className="mx-auto flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-sm text-[#6B7280]">
-          <span>About one minute to check in</span>
+          <span>About a minute for the core check-in</span>
           <span aria-hidden>•</span>
           <span>Adjusts to low-capacity days</span>
           <span aria-hidden>•</span>
@@ -224,10 +264,18 @@ export default function LandingPage() {
             Less deciding. One plan that adjusts with you.
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-white/85">
-            A short check-in gives Mellowa the context it needs: your available
-            energy, time, schedule and preferences. The result is smaller on
+            Your planning baseline plus today&rsquo;s energy, stress and time,
+            shaped by the plan mode you choose. The result is smaller on
             difficult days and more complete when you have room.
           </p>
+          <ul className="mx-auto mt-6 grid max-w-xl gap-2 text-left text-sm text-white/90 sm:grid-cols-2">
+            {PLAN_CATEGORIES.map((category) => (
+              <li key={category} className="flex items-start gap-2">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-white/70" />
+                <span>{category}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
@@ -360,11 +408,14 @@ export default function LandingPage() {
             planInterval="monthly"
             className="block w-64 rounded-2xl bg-white p-6 text-left shadow-sm transition hover:shadow-md hover:ring-2 hover:ring-[#7C9A92]/40"
           >
-            <h3 className="font-medium">Mellowa Monthly</h3>
+            <h3 className="font-medium">{PRICING.monthly.name}</h3>
             <p className="mt-1 text-2xl font-semibold">
-              €9.99<span className="text-base font-normal text-[#6B7280]">/mo</span>
+              {PRICING.monthly.price}
+              <span className="text-base font-normal text-[#6B7280]">/mo</span>
             </p>
-            <p className="mt-1 text-sm text-[#6B7280]">3 days free, then monthly.</p>
+            <p className="mt-1 text-sm text-[#6B7280]">
+              {PRICING.monthly.trialDays} days free, then monthly.
+            </p>
             <span className="mt-4 inline-block rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white">
               Start with a free sample
             </span>
@@ -377,17 +428,19 @@ export default function LandingPage() {
             className="block w-64 rounded-2xl border-2 border-[#7C9A92] bg-white p-6 text-left shadow-sm transition hover:shadow-md"
           >
             <div className="flex items-center justify-between">
-              <h3 className="font-medium">Mellowa Yearly</h3>
+              <h3 className="font-medium">{PRICING.yearly.name}</h3>
               <span className="rounded-full bg-[#7C9A92]/10 px-2.5 py-0.5 text-xs font-medium text-[#6D8C7D]">
                 Save €59.89
               </span>
             </div>
             <p className="mt-1 text-2xl font-semibold">
-              €59.99<span className="text-base font-normal text-[#6B7280]">/yr</span>
+              {PRICING.yearly.price}
+              <span className="text-base font-normal text-[#6B7280]">/yr</span>
             </p>
             <p className="mt-1 text-sm text-[#6B7280]">
-              About €5.00/month, billed yearly. That&rsquo;s €59.99 instead of
-              €119.88 (12 × €9.99) — a 50% saving. 3 days free.
+              About €5.00/month, billed yearly. That&rsquo;s {PRICING.yearly.price}{" "}
+              instead of €119.88 (12 × {PRICING.monthly.price}) — a 50% saving.{" "}
+              {PRICING.yearly.trialDays} days free.
             </p>
             <span className="mt-4 inline-block rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white">
               Start with a free sample
