@@ -46,6 +46,7 @@ export const USER_DATA_REGISTRY: UserTable[] = [
   { table: "generation_requests", column: "user_id", onDelete: "cascade" },
   { table: "daily_plan_versions", column: "user_id", onDelete: "cascade" },
   { table: "learned_signal_suppressions", column: "user_id", onDelete: "cascade" },
+  { table: "routine_presets", column: "user_id", onDelete: "cascade" },
 ];
 
 /**

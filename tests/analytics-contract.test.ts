@@ -106,6 +106,7 @@ describe("event validation", () => {
         "repair_reason",
         "sections",
         "signal",
+        "context_type",
       ].sort()
     );
   });
