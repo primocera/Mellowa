@@ -15,6 +15,9 @@ export const PLAN_LIMITS = {
   sample: {
     dailyPlansTotal: 1,
     weeklyPlansPerMonth: 0,
+    // MW-S07: one lifetime curated (non-AI) section swap — movement, calm
+    // reset or evening — so the sample shows adaptation, not just generation.
+    sampleAdjustmentsTotal: 1,
     premiumFeatures: [] as PremiumFeature[],
   },
   // Trialing or active: full access.

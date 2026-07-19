@@ -64,7 +64,9 @@ export default async function CheckInPage() {
       {sampleState === "available" && (
         <div className="mb-4 rounded-2xl bg-[#EEF2FF] px-4 py-3 text-sm text-[#1F2937]">
           This check-in creates your one free sample plan — no payment method
-          needed. It stays yours to revisit.
+          needed. The sample includes one adjustment afterwards (a simpler
+          movement, calm reset or evening option), and it stays yours to
+          revisit.
         </div>
       )}
       {sampleState === "used" && (

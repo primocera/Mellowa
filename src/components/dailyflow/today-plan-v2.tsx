@@ -29,6 +29,15 @@ import { nextAction, type NowItem } from "@/lib/today/next-action";
 import { trackClient } from "@/lib/analytics/client";
 import { useRouter } from "next/navigation";
 
+// MW-S07: honest entitlement copy per server decision. Trial eligibility is
+// decided server-side and shown only on Billing — never promised here.
+function entitlementMessage(code: string | undefined): string {
+  if (code === "sample_adjustment_used") {
+    return "Your free sample included one adjustment, and it's been used — everything you created stays readable. Ongoing daily adjustments, weekly continuity, preference learning and meal planning are part of Premium (see Billing).";
+  }
+  return "Meal swaps and new plans are part of Premium. Your free sample includes one non-meal adjustment — a simpler movement, calm reset or evening option. See Billing for plans.";
+}
+
 function newAttemptKey(): string {
   return (crypto.randomUUID?.() ?? `r-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     .replace(/[^A-Za-z0-9_-]/g, "")
@@ -322,6 +331,9 @@ export function TodayPlanV2({
         setMeals((prev) =>
           prev.map((m) => (m.meal_type === mealType ? data.section : m))
         );
+      } else if (res.status === 402) {
+        setMessage(entitlementMessage(data.error));
+        trackClient("premium_value_explained", { surface: "today" });
       } else setMessage("Couldn't update that meal — try again in a moment.");
     } catch {
       setMessage("Couldn't update that meal — try again in a moment.");
@@ -344,8 +356,17 @@ export function TodayPlanV2({
       });
       const data = await res.json();
       if (data.blocked) setMessage(data.user_message);
-      else if (res.ok && data.section) setMovement(data.section);
-      else setMessage("Couldn't update movement — try again in a moment.");
+      else if (res.ok && data.section) {
+        setMovement(data.section);
+        if (data.sample_adjustment) {
+          setMessage(
+            "That was your sample's included adjustment — the result is yours to keep. Premium adds ongoing daily adjustments, weekly continuity, preference learning and meal planning."
+          );
+        }
+      } else if (res.status === 402) {
+        setMessage(entitlementMessage(data.error));
+        trackClient("premium_value_explained", { surface: "today" });
+      } else setMessage("Couldn't update movement — try again in a moment.");
     } catch {
       setMessage("Couldn't update movement — try again in a moment.");
     }
@@ -380,6 +401,9 @@ export function TodayPlanV2({
         setRepairSummary(data.repair_summary as string);
         setRepairOpen(false);
         router.refresh();
+      } else if (res.status === 402) {
+        setMessage(entitlementMessage(data.error));
+        trackClient("premium_value_explained", { surface: "today" });
       } else {
         setMessage(
           data.user_message ??

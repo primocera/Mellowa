@@ -73,6 +73,9 @@ export const EVENT_NAMES = [
   "weekly_reflection_completed",
   "carry_forward_saved",
   "next_week_plan_created",
+  // v8 (MW-S07): sample value proof.
+  "sample_value_action_completed",
+  "premium_value_explained",
 ] as const;
 
 export type AppEvent = (typeof EVENT_NAMES)[number];
@@ -112,6 +115,7 @@ export const SERVER_AUTHORITATIVE_EVENTS = new Set<AppEvent>([
   "weekly_reflection_completed",
   "carry_forward_saved",
   "next_week_plan_created",
+  "sample_value_action_completed",
 ]);
 
 /** Client-describable events (views/clicks). Everything else is server-only. */
