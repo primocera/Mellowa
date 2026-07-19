@@ -33,12 +33,33 @@ export function PlanFeedback({
     }
   }
 
+  // MW-S03: immediate undo — one tap never becomes a lasting signal without
+  // an easy way back.
+  async function undo() {
+    setVerdict(null);
+    try {
+      await fetch(
+        `/api/plan/feedback?plan_id=${encodeURIComponent(planId)}&item_key=${encodeURIComponent(itemKey)}`,
+        { method: "DELETE" }
+      );
+    } catch {
+      /* best effort */
+    }
+  }
+
   if (verdict) {
     return (
-      <p className="px-2 text-center text-xs text-[#9CA3AF]">
+      <p className="px-2 text-center text-xs text-[#9CA3AF]" aria-live="polite">
         {verdict === "helpful"
           ? "Thanks — noted for future plans."
-          : "Thanks — we'll shape tomorrow a little differently."}
+          : "Thanks — we'll shape tomorrow a little differently."}{" "}
+        <button
+          type="button"
+          onClick={undo}
+          className="font-medium text-[#7C9A92] underline underline-offset-2 hover:text-[#6D8C7D]"
+        >
+          Undo
+        </button>
       </p>
     );
   }

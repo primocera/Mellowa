@@ -452,6 +452,22 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
         <div className="rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]">{error}</div>
       )}
 
+      {/* MW-S03: compact pre-generation disclosure of what this plan uses. */}
+      <details className="group rounded-xl bg-[#FAF7F2] px-4 py-3 text-xs text-[#6B7280]">
+        <summary className="flex cursor-pointer list-none items-center gap-1 font-medium text-[#6B7280]">
+          <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+          Used for this plan
+        </summary>
+        <ul className="mt-2 space-y-1">
+          <li>• Today&apos;s check-in — energy, stress, time, context and any note (this day only).</li>
+          <li>• Your stable preferences — food preferences, allergies, cooking time and skill, movement level.</li>
+          <li>• Learned signals from your repeated feedback — visible and removable in Settings.</li>
+        </ul>
+        <p className="mt-2">
+          Nothing else is used. Free-text notes are never kept as memory.
+        </p>
+      </details>
+
       <button
         onClick={() => submit("plan")}
         disabled={loading !== null}

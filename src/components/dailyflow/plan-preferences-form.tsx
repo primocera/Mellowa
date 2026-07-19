@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { trackClient } from "@/lib/analytics/client";
 import clsx from "clsx";
 
 type Prefs = {
@@ -224,6 +225,8 @@ export function PlanPreferencesForm({
       .eq("user_id", userId);
     setSaving(false);
     setSaved(true);
+    // MW-S03: categorical event only — never the preference values.
+    trackClient("preference_changed", { surface: "settings" });
   }
 
   return (

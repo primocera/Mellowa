@@ -56,6 +56,10 @@ export const EVENT_NAMES = [
   "plan_repair_completed",
   "plan_repair_failed",
   "plan_repair_undone",
+  // v8 (MW-S03): transparent, user-controlled personalization.
+  "personalization_viewed",
+  "preference_changed",
+  "learned_signal_removed",
 ] as const;
 
 export type AppEvent = (typeof EVENT_NAMES)[number];
@@ -87,6 +91,7 @@ export const SERVER_AUTHORITATIVE_EVENTS = new Set<AppEvent>([
   "plan_repair_completed",
   "plan_repair_failed",
   "plan_repair_undone",
+  "learned_signal_removed",
 ]);
 
 /** Client-describable events (views/clicks). Everything else is server-only. */
@@ -181,6 +186,8 @@ export const propertiesSchema = z
     repair_reason: z.enum(REPAIR_REASON),
     /** Hyphen-joined changed-section TYPES (e.g. "meals-movement"), never content. */
     sections: slug,
+    /** Canonical learned-signal code (MW-S03), e.g. "too_much" — never text. */
+    signal: slug,
   })
   .partial()
   .strict();

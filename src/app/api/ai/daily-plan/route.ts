@@ -223,14 +223,25 @@ export async function POST(request: Request) {
   // Prompt 14: learn gently from recent feedback. Only canonical, bounded
   // hints derived from the fixed verdict allow-list ever reach the model —
   // free-text notes are never injected (injection-safe).
-  const { data: feedback } = await supabase
-    .from("plan_feedback")
-    .select("item_key, verdict")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(60);
+  // MW-S03: suppression boundaries are honoured — a removed signal stops
+  // affecting generation immediately and can only return from newer feedback.
+  const [{ data: feedback }, { data: suppressions }] = await Promise.all([
+    supabase
+      .from("plan_feedback")
+      .select("item_key, verdict, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(60),
+    supabase
+      .from("learned_signal_suppressions")
+      .select("signal, suppressed_at")
+      .eq("user_id", user.id),
+  ]);
   const learnedHints = learnedToPromptHints(
-    deriveLearned((feedback ?? []) as FeedbackRow[])
+    deriveLearned(
+      (feedback ?? []) as FeedbackRow[],
+      (suppressions ?? []) as { signal: string; suppressed_at: string }[]
+    )
   );
   if (learnedHints) modeInstruction += `\n${learnedHints}`;
 
