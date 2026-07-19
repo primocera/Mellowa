@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 /** Launch go/no-go scorecard completeness (Launch v6, Prompt 25). */
 
-const scorecard = readFileSync("docs/launch-go-no-go-v6.md", "utf8");
+const scorecard = readFileSync("docs/launch-go-no-go-v7.md", "utf8");
 
 describe("go/no-go scorecard", () => {
   it("records automated gates and the live steps only an operator can verify", () => {
