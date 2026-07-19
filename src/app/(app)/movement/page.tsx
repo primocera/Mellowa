@@ -15,8 +15,8 @@ export default function MovementPage() {
           Choose what fits your body today
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
-          Short, general movement ideas. Stop if anything causes pain, dizziness
-          or unusual discomfort.
+          Short, general movement ideas — always optional. Stop if anything
+          causes pain, dizziness or unusual discomfort.
         </p>
       </div>
 

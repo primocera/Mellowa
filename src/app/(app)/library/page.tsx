@@ -34,7 +34,8 @@ export default function LibraryPage() {
         </h1>
         <p className="mt-1 text-sm text-[#6B7280]">
           Saved meals and reviewed practices you can reuse without creating a
-          new plan.
+          new plan. Browsing the Library is always free and doesn&rsquo;t use
+          plan generation.
         </p>
       </header>
       <HubLinks links={LINKS} />
