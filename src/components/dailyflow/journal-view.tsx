@@ -93,10 +93,14 @@ export function JournalView({ entries }: { entries: JournalEntry[] }) {
         setMoodAfter(null);
         router.refresh();
       } else {
-        setError("Couldn't save right now — your words matter, please try again.");
+        setError(
+          "This entry didn't save. Your text is still here — please try again."
+        );
       }
     } catch {
-      setError("Couldn't save right now — your words matter, please try again.");
+      setError(
+        "This entry didn't save. Your text is still here — please try again."
+      );
     }
     setLoading(false);
   }
@@ -148,6 +152,12 @@ export function JournalView({ entries }: { entries: JournalEntry[] }) {
           </div>
         )}
 
+        <p className="mt-4 text-xs leading-relaxed text-[#9CA3AF]">
+          Saving sends this entry to our AI provider for a general written
+          reflection. Entries are private and not monitored by anyone — this
+          isn&rsquo;t therapy or crisis support. If you&rsquo;re in a difficult
+          place, please reach out to someone qualified or someone you trust.
+        </p>
         <button
           onClick={save}
           disabled={loading || !answer.trim()}
@@ -160,7 +170,10 @@ export function JournalView({ entries }: { entries: JournalEntry[] }) {
 
       {reflection && (
         <div className="rounded-2xl bg-[#EDE9FE]/60 p-6">
-          <p className="text-sm text-[#1F2937]">{reflection.reflection}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-[#6B7280]">
+            AI-generated reflection — keep only what feels useful
+          </p>
+          <p className="mt-2 text-sm text-[#1F2937]">{reflection.reflection}</p>
           <p className="mt-3 text-sm font-medium text-[#1F2937]">{reflection.gentle_question}</p>
           <p className="mt-3 rounded-xl bg-white/70 px-4 py-3 text-sm text-[#1F2937]">
             One small action: {reflection.one_small_action}
