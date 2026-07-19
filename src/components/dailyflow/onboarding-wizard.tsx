@@ -317,7 +317,11 @@ export function OnboardingWizard() {
     );
 
     if (dbError) {
-      setError(dbError.message);
+      // Raw provider errors are never customer copy; the draft stays on this
+      // device, so retrying is safe and loses nothing.
+      setError(
+        "Your baseline couldn't be saved just now. Your answers are still here — please try again in a moment."
+      );
       setSaving(false);
       return;
     }
