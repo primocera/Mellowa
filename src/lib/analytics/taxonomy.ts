@@ -65,6 +65,9 @@ export const EVENT_NAMES = [
   "preset_created",
   "preset_applied",
   "preset_removed",
+  // v8 (MW-S05): meal continuity — server-confirmed reuse/draft outcomes.
+  "favourite_reused",
+  "shopping_draft_built",
 ] as const;
 
 export type AppEvent = (typeof EVENT_NAMES)[number];
@@ -99,6 +102,8 @@ export const SERVER_AUTHORITATIVE_EVENTS = new Set<AppEvent>([
   "learned_signal_removed",
   "preset_created",
   "preset_removed",
+  "favourite_reused",
+  "shopping_draft_built",
 ]);
 
 /** Client-describable events (views/clicks). Everything else is server-only. */

@@ -11,6 +11,9 @@ import { AiGenerationError } from "@/lib/ai/errors";
 import { canUsePremiumFeature, canGenerateWeeklyPlan } from "@/lib/stripe/subscription";
 import { claimAiGeneration } from "@/lib/ai/rate-limit";
 import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
+import { MealCardSchema } from "@/schemas/ai-output-v2";
+import { findMealAllergenViolations } from "@/lib/safety/allergens";
+import { trackEvent } from "@/lib/analytics";
 import { checkWeeklyPlanOutput, correctiveInstruction } from "@/lib/ai/output-guards";
 import { allergenExclusionInstruction } from "@/lib/safety/allergens";
 import { sumUsage } from "@/lib/ai/usage";
@@ -138,9 +141,53 @@ export async function POST(request: Request) {
   }
   const notes = parsed.data.notes;
 
-  // Safety check on optional notes
-  if (notes) {
-    const safety = await checkInputSafety(user.id, "weekly-plan", notes);
+  // MW-S05: meal continuity — optional, user-editable preferences plus
+  // allergen-validated favourite metadata. Only normalized fields (titles,
+  // meal types, ingredient names) reach the prompt; saved notes never do.
+  const allergiesEarly = ((profile.allergies as string[] | null) ?? []).filter(Boolean);
+  const pantryItems = ((profile.pantry_items as string[] | null) ?? [])
+    .map((s) => String(s).trim())
+    .filter((s) => s.length > 0 && s.length <= 40)
+    .slice(0, 20);
+  let favouritesMeta: { title: string; meal_type: string; ingredients: string[] }[] = [];
+  if (profile.meal_reuse_favourites) {
+    const { data: favRows } = await supabase
+      .from("favourite_meals")
+      .select("meal")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(8);
+    for (const row of favRows ?? []) {
+      const parsedMeal = MealCardSchema.safeParse(row.meal);
+      if (!parsedMeal.success) continue;
+      // Allergen re-validation: favourites saved before an allergy change
+      // never reach generation.
+      if (
+        allergiesEarly.length &&
+        findMealAllergenViolations(parsedMeal.data, allergiesEarly).length > 0
+      ) {
+        continue;
+      }
+      favouritesMeta.push({
+        title: parsedMeal.data.title,
+        meal_type: parsedMeal.data.meal_type,
+        ingredients: parsedMeal.data.ingredients.map((i) => i.name).slice(0, 12),
+      });
+    }
+    favouritesMeta = favouritesMeta.slice(0, 6);
+  }
+  const mealContinuity = {
+    favourites: favouritesMeta,
+    repeatLeftovers: !!profile.meal_repeat_leftovers,
+    varietyLevel: (profile.meal_variety_level as string | null) ?? null,
+    pantryItems,
+  };
+
+  // Safety check on ALL free-ish text that reaches the prompt: the weekly
+  // note plus user-entered pantry item names.
+  const safetyText = [notes, pantryItems.join(", ")].filter(Boolean).join("\n");
+  if (safetyText) {
+    const safety = await checkInputSafety(user.id, "weekly-plan", safetyText);
     if (safety.should_block_generation) {
       await finish("failed");
       await finalizeAiUsage(claim.eventId, { status: "safety_blocked", promptVersion: PROMPT_VERSION });
@@ -174,8 +221,9 @@ export async function POST(request: Request) {
     habits: (habitsRes.data ?? []).map((h) => h.name),
     notes,
     weekStart,
+    mealContinuity,
   };
-  const allergies = ((profile.allergies as string[] | null) ?? []).filter(Boolean);
+  const allergies = allergiesEarly;
   const retrySink: UsageSink = {};
   let retried = false;
   let plan;
@@ -262,6 +310,10 @@ ${allergenExclusionInstruction(allergies)}` : ""
   }
 
   await finish("succeeded", saved.id);
+  if (favouritesMeta.length) {
+    // Counts/categories only — never meal content.
+    trackEvent("favourite_reused", { userId: user.id, properties: { surface: "week" } });
+  }
   await finalizeAiUsage(claim.eventId, {
     status: "success",
     promptVersion: PROMPT_VERSION,

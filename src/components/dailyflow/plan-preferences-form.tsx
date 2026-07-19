@@ -26,7 +26,18 @@ type Prefs = {
   reminder_time: string;
   quiet_hours_start: string;
   quiet_hours_end: string;
+  // v8 MW-S05: meal continuity — practical reuse, never nutrition targets.
+  meal_reuse_favourites: boolean;
+  meal_repeat_leftovers: boolean;
+  meal_variety_level: string;
+  pantry_items: string[];
 };
+
+const VARIETY_LEVEL = [
+  { value: "keep_it_similar", label: "Keep it similar" },
+  { value: "some_variety", label: "Some variety" },
+  { value: "lots_of_variety", label: "Lots of variety" },
+];
 
 const SCHEDULE_TYPE = [
   { value: "office", label: "Office" },
@@ -181,7 +192,14 @@ export function PlanPreferencesForm({
     reminder_time: initial.reminder_time ?? "",
     quiet_hours_start: initial.quiet_hours_start ?? "",
     quiet_hours_end: initial.quiet_hours_end ?? "",
+    meal_reuse_favourites: initial.meal_reuse_favourites ?? false,
+    meal_repeat_leftovers: initial.meal_repeat_leftovers ?? false,
+    meal_variety_level: initial.meal_variety_level ?? "",
+    pantry_items: initial.pantry_items ?? [],
   });
+  const [pantryText, setPantryText] = useState(
+    (initial.pantry_items ?? []).join(", ")
+  );
   const [dislikedText, setDislikedText] = useState(
     (initial.disliked_ingredients ?? []).join(", ")
   );
@@ -221,6 +239,14 @@ export function PlanPreferencesForm({
         reminder_time: prefs.reminder_time || null,
         quiet_hours_start: prefs.quiet_hours_start || null,
         quiet_hours_end: prefs.quiet_hours_end || null,
+        meal_reuse_favourites: prefs.meal_reuse_favourites,
+        meal_repeat_leftovers: prefs.meal_repeat_leftovers,
+        meal_variety_level: prefs.meal_variety_level || null,
+        pantry_items: pantryText
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0 && s.length <= 40)
+          .slice(0, 20),
       })
       .eq("user_id", userId);
     setSaving(false);
@@ -354,6 +380,69 @@ export function PlanPreferencesForm({
             value={prefs.meal_pattern}
             onChange={(v) => set("meal_pattern", v)}
           />
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm font-medium text-[#1F2937]">
+            Meal continuity{" "}
+            <span className="font-normal text-[#6B7280]">
+              (practical reuse — never a diet)
+            </span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => set("meal_reuse_favourites", !prefs.meal_reuse_favourites)}
+              aria-pressed={prefs.meal_reuse_favourites}
+              className={clsx(
+                "rounded-full border px-3 py-1.5 text-sm transition",
+                prefs.meal_reuse_favourites
+                  ? "border-[#7C9A92] bg-[#7C9A92]/10 font-medium text-[#1F2937]"
+                  : "border-[#E5E1DA] bg-white text-[#6B7280] hover:border-[#7C9A92]/50"
+              )}
+            >
+              Reuse my saved meals
+            </button>
+            <button
+              type="button"
+              onClick={() => set("meal_repeat_leftovers", !prefs.meal_repeat_leftovers)}
+              aria-pressed={prefs.meal_repeat_leftovers}
+              className={clsx(
+                "rounded-full border px-3 py-1.5 text-sm transition",
+                prefs.meal_repeat_leftovers
+                  ? "border-[#7C9A92] bg-[#7C9A92]/10 font-medium text-[#1F2937]"
+                  : "border-[#E5E1DA] bg-white text-[#6B7280] hover:border-[#7C9A92]/50"
+              )}
+            >
+              Plan leftovers
+            </button>
+          </div>
+          <p className="mb-2 mt-3 text-sm font-medium text-[#1F2937]">Variety</p>
+          <Chips
+            options={VARIETY_LEVEL}
+            value={prefs.meal_variety_level}
+            onChange={(v) => set("meal_variety_level", v)}
+          />
+          <label className="mb-1 mt-3 block text-sm font-medium text-[#1F2937]">
+            Usually on hand{" "}
+            <span className="font-normal text-[#6B7280]">
+              (left off shopping drafts — comma separated)
+            </span>
+          </label>
+          <input
+            type="text"
+            value={pantryText}
+            onChange={(e) => {
+              setPantryText(e.target.value);
+              setSaved(false);
+            }}
+            placeholder="e.g. rice, olive oil, oats"
+            className="w-full rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
+          />
+          <p className="mt-1 text-xs text-[#9CA3AF]">
+            We never assume your pantry is complete — the draft just skips what
+            you list here, and shows it separately.
+          </p>
         </div>
 
         <div>

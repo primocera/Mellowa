@@ -194,6 +194,11 @@ export function WeeklyPlanView({ plan }: { plan: WeeklyPlan }) {
             </table>
           </div>
           {meals.notes && <p className="mt-3 text-sm text-[#6B7280]">{meals.notes}</p>}
+          <p className="mt-3 text-xs text-[#9CA3AF]">
+            Meals marked &ldquo;(saved favourite)&rdquo; come from your saved
+            meals; &ldquo;(leftovers)&rdquo; reuse an earlier cook. Everything
+            is swappable — change any meal before you build the shopping draft.
+          </p>
         </div>
       )}
 

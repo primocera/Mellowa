@@ -105,6 +105,10 @@ export default async function SettingsPage() {
             reminder_time: profile.reminder_time ?? "",
             quiet_hours_start: profile.quiet_hours_start ?? "",
             quiet_hours_end: profile.quiet_hours_end ?? "",
+            meal_reuse_favourites: profile.meal_reuse_favourites ?? false,
+            meal_repeat_leftovers: profile.meal_repeat_leftovers ?? false,
+            meal_variety_level: profile.meal_variety_level ?? "",
+            pantry_items: profile.pantry_items ?? [],
           }}
         />
       )}
