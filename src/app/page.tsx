@@ -173,7 +173,6 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#FAF7F2] text-[#1F2937]">
       <script
         type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       {/* Nav */}

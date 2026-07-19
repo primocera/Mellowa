@@ -224,8 +224,18 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
 
       if (!res.ok) {
         if (res.status === 402) {
+          // Trial-neutral: eligibility (first trial vs pay today) is decided
+          // server-side and shown on Billing — never promised here.
           setError(
-            "You've used your free sample plan. Start 3 days free on the Billing page to keep creating daily plans."
+            "You've used your free sample plan. To keep creating daily plans, choose a Premium plan on the Billing page. Your check-in stays saved on this device."
+          );
+        } else if (res.status === 429) {
+          setError(
+            "Plan creation is briefly paced by fair-use limits. Wait a little and try again — your check-in stays saved on this device."
+          );
+        } else if (res.status === 409) {
+          setError(
+            "A plan is already being created from this check-in. Give it a few seconds, then open Today."
           );
         } else {
           setError(

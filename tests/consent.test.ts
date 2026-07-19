@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import {
   missingConsents,
@@ -59,7 +60,6 @@ describe("consent model (Prompt 6)", () => {
 });
 
 describe("MW-02: signup and onboarding copy contract", () => {
-  const { readFileSync } = require("node:fs") as typeof import("node:fs");
   const authForm = readFileSync("src/components/forms/auth-form.tsx", "utf8");
   const signup = readFileSync("src/app/(auth)/signup/page.tsx", "utf8");
   const wizard = readFileSync(
