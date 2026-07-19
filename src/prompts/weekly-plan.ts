@@ -77,6 +77,8 @@ export function buildWeeklyPlanUserPrompt(args: {
   notes: string;
   weekStart: string;
   mealContinuity?: MealContinuityContext;
+  /** Canonical carry-forward hints from the user's weekly reflection (MW-S06). */
+  carryForward?: string;
 }): string {
   return `Week starting: ${args.weekStart}
 
@@ -87,7 +89,7 @@ Recent check-ins (up to 14 days):
 ${JSON.stringify(args.recentCheckins, null, 2)}
 
 Active habits: ${args.habits.length ? args.habits.join(", ") : "none yet"}
-${args.mealContinuity ? mealContinuityBlock(args.mealContinuity) : ""}${args.notes ? `\nUser notes for this week: """${args.notes}"""` : ""}
+${args.mealContinuity ? mealContinuityBlock(args.mealContinuity) : ""}${args.carryForward ? `\n${args.carryForward}\n` : ""}${args.notes ? `\nUser notes for this week: """${args.notes}"""` : ""}
 
 Create this week's plan as structured JSON.`;
 }

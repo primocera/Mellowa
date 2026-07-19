@@ -5,6 +5,7 @@ import {
   WeeklyPlanView,
   WeeklyPlanEmpty,
 } from "@/components/dailyflow/weekly-plan-view";
+import { WeeklyReflection } from "@/components/dailyflow/weekly-reflection";
 import type { WeeklyPlan } from "@/types/dailyflow";
 
 export const metadata: Metadata = { title: "Week at a glance — Mellowa" };
@@ -22,7 +23,10 @@ export default async function WeeklyPlanPage() {
     .limit(1)
     .maybeSingle();
 
-  if (!plan) return <WeeklyPlanEmpty />;
-
-  return <WeeklyPlanView plan={plan as WeeklyPlan} />;
+  return (
+    <div className="space-y-4">
+      {plan ? <WeeklyPlanView plan={plan as WeeklyPlan} /> : <WeeklyPlanEmpty />}
+      <WeeklyReflection />
+    </div>
+  );
 }

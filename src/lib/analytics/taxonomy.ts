@@ -68,6 +68,11 @@ export const EVENT_NAMES = [
   // v8 (MW-S05): meal continuity — server-confirmed reuse/draft outcomes.
   "favourite_reused",
   "shopping_draft_built",
+  // v8 (MW-S06): weekly reflection and carry-forward.
+  "weekly_reflection_started",
+  "weekly_reflection_completed",
+  "carry_forward_saved",
+  "next_week_plan_created",
 ] as const;
 
 export type AppEvent = (typeof EVENT_NAMES)[number];
@@ -104,6 +109,9 @@ export const SERVER_AUTHORITATIVE_EVENTS = new Set<AppEvent>([
   "preset_removed",
   "favourite_reused",
   "shopping_draft_built",
+  "weekly_reflection_completed",
+  "carry_forward_saved",
+  "next_week_plan_created",
 ]);
 
 /** Client-describable events (views/clicks). Everything else is server-only. */

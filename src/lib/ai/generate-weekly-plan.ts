@@ -15,10 +15,11 @@ export async function generateWeeklyPlan(args: {
   notes: string;
   weekStart: string;
   mealContinuity?: MealContinuityContext;
+  carryForward?: string;
   extraInstruction?: string;
   usageSink?: UsageSink;
 }): Promise<WeeklyPlanOutputType> {
-  const { profile, recentCheckins, habits, notes, weekStart, mealContinuity, extraInstruction, usageSink } = args;
+  const { profile, recentCheckins, habits, notes, weekStart, mealContinuity, carryForward, extraInstruction, usageSink } = args;
 
   const profileContext = {
     primary_goal: profile.primary_goal,
@@ -48,6 +49,7 @@ export async function generateWeeklyPlan(args: {
     notes,
     weekStart,
     mealContinuity,
+    carryForward,
   });
 
   return generateStructuredJson({

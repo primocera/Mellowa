@@ -14,6 +14,10 @@ import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
 import { MealCardSchema } from "@/schemas/ai-output-v2";
 import { findMealAllergenViolations } from "@/lib/safety/allergens";
 import { trackEvent } from "@/lib/analytics";
+import {
+  reflectionToWeeklyHints,
+  type WeeklyReflectionSelections,
+} from "@/lib/week/reflection";
 import { checkWeeklyPlanOutput, correctiveInstruction } from "@/lib/ai/output-guards";
 import { allergenExclusionInstruction } from "@/lib/safety/allergens";
 import { sumUsage } from "@/lib/ai/usage";
@@ -201,6 +205,29 @@ export async function POST(request: Request) {
   const since = format(subDays(new Date(), 14), "yyyy-MM-dd");
   const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
 
+  // MW-S06: the user's explicit weekly reflection carries forward as canonical
+  // hints only — a previewed, bounded selection, never free text or inference.
+  const { data: reflection } = await supabase
+    .from("weekly_reflections")
+    .select("keep, lighter, next_week_constraint, created_at")
+    .eq("user_id", user.id)
+    .order("week_start", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const reflectionFresh =
+    reflection && Date.parse(reflection.created_at) > Date.now() - 14 * 86400_000;
+  const carryForwardHints = reflectionFresh
+    ? reflectionToWeeklyHints({
+        keep: (reflection.keep ?? []) as WeeklyReflectionSelections["keep"],
+        lighter:
+          reflection.lighter === "nothing" ? null : (reflection.lighter as WeeklyReflectionSelections["lighter"]),
+        constraint:
+          reflection.next_week_constraint === "same_as_usual"
+            ? null
+            : (reflection.next_week_constraint as WeeklyReflectionSelections["constraint"]),
+      })
+    : "";
+
   const [checkinsRes, habitsRes] = await Promise.all([
     supabase
       .from("daily_checkins")
@@ -222,6 +249,7 @@ export async function POST(request: Request) {
     notes,
     weekStart,
     mealContinuity,
+    carryForward: carryForwardHints,
   };
   const allergies = allergiesEarly;
   const retrySink: UsageSink = {};
@@ -314,6 +342,10 @@ ${allergenExclusionInstruction(allergies)}` : ""
     // Counts/categories only — never meal content.
     trackEvent("favourite_reused", { userId: user.id, properties: { surface: "week" } });
   }
+  trackEvent("next_week_plan_created", {
+    userId: user.id,
+    properties: { outcome: "success" },
+  });
   await finalizeAiUsage(claim.eventId, {
     status: "success",
     promptVersion: PROMPT_VERSION,
