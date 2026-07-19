@@ -109,6 +109,10 @@ export default async function SettingsPage() {
             meal_repeat_leftovers: profile.meal_repeat_leftovers ?? false,
             meal_variety_level: profile.meal_variety_level ?? "",
             pantry_items: profile.pantry_items ?? [],
+            reminders_paused: profile.reminders_paused ?? false,
+            skip_today:
+              (profile.reminder_skip_date ?? "") ===
+              new Date().toISOString().slice(0, 10),
           }}
         />
       )}

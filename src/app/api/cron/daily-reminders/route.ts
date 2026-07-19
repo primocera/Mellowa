@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     let query = admin
       .from("wellbeing_profiles")
       .select(
-        "user_id, reminder_time, quiet_hours_start, quiet_hours_end, timezone, last_reminder_sent_date"
+        "user_id, reminder_time, quiet_hours_start, quiet_hours_end, timezone, last_reminder_sent_date, reminders_paused, reminder_skip_date"
       )
       .eq("reminders_opt_in", true)
       .not("reminder_time", "is", null)
@@ -66,6 +66,22 @@ export async function GET(request: Request) {
 
     const plan = planReminders(profiles as ReminderProfile[], now);
     invalidTimezones += plan.invalidTimezones;
+
+    // MW-S08: relevance — this reminder means "no plan created yet today".
+    // Users who already made today's plan are not nudged about it.
+    if (plan.toDeliver.length) {
+      const { data: todaysPlans } = await admin
+        .from("daily_plans")
+        .select("user_id, plan_date")
+        .in("user_id", plan.toDeliver.map((r) => r.userId))
+        .in("plan_date", [...new Set(plan.toDeliver.map((r) => r.localDate))]);
+      const hasPlan = new Set(
+        (todaysPlans ?? []).map((p) => `${p.user_id}:${p.plan_date}`)
+      );
+      plan.toDeliver = plan.toDeliver.filter(
+        (r) => !hasPlan.has(`${r.userId}:${r.localDate}`)
+      );
+    }
 
     if (plan.toDeliver.length) {
       const emails = await getUserEmails(
@@ -90,7 +106,7 @@ export async function GET(request: Request) {
             <p>Hi,</p>
             <p>Just a soft reminder — whenever you have a minute, a quick check-in
             can shape a plan that actually fits today.</p>
-            <p><a href="${serverEnv.appUrl}/check-in" style="color:#6D8C7D">Open Mellowa</a></p>
+            <p><a href="${serverEnv.appUrl}/check-in?from=reminder" style="color:#6D8C7D">Open Mellowa</a></p>
             <p style="color:#6B7280;font-size:13px">No pressure — skipping days is
             part of it. You can turn these reminders off any time in Settings.</p>
           </div>`,

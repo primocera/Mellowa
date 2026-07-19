@@ -186,6 +186,14 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
       /* corrupted draft — start fresh */
     }
     restored.current = true;
+    // MW-S08: arriving from a reminder email — schedule category only.
+    try {
+      if (new URLSearchParams(window.location.search).get("from") === "reminder") {
+        trackClient("reminder_link_opened", { surface: "check_in" });
+      }
+    } catch {
+      /* tracking is never load-bearing */
+    }
   }, []);
   useEffect(() => {
     if (!restored.current) return;

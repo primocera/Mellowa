@@ -31,7 +31,13 @@ type Prefs = {
   meal_repeat_leftovers: boolean;
   meal_variety_level: string;
   pantry_items: string[];
+  // v8 MW-S08: reminder controls.
+  reminders_paused: boolean;
+  skip_today: boolean;
 };
+
+/** Version of the reminder consent copy shown before opting in (MW-S08). */
+const REMINDER_CONSENT_VERSION = "2026-07";
 
 const VARIETY_LEVEL = [
   { value: "keep_it_similar", label: "Keep it similar" },
@@ -196,6 +202,8 @@ export function PlanPreferencesForm({
     meal_repeat_leftovers: initial.meal_repeat_leftovers ?? false,
     meal_variety_level: initial.meal_variety_level ?? "",
     pantry_items: initial.pantry_items ?? [],
+    reminders_paused: initial.reminders_paused ?? false,
+    skip_today: initial.skip_today ?? false,
   });
   const [pantryText, setPantryText] = useState(
     (initial.pantry_items ?? []).join(", ")
@@ -247,12 +255,30 @@ export function PlanPreferencesForm({
           .map((s) => s.trim())
           .filter((s) => s.length > 0 && s.length <= 40)
           .slice(0, 20),
+        // MW-S08: pause/skip take effect before the next send; consent
+        // version records that the example content was shown before opt-in.
+        reminders_paused: prefs.reminders_paused,
+        reminder_skip_date: prefs.skip_today
+          ? new Date().toISOString().slice(0, 10)
+          : null,
+        ...(prefs.reminders_opt_in && !initial.reminders_opt_in
+          ? { reminder_consent_version: REMINDER_CONSENT_VERSION }
+          : {}),
       })
       .eq("user_id", userId);
     setSaving(false);
     setSaved(true);
     // MW-S03: categorical event only — never the preference values.
     trackClient("preference_changed", { surface: "settings" });
+    // MW-S08: reminder lifecycle events, schedule category only.
+    if (prefs.reminders_opt_in && !initial.reminders_opt_in) {
+      trackClient("reminder_enabled", { surface: "settings" });
+    } else if (!prefs.reminders_opt_in && initial.reminders_opt_in) {
+      trackClient("reminder_disabled", { surface: "settings" });
+    }
+    if (prefs.reminders_paused && !initial.reminders_paused) {
+      trackClient("reminder_paused", { surface: "settings" });
+    }
   }
 
   return (
@@ -504,17 +530,65 @@ export function PlanPreferencesForm({
             />
             Send me a gentle daily reminder
           </label>
+          {/* MW-S08: the exact content is shown BEFORE consent — what you see
+              is what is sent. Email only; one per day at most. */}
+          <div className="mt-2 rounded-xl bg-[#FAF7F2] px-3 py-2.5 text-xs text-[#6B7280]">
+            <p className="font-medium text-[#1F2937]">
+              Example of the email you&apos;d get (at most one per day, by email,
+              only on days without a plan yet):
+            </p>
+            <p className="mt-1 italic">
+              Subject: A gentle nudge from Mellowa — &ldquo;Whenever you have a
+              minute, a quick check-in can shape a plan that actually fits
+              today. No pressure — skipping days is part of it.&rdquo;
+            </p>
+            <p className="mt-1">
+              It never mentions your mood, energy, meals, journal or plan
+              content. Quiet hours and your local time are respected; pause or
+              turn it off any time.
+            </p>
+          </div>
           {prefs.reminders_opt_in && (
-            <div className="mt-3">
-              <label className="mb-1 block text-sm font-medium text-[#1F2937]">
-                Preferred reminder time
-              </label>
-              <input
-                type="time"
-                value={prefs.reminder_time}
-                onChange={(e) => set("reminder_time", e.target.value)}
-                className="w-32 rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm text-[#1F2937] focus:border-[#7C9A92] focus:outline-none"
-              />
+            <div className="mt-3 space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#1F2937]">
+                  Preferred reminder time
+                </label>
+                <input
+                  type="time"
+                  value={prefs.reminder_time}
+                  onChange={(e) => set("reminder_time", e.target.value)}
+                  className="w-32 rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm text-[#1F2937] focus:border-[#7C9A92] focus:outline-none"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => set("reminders_paused", !prefs.reminders_paused)}
+                  aria-pressed={prefs.reminders_paused}
+                  className={clsx(
+                    "rounded-full border px-3 py-1.5 text-xs transition",
+                    prefs.reminders_paused
+                      ? "border-[#7C9A92] bg-[#7C9A92]/10 font-medium text-[#1F2937]"
+                      : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"
+                  )}
+                >
+                  {prefs.reminders_paused ? "Paused — tap to resume" : "Pause reminders"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => set("skip_today", !prefs.skip_today)}
+                  aria-pressed={prefs.skip_today}
+                  className={clsx(
+                    "rounded-full border px-3 py-1.5 text-xs transition",
+                    prefs.skip_today
+                      ? "border-[#7C9A92] bg-[#7C9A92]/10 font-medium text-[#1F2937]"
+                      : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"
+                  )}
+                >
+                  {prefs.skip_today ? "Skipping today" : "Skip today"}
+                </button>
+              </div>
             </div>
           )}
         </div>

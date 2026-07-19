@@ -18,6 +18,10 @@ export interface ReminderProfile {
   quiet_hours_end: string | null;
   timezone: string | null;
   last_reminder_sent_date: string | null;
+  /** MW-S08: one-tap pause — no sends while true. */
+  reminders_paused?: boolean | null;
+  /** MW-S08: "skip today" — no send on this local date. */
+  reminder_skip_date?: string | null;
 }
 
 export interface PlannedReminder {
@@ -32,6 +36,8 @@ export interface ReminderPlan {
   invalidTimezones: number;
   alreadySent: number;
   inQuietHours: number;
+  /** MW-S08: paused or skip-today profiles — user controls beat schedules. */
+  pausedOrSkipped: number;
 }
 
 export function planReminders(
@@ -43,6 +49,7 @@ export function planReminders(
     invalidTimezones: 0,
     alreadySent: 0,
     inQuietHours: 0,
+    pausedOrSkipped: 0,
   };
 
   // Intl timezone math is expensive; users cluster into a handful of zones,
@@ -64,6 +71,12 @@ export function planReminders(
     const { valid, localDate, localMinutes } = tzInfo(tz);
     if (!valid) {
       plan.invalidTimezones += 1; // repaired in-app; never mis-time an email
+      continue;
+    }
+
+    // MW-S08: pause and skip-today take effect before the next send, always.
+    if (p.reminders_paused || p.reminder_skip_date === localDate) {
+      plan.pausedOrSkipped += 1;
       continue;
     }
 

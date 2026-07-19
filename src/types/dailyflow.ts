@@ -55,6 +55,11 @@ export interface WellbeingProfile {
   meal_repeat_leftovers?: boolean;
   meal_variety_level?: string | null;
   pantry_items?: string[];
+  // v8 MW-S07/S08 (migrations 032/033).
+  sample_adjustment_used_at?: string | null;
+  reminders_paused?: boolean;
+  reminder_skip_date?: string | null;
+  reminder_consent_version?: string | null;
   consent_version: string | null;
   consent_accepted_at: string | null;
   created_at: string;

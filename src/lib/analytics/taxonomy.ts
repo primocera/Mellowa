@@ -76,6 +76,12 @@ export const EVENT_NAMES = [
   // v8 (MW-S07): sample value proof.
   "sample_value_action_completed",
   "premium_value_explained",
+  // v8 (MW-S08): consent-based reminders — client claims about settings taps
+  // and link opens; delivery truth lives in the email ledger.
+  "reminder_enabled",
+  "reminder_paused",
+  "reminder_disabled",
+  "reminder_link_opened",
 ] as const;
 
 export type AppEvent = (typeof EVENT_NAMES)[number];
