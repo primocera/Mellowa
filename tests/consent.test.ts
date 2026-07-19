@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import {
   missingConsents,
@@ -55,5 +56,36 @@ describe("consent model (Prompt 6)", () => {
 
   it("optional marketing consent is never required", () => {
     expect(REQUIRED_CONSENTS).not.toContain("reminders_marketing");
+  });
+});
+
+describe("MW-02: signup and onboarding copy contract", () => {
+  const authForm = readFileSync("src/components/forms/auth-form.tsx", "utf8");
+  const signup = readFileSync("src/app/(auth)/signup/page.tsx", "utf8");
+  const wizard = readFileSync(
+    "src/components/dailyflow/onboarding-wizard.tsx",
+    "utf8"
+  );
+
+  it("legal consents are separate, explicit and never pre-checked", () => {
+    // Two distinct required checkboxes; no defaultChecked/checked-true on them.
+    expect(authForm).toMatch(/register\("age18"/);
+    expect(authForm).toMatch(/register\("policies"/);
+    expect(authForm).not.toMatch(/defaultChecked/);
+  });
+
+  it("signup states baseline + one sample and no payment method until Premium", () => {
+    expect(signup).toMatch(/planning baseline/i);
+    expect(signup).toMatch(/one free\s*sample|one free sample/i);
+    expect(signup).toMatch(/No payment method until/i);
+  });
+
+  it("onboarding save failure shows safe copy, not raw provider errors", () => {
+    expect(wizard).not.toMatch(/setError\(dbError\.message\)/);
+    expect(wizard).toMatch(/couldn't be saved just now/i);
+  });
+
+  it("onboarding never solicits diagnosis details", () => {
+    expect(wizard).not.toMatch(/diagnos|medication|which condition/i);
   });
 });

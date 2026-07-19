@@ -15,6 +15,10 @@ function ninetyDaysAgoIso(): string {
   return new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 }
 
+function sevenDaysAgoIso(): string {
+  return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+}
+
 export default async function TodayPage() {
   const user = await requireUser();
   const supabase = await createClient();
@@ -50,7 +54,7 @@ export default async function TodayPage() {
 
   // Neutral weekly recap (Prompt 22): plans created + feedback themes over the
   // last 7 days. No adherence, streaks or mood — see summarizeWeek.
-  const weekAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const weekAgoIso = sevenDaysAgoIso();
   const [{ data: weekPlans }, { data: weekFeedback }] = await Promise.all([
     supabase
       .from("daily_plans")

@@ -18,7 +18,8 @@ export default async function SignupPage({
           Create your Mellowa account
         </h2>
         <p className="mt-1 text-sm text-[#6B7280]">
-          Your free sample day starts after a short setup. No card required.
+          You&rsquo;ll set up a short planning baseline, then get one free
+          sample day plan. No payment method until you choose Premium.
         </p>
       </div>
       <AuthForm

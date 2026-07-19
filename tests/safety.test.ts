@@ -1,3 +1,4 @@
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import {
   normalizeAllergies,
@@ -76,5 +77,26 @@ describe("safety pre-classifier (P17)", () => {
   it("does NOT block ordinary tired/stressed phrasing", () => {
     expect(preClassifySafety("I'm dying to sleep, this week is killing me")).toBeNull();
     expect(preClassifySafety("low energy, stressful day at work")).toBeNull();
+  });
+});
+
+describe("MW-04: safety gate is wired into every AI generation route", () => {
+  it("every generation route classifies input before generating", () => {
+    const routes = readdirSync("src/app/api/ai").filter(
+      (r: string) => r !== "safety-check"
+    );
+    for (const route of routes) {
+      const src = readFileSync(`src/app/api/ai/${route}/route.ts`, "utf8");
+      expect(
+        /checkInputSafety|preClassifySafety/.test(src),
+        `AI route "${route}" must call the safety gate before generation`
+      ).toBe(true);
+    }
+  });
+
+  it("the daily-plan route has no v1 generator import (one source of truth)", () => {
+    const src = readFileSync("src/app/api/ai/daily-plan/route.ts", "utf8");
+    expect(src).toContain("generate-daily-plan-v2");
+    expect(src).not.toMatch(/generate-daily-plan"/);
   });
 });

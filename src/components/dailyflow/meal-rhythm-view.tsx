@@ -18,6 +18,7 @@ const CHALLENGES = [
   "Irregular workday",
   "Low appetite earlier",
   "Busy evenings",
+  "Evening hunger is hard to plan",
   "Budget matters most",
   "I need variety",
 ];
@@ -147,6 +148,11 @@ export function MealRhythmView({ initial }: { initial: MealRhythm | null }) {
               {rhythm.notes}
             </div>
           )}
+          <p className="text-xs text-[#9CA3AF]">
+            Meal ideas are general suggestions, not condition-specific
+            nutrition. Review ingredients, labels, portions and
+            cross-contamination for your own needs.
+          </p>
         </>
       )}
     </div>

@@ -9,9 +9,11 @@ export async function TrialBanner({ userId }: { userId: string }) {
 
   const days = sub.daysLeftInTrial ?? 0;
   const message =
-    days <= 1
-      ? "Your Mellowa trial ends tomorrow. Keep your daily plans and weekly reset unlocked."
-      : `Your 3-day Mellowa trial is active — ${days} days left.`;
+    days <= 0
+      ? "Your Mellowa trial ends today. Keep your daily plans and weekly reset unlocked."
+      : days === 1
+        ? "Your Mellowa trial ends tomorrow. Keep your daily plans and weekly reset unlocked."
+        : `Your 3-day Mellowa trial is active — ${days} days left.`;
 
   return (
     <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#EDE9FE]/70 px-4 py-3">

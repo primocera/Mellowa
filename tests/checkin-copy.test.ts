@@ -12,9 +12,9 @@ const form = readFileSync("src/components/dailyflow/checkin-form.tsx", "utf8");
 const page = readFileSync("src/app/(app)/check-in/page.tsx", "utf8");
 
 describe("daily check-in copy (CE-7)", () => {
-  it("frames the check-in as a one-minute day question", () => {
+  it("frames the check-in as a quick day question without an absolute time claim", () => {
     expect(page).toContain("What kind of day is this?");
-    expect(page).toContain("One minute. Approximate is enough.");
+    expect(page).toContain("About a minute for the essentials. Approximate is enough.");
   });
 
   it("uses capacity anchors, not wellbeing scores", () => {
@@ -49,6 +49,23 @@ describe("daily check-in copy (CE-7)", () => {
   it("states that drafts survive errors", () => {
     expect(form).toContain("Your check-in is saved on this device");
     expect(form).toContain("Your check-in draft will stay here.");
+  });
+
+  it("MW-03: sample entitlement is disclosed before generation", () => {
+    // Sample-tier users see whether the next plan is the lifetime free sample
+    // or the sample is already used, before they submit.
+    expect(page).toContain("your one free sample plan");
+    expect(page).toMatch(/used your free sample plan/i);
+    expect(page).toMatch(/fair-use limits/i);
+  });
+
+  it("MW-03: 402/409/429 states are distinct, trial-neutral and draft-preserving", () => {
+    // 402 never promises a trial (eligibility is server-decided on Billing).
+    expect(form).not.toMatch(/start 3 days free/i);
+    expect(form).toMatch(/choose a Premium plan on the Billing page/i);
+    // Rate limit and in-progress are distinguishable from a generic failure.
+    expect(form).toMatch(/fair-use limits/i);
+    expect(form).toMatch(/already being created/i);
   });
 
   it("uses the canonical CTA, loading and secondary action", () => {

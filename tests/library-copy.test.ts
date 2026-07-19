@@ -44,3 +44,16 @@ describe("library copy (CE-11)", () => {
     );
   });
 });
+
+describe("MW-06: library boundaries", () => {
+  it("says browsing is free and doesn't use generation", () => {
+    expect(library).toMatch(/always free/i);
+    expect(library).toMatch(/use\s+plan generation/i);
+  });
+
+  it("keeps movement explicitly optional with stop conditions", () => {
+    expect(movement).toMatch(/always optional/i);
+    expect(movement).toMatch(/Stop if anything/i);
+    expect(movement).toMatch(/qualified professional/i);
+  });
+});

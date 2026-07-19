@@ -31,6 +31,47 @@ describe("hero communicates audience, outcome, mechanism, next step", () => {
   });
 });
 
+describe("MW-01: exact plan output categories and honest boundaries", () => {
+  it("lists every contract output category", () => {
+    for (const category of [
+      "meal rhythm",
+      "Hydration cues",
+      "Optional movement",
+      "One calm reset",
+      "evening wind-down",
+      "small habit with a minimum version",
+    ]) {
+      expect(landing).toContain(category);
+    }
+  });
+
+  it("states the sample is a one-time sample without a payment method", () => {
+    expect(landing).toMatch(/one-time sample per account/i);
+    expect(landing).toMatch(/No payment method is required/i);
+  });
+
+  it("makes no absolute check-in-time claim", () => {
+    // Time claims must be qualified (core check-in) since optional detail
+    // changes duration.
+    expect(landing).not.toMatch(/one minute to check in/i);
+    expect(landing).toMatch(/core check-in/i);
+  });
+
+  it("answers professional-support and trial FAQ questions", () => {
+    expect(landing).toMatch(/doctor, dietitian or therapist/i);
+    expect(landing).toMatch(/When does the trial begin\?/);
+  });
+
+  it("renders prices from the canonical Stripe plan configuration", () => {
+    expect(landing).toContain('import { PRICING } from "@/lib/stripe/plans"');
+    expect(landing).toContain("{PRICING.monthly.price}");
+    expect(landing).toContain("{PRICING.yearly.price}");
+    // No hardcoded plan-price literals left in JSX outside derived math copy.
+    expect(landing).not.toMatch(/€9\.99<span/);
+    expect(landing).not.toMatch(/€59\.99<span/);
+  });
+});
+
 describe("honest, evidence-based claims", () => {
   it("makes the annual saving mathematically explicit on both surfaces", () => {
     expect(landing).toContain("€119.88");

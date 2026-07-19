@@ -8,6 +8,7 @@ import { guardAiRoute } from "@/lib/ai/guard";
 import { finalizeAiUsage, releaseReservation, sumUsage } from "@/lib/ai/usage";
 import { promptVersionId } from "@/prompts/versions";
 import { checkHabitPlanOutput, correctiveInstruction } from "@/lib/ai/output-guards";
+import { checkInputSafety } from "@/lib/safety/check-input";
 
 const PROMPT_VERSION = promptVersionId("habit-plan");
 
@@ -45,6 +46,24 @@ export async function POST() {
   if (!profileRes.data) {
     await releaseReservation(eventId);
     return NextResponse.json({ error: "onboarding_required" }, { status: 400 });
+  }
+
+  // Safety BEFORE generation (MW-04): the only free text reaching the prompt
+  // is the stored schedule line; classify it and fail closed like every other
+  // AI route. Blocked input consumes no reserved usage.
+  const scheduleText = profileRes.data.work_schedule ?? "";
+  if (scheduleText.trim()) {
+    const safety = await checkInputSafety(user.id, "habit-plan", scheduleText);
+    if (safety.should_block_generation) {
+      await finalizeAiUsage(eventId, {
+        status: "safety_blocked",
+        promptVersion: PROMPT_VERSION,
+      });
+      return NextResponse.json(
+        { blocked: true, user_message: safety.user_message },
+        { status: 200 }
+      );
+    }
   }
 
   const existing = (habitsRes.data ?? []).map((h) => h.name);

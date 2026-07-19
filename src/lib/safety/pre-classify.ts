@@ -36,6 +36,13 @@ const RULES: PrePattern[] = [
       /\bself[-\s]?harm\b/i,
       /\b(cut|hurt|harm)(ting)? myself\b/i,
       /\bcutting myself\b/i,
+      // Common obfuscations and typo variants (MW-10). Deliberately specific:
+      // leetspeak/stretched spellings and the widely used euphemisms.
+      /\bk[i1!]+l+[il1!]*\s*my\s*self\b/i,
+      /\bsu[i1!]+c[i1!]+d/i,
+      /\bun[-\s]?aliv(e|ing)\b/i,
+      // "kms" alone collides with kilometres ("walked 5 kms") — require intent.
+      /\b(want|going|gonna) to kms\b/i,
     ],
   },
   {
