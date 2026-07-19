@@ -27,6 +27,13 @@ import type {
 import { isLighterDay, pickCalmReset } from "@/lib/today/disclosure";
 import { nextAction, type NowItem } from "@/lib/today/next-action";
 import { trackClient } from "@/lib/analytics/client";
+import { useRouter } from "next/navigation";
+
+function newAttemptKey(): string {
+  return (crypto.randomUUID?.() ?? `r-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    .replace(/[^A-Za-z0-9_-]/g, "")
+    .slice(0, 64);
+}
 
 // ---- shapes stored on the plan row (jsonb) ----
 type Summary = { main_focus: string; energy_match?: string; short_note?: string };
@@ -170,6 +177,14 @@ export function TodayPlanV2({
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [simplifying, setSimplifying] = useState(false);
+  const router = useRouter();
+  // MW-S02 repair sheet state.
+  const [repairOpen, setRepairOpen] = useState(false);
+  const [repairReason, setRepairReason] = useState<string | null>(null);
+  const [repairNote, setRepairNote] = useState("");
+  const [keptKeys, setKeptKeys] = useState<Set<string>>(new Set());
+  const [repairSummary, setRepairSummary] = useState<string | null>(null);
+  const [repairAttemptKey, setRepairAttemptKey] = useState(newAttemptKey);
   const [doneItems, setDoneItems] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(completedKeys.map((k) => [k, true]))
   );
@@ -250,6 +265,22 @@ export function TodayPlanV2({
     relaxation: plan.relaxation_technique,
   });
 
+  // MW-S02: preview list for the repair sheet — every plan item with its
+  // completion key, so the user sees exactly what is kept vs. replaceable.
+  const planItems: { key: string; label: string }[] = [
+    ...meals.map((m) => ({
+      key: `meal:${m.meal_type}`,
+      label: `${m.meal_type.charAt(0).toUpperCase()}${m.meal_type.slice(1)} — ${m.title}`,
+    })),
+    ...(movement ? [{ key: "movement", label: `Movement — ${movement.title}` }] : []),
+    ...(calmReset ? [{ key: calmReset, label: "Calm reset" }] : []),
+    ...(showFocus && plan.focus_plan
+      ? [{ key: "focus", label: "Focus block" }]
+      : []),
+    ...(plan.evening_routine ? [{ key: "evening", label: "Evening wind-down" }] : []),
+    ...(plan.habit_focus ? [{ key: "habit", label: `Habit — ${plan.habit_focus.habit}` }] : []),
+  ];
+
   // Optimistic toggle + persist to plan_completions. Reverts on failure and
   // surfaces a retryable message so a flaky connection never loses the tap.
   const toggleDone = (key: string, source: "now" | "plan" = "plan") => {
@@ -321,33 +352,68 @@ export function TodayPlanV2({
     setBusy(null);
   }
 
-  async function simplifyDay() {
+  // MW-S02: one atomic "Adjust the rest of today" request instead of the old
+  // per-section loop — a repair commits fully or not at all, and Undo is free.
+  async function submitRepair() {
+    if (!repairReason) return;
     setSimplifying(true);
     setMessage(null);
-    // Simplify each meal, then movement.
-    for (const meal of meals) {
-      try {
-        const res = await fetch("/api/ai/regenerate-section", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            plan_id: plan.id,
-            section_name: "meal_card",
-            meal_type: meal.meal_type,
-            reason: "simplify",
-          }),
-        });
-        const data = await res.json();
-        if (res.ok && data.section) {
-          setMeals((prev) =>
-            prev.map((m) => (m.meal_type === meal.meal_type ? data.section : m))
-          );
-        }
-      } catch {
-        /* keep original on failure */
+    try {
+      const res = await fetch("/api/ai/plan-repair", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-idempotency-key": repairAttemptKey,
+        },
+        body: JSON.stringify({
+          plan_id: plan.id,
+          reason: repairReason,
+          keep_keys: Array.from(keptKeys),
+          user_note: repairNote.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.blocked) {
+        setMessage(data.user_message);
+        setRepairOpen(false);
+      } else if (res.ok && data.repair_summary) {
+        setRepairSummary(data.repair_summary as string);
+        setRepairOpen(false);
+        router.refresh();
+      } else {
+        setMessage(
+          data.user_message ??
+            "The adjustment didn't come through, so today's plan is unchanged. Please try again."
+        );
       }
+    } catch {
+      setMessage(
+        "The adjustment didn't come through, so today's plan is unchanged. Please try again."
+      );
     }
-    await regenerateMovement();
+    setRepairAttemptKey(newAttemptKey());
+    setSimplifying(false);
+  }
+
+  async function undoRepair() {
+    setSimplifying(true);
+    try {
+      const res = await fetch("/api/ai/plan-repair", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_id: plan.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.undone) {
+        setRepairSummary(null);
+        setMessage("Undone — your previous plan is back.");
+        router.refresh();
+      } else {
+        setMessage("Undo didn't go through — please try again.");
+      }
+    } catch {
+      setMessage("Undo didn't go through — please try again.");
+    }
     setSimplifying(false);
   }
 
@@ -794,25 +860,151 @@ export function TodayPlanV2({
       {/* Gentle feedback (Prompt 10) */}
       <PlanFeedback planId={plan.id} />
 
-      {/* This feels too much */}
-      <button
-        onClick={simplifyDay}
-        disabled={simplifying}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#E5E1DA] bg-white px-4 py-3 text-sm text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937] disabled:opacity-60"
-      >
-        {simplifying ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Making the day simpler…
-          </>
-        ) : (
-          <>
-            <Feather className="h-4 w-4" />
-            Make today lighter
-          </>
-        )}
-      </button>
       </>)}
+
+      {/* MW-S02: after a committed repair — before/after summary + free Undo */}
+      {repairSummary && (
+        <div className="rounded-2xl bg-[#DCFCE7] p-5 text-sm text-[#1F2937]" aria-live="polite">
+          <p className="font-medium">Rest of today adjusted</p>
+          <p className="mt-1">{repairSummary}</p>
+          <p className="mt-1 text-xs text-[#6B7280]">
+            Done and kept items were left exactly as they were.
+          </p>
+          <button
+            onClick={undoRepair}
+            disabled={simplifying}
+            className="mt-3 rounded-xl border border-[#166534]/30 px-3.5 py-1.5 text-xs font-medium text-[#166534] transition hover:bg-white/60 disabled:opacity-60"
+          >
+            Undo — bring the previous plan back
+          </button>
+        </div>
+      )}
+
+      {/* MW-S02: atomic repair sheet */}
+      {repairOpen ? (
+        <div className="rounded-2xl border border-[#E5E1DA] bg-white p-5 shadow-sm">
+          <h2 className="font-medium text-[#1F2937]">Adjust the rest of today</h2>
+          <p className="mt-1 text-sm text-[#6B7280]">
+            One pass replaces only what&apos;s still open. Anything marked done
+            or kept stays exactly as it is.
+          </p>
+          <p className="mt-2 text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+            What changed?
+          </p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {(
+              [
+                ["less_time", "Less time"],
+                ["lower_energy", "Lower energy"],
+                ["context_changed", "Different context"],
+                ["meal_not_working", "Meals don't work"],
+                ["calmer_version", "Need a calmer version"],
+              ] as const
+            ).map(([code, label]) => (
+              <button
+                key={code}
+                onClick={() => setRepairReason(code)}
+                aria-pressed={repairReason === code}
+                className={clsx(
+                  "rounded-full border px-3 py-1.5 text-xs transition",
+                  repairReason === code
+                    ? "border-[#7C9A92] bg-[#7C9A92]/10 text-[#1F2937]"
+                    : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+            What will change
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {planItems.map((item) => {
+              const isDone = !!doneItems[item.key];
+              const isKept = keptKeys.has(item.key);
+              return (
+                <li key={item.key} className="flex items-center justify-between gap-2 text-sm">
+                  <span className={clsx(isDone || isKept ? "text-[#9CA3AF]" : "text-[#1F2937]")}>
+                    {item.label}
+                  </span>
+                  {isDone ? (
+                    <span className="rounded-full bg-[#DCFCE7] px-2.5 py-0.5 text-xs text-[#166534]">
+                      done — kept
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        setKeptKeys((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(item.key)) next.delete(item.key);
+                          else next.add(item.key);
+                          return next;
+                        })
+                      }
+                      aria-pressed={isKept}
+                      className={clsx(
+                        "rounded-full border px-2.5 py-0.5 text-xs transition",
+                        isKept
+                          ? "border-[#7C9A92] bg-[#7C9A92]/10 text-[#1F2937]"
+                          : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"
+                      )}
+                    >
+                      {isKept ? "Kept — won't change" : "Keep as is"}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <label className="mt-3 block text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+            Anything else? (optional)
+            <textarea
+              value={repairNote}
+              onChange={(e) => setRepairNote(e.target.value)}
+              maxLength={1000}
+              rows={2}
+              className="mt-1 w-full rounded-xl border border-[#E5E1DA] px-3 py-2 text-sm font-normal normal-case tracking-normal text-[#1F2937] focus:border-[#7C9A92] focus:outline-none"
+              placeholder="Used for this adjustment only — not saved or remembered."
+            />
+          </label>
+          <p className="mt-2 text-xs text-[#9CA3AF]">
+            Uses one plan generation from your fair-use allowance. Undo is free.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={submitRepair}
+              disabled={simplifying || !repairReason}
+              className="flex items-center gap-2 rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6D8C7D] disabled:opacity-60"
+            >
+              {simplifying ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Adjusting the rest of today…
+                </>
+              ) : (
+                "Adjust the rest of today"
+              )}
+            </button>
+            <button
+              onClick={() => setRepairOpen(false)}
+              disabled={simplifying}
+              className="rounded-xl border border-[#E5E1DA] px-4 py-2 text-sm text-[#6B7280] transition hover:border-[#7C9A92]/50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setRepairOpen(true)}
+          disabled={simplifying}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#E5E1DA] bg-white px-4 py-3 text-sm text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937] disabled:opacity-60"
+        >
+          <Feather className="h-4 w-4" />
+          Adjust the rest of today
+        </button>
+      )}
     </div>
   );
 }

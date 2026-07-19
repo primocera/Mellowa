@@ -103,6 +103,8 @@ describe("event validation", () => {
         "item_type",
         "plan_mode",
         "defer_reason",
+        "repair_reason",
+        "sections",
       ].sort()
     );
   });

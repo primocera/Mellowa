@@ -50,6 +50,12 @@ export const EVENT_NAMES = [
   "now_viewed",
   "now_action_done",
   "now_action_deferred",
+  // v8 value loop (MW-S02): atomic remaining-day repair. All server-emitted —
+  // only the route knows whether a repair really committed.
+  "plan_repair_requested",
+  "plan_repair_completed",
+  "plan_repair_failed",
+  "plan_repair_undone",
 ] as const;
 
 export type AppEvent = (typeof EVENT_NAMES)[number];
@@ -77,6 +83,10 @@ export const SERVER_AUTHORITATIVE_EVENTS = new Set<AppEvent>([
   "plan_generated",
   "plan_fallback_served",
   "now_action_done",
+  "plan_repair_requested",
+  "plan_repair_completed",
+  "plan_repair_failed",
+  "plan_repair_undone",
 ]);
 
 /** Client-describable events (views/clicks). Everything else is server-only. */
@@ -122,6 +132,14 @@ const DEFER_REASON = [
   "not_relevant",
   "already_handled",
 ] as const;
+/** Bounded repair reasons (MW-S02) — categorical, never the user's note. */
+const REPAIR_REASON = [
+  "less_time",
+  "lower_energy",
+  "context_changed",
+  "meal_not_working",
+  "calmer_version",
+] as const;
 
 /**
  * Non-free-text slug: lowercase letters, digits, dot, colon and hyphen only,
@@ -160,6 +178,9 @@ export const propertiesSchema = z
     item_type: z.enum(ITEM_TYPE),
     plan_mode: z.enum(PLAN_MODE),
     defer_reason: z.enum(DEFER_REASON),
+    repair_reason: z.enum(REPAIR_REASON),
+    /** Hyphen-joined changed-section TYPES (e.g. "meals-movement"), never content. */
+    sections: slug,
   })
   .partial()
   .strict();
