@@ -100,8 +100,36 @@ describe("event validation", () => {
         "route",
         "source",
         "surface",
+        "item_type",
+        "plan_mode",
+        "defer_reason",
       ].sort()
     );
+  });
+});
+
+describe("MW-S01 Now events", () => {
+  it("now_action_done is server-confirmed; views/deferrals are client claims", () => {
+    expect(SERVER_AUTHORITATIVE_EVENTS.has("now_action_done")).toBe(true);
+    expect(CLIENT_EVENTS.has("now_viewed")).toBe(true);
+    expect(CLIENT_EVENTS.has("now_action_deferred")).toBe(true);
+  });
+
+  it("Now properties are categorical only — no item text or free reasons", () => {
+    const parsed = parseEvent({
+      event: "now_action_deferred",
+      properties: { item_type: "meal", plan_mode: "minimum", defer_reason: "no_time" },
+    });
+    expect(parsed.properties.defer_reason).toBe("no_time");
+    expect(() =>
+      parseEvent({
+        event: "now_action_deferred",
+        properties: { defer_reason: "I was too anxious" },
+      })
+    ).toThrow();
+    expect(() =>
+      parseEvent({ event: "now_action_done", properties: { item_title: "Oat bowl" } })
+    ).toThrow();
   });
 });
 

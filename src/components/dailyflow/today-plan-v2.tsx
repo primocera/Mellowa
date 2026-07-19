@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Loader2,
   RefreshCw,
@@ -25,6 +25,8 @@ import type {
   MovementMomentType,
 } from "@/schemas/ai-output-v2";
 import { isLighterDay, pickCalmReset } from "@/lib/today/disclosure";
+import { nextAction, type NowItem } from "@/lib/today/next-action";
+import { trackClient } from "@/lib/analytics/client";
 
 // ---- shapes stored on the plan row (jsonb) ----
 type Summary = { main_focus: string; energy_match?: string; short_note?: string };
@@ -172,6 +174,67 @@ export function TodayPlanV2({
     Object.fromEntries(completedKeys.map((k) => [k, true]))
   );
 
+  // ---- MW-S01: Now view state -------------------------------------------
+  // "Not now" deferrals live in localStorage per plan (device-only, bounded
+  // reason codes, no server storage) so they survive a refresh but reset with
+  // a new plan. Nothing here reorders or mutates the stored plan JSON.
+  const deferralStorageKey = `mellowa_now_deferred:${plan.id}`;
+  const [deferred, setDeferred] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem(deferralStorageKey);
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((k) => typeof k === "string") : [];
+    } catch {
+      return [];
+    }
+  });
+  // Local time is read once per visit; the phase is a broad window, so a
+  // minute-level tick isn't needed and keeps selection stable while reading.
+  const [nowMinutes] = useState(
+    () => new Date().getHours() * 60 + new Date().getMinutes()
+  );
+  const [showFull, setShowFull] = useState(false);
+  const [deferOpen, setDeferOpen] = useState(false);
+  const planModeCategory = (
+    plan.plan_mode && ["minimum", "balanced", "reset", "custom"].includes(plan.plan_mode)
+      ? plan.plan_mode
+      : "unknown"
+  ) as "minimum" | "balanced" | "reset" | "custom" | "unknown";
+
+  const doneKeys = useMemo(
+    () => Object.keys(doneItems).filter((k) => doneItems[k]),
+    [doneItems]
+  );
+  const nowSelection = useMemo(
+    () => nextAction(plan, doneKeys, nowMinutes, deferred),
+    [plan, doneKeys, nowMinutes, deferred]
+  );
+
+  useEffect(() => {
+    trackClient("now_viewed", { plan_mode: planModeCategory });
+    // Fire once per visit to Today, whatever the selection state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function deferNow(item: NowItem, reason: string) {
+    setDeferOpen(false);
+    setDeferred((prev) => {
+      const next = prev.includes(item.key) ? prev : [...prev, item.key];
+      try {
+        window.localStorage.setItem(deferralStorageKey, JSON.stringify(next));
+      } catch {
+        /* session-only fallback */
+      }
+      return next;
+    });
+    trackClient("now_action_deferred", {
+      plan_mode: planModeCategory,
+      item_type: item.type,
+      defer_reason: reason,
+    });
+  }
+
   const summary = plan.plan_summary;
   const intensity = plan.plan_intensity ?? "normal";
 
@@ -187,20 +250,24 @@ export function TodayPlanV2({
     relaxation: plan.relaxation_technique,
   });
 
-  // Optimistic toggle + persist to plan_completions. Reverts on failure.
-  const toggleDone = (key: string) => {
+  // Optimistic toggle + persist to plan_completions. Reverts on failure and
+  // surfaces a retryable message so a flaky connection never loses the tap.
+  const toggleDone = (key: string, source: "now" | "plan" = "plan") => {
     const next = !doneItems[key];
     setDoneItems((d) => ({ ...d, [key]: next }));
     fetch("/api/plan/complete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan_id: plan.id, item_key: key, done: next }),
+      body: JSON.stringify({ plan_id: plan.id, item_key: key, done: next, source }),
     })
       .then((res) => {
         if (!res.ok) throw new Error("save failed");
       })
       .catch(() => {
         setDoneItems((d) => ({ ...d, [key]: !next }));
+        setMessage(
+          "That didn't save — your plan is unchanged. Tap it again to retry."
+        );
       });
   };
 
@@ -320,6 +387,85 @@ export function TodayPlanV2({
         </div>
       )}
 
+      {/* MW-S01: Now — one next useful action from the saved plan. */}
+      {nowSelection.action ? (
+        <div className="rounded-2xl border border-[#E5E1DA] bg-white p-5 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+            Now · one next step
+          </p>
+          <div aria-live="polite">
+            <h2 className="mt-1 text-lg font-semibold text-[#1F2937]">
+              {nowSelection.action.title}
+            </h2>
+            <p className="mt-0.5 text-sm text-[#6B7280]">
+              {nowSelection.action.reason}
+              {typeof nowSelection.action.durationMinutes === "number" && (
+                <span className="text-[#9CA3AF]">
+                  {" "}
+                  · about {nowSelection.action.durationMinutes} min
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => toggleDone(nowSelection.action!.key, "now")}
+              className="rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6D8C7D]"
+            >
+              Done
+            </button>
+            <button
+              onClick={() => setDeferOpen((v) => !v)}
+              aria-expanded={deferOpen}
+              className="rounded-xl border border-[#E5E1DA] px-4 py-2 text-sm text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937]"
+            >
+              Not now
+            </button>
+            <button
+              onClick={() => setShowFull((v) => !v)}
+              className="rounded-xl px-3 py-2 text-sm text-[#7C9A92] underline underline-offset-2 hover:text-[#6D8C7D]"
+            >
+              {showFull ? "Hide full plan" : "View full plan"}
+            </button>
+          </div>
+          {deferOpen && (
+            <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Why not now?">
+              {(
+                [
+                  ["no_time", "No time right now"],
+                  ["too_much", "Too much right now"],
+                  ["not_relevant", "Not relevant today"],
+                  ["already_handled", "Already handled"],
+                ] as const
+              ).map(([code, label]) => (
+                <button
+                  key={code}
+                  onClick={() => deferNow(nowSelection.action!, code)}
+                  className="rounded-full border border-[#E5E1DA] px-3 py-1.5 text-xs text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937]"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          <p className="mt-3 text-xs text-[#9CA3AF]">
+            One step at a time is enough. The full plan is always here.
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-[#E5E1DA] bg-white p-5 shadow-sm" aria-live="polite">
+          <p className="text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+            Now
+          </p>
+          <p className="mt-1 text-sm text-[#1F2937]">
+            {nowSelection.allDone
+              ? "That's everything from today's plan. Nothing else is asked of you."
+              : "Nothing pressing right now. The full plan is below if you want it."}
+          </p>
+        </div>
+      )}
+
+      {(showFull || !nowSelection.action) && (<>
       {/* 2. Meal cards */}
       <div className="space-y-3">
         <h2 className="px-1 text-sm font-medium uppercase tracking-wide text-[#9CA3AF]">
@@ -666,6 +812,7 @@ export function TodayPlanV2({
           </>
         )}
       </button>
+      </>)}
     </div>
   );
 }

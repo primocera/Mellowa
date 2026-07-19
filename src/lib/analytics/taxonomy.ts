@@ -45,6 +45,11 @@ export const EVENT_NAMES = [
   "checkin_completed",
   "plan_generated",
   "plan_fallback_served",
+  // v8 value loop (MW-S01): the Now view. Views/deferrals are client claims;
+  // a completed action is server-confirmed by the plan-completion endpoint.
+  "now_viewed",
+  "now_action_done",
+  "now_action_deferred",
 ] as const;
 
 export type AppEvent = (typeof EVENT_NAMES)[number];
@@ -71,6 +76,7 @@ export const SERVER_AUTHORITATIVE_EVENTS = new Set<AppEvent>([
   "checkin_completed",
   "plan_generated",
   "plan_fallback_served",
+  "now_action_done",
 ]);
 
 /** Client-describable events (views/clicks). Everything else is server-only. */
@@ -97,6 +103,24 @@ const CANCEL_REASON = [
   "missing_features",
   "taking_a_break",
   "other",
+] as const;
+/** Categorical plan-item type for the Now view (MW-S01) — never item text. */
+const ITEM_TYPE = [
+  "meal",
+  "movement",
+  "calm_reset",
+  "habit",
+  "evening",
+  "focus",
+] as const;
+/** Plan mode category. "unknown" covers legacy plans without a stored mode. */
+const PLAN_MODE = ["minimum", "balanced", "reset", "custom", "unknown"] as const;
+/** Bounded "Not now" reasons (MW-S01) — a closed set, never free text. */
+const DEFER_REASON = [
+  "no_time",
+  "too_much",
+  "not_relevant",
+  "already_handled",
 ] as const;
 
 /**
@@ -133,6 +157,9 @@ export const propertiesSchema = z
     experiment: slug,
     churn_type: z.enum(CHURN_TYPE),
     cancel_reason: z.enum(CANCEL_REASON),
+    item_type: z.enum(ITEM_TYPE),
+    plan_mode: z.enum(PLAN_MODE),
+    defer_reason: z.enum(DEFER_REASON),
   })
   .partial()
   .strict();
