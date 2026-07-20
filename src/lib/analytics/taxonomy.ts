@@ -299,6 +299,22 @@ export const FUNNELS = {
     "trial_canceled",
     "account_deleted",
   ],
+  /**
+   * v8 (MW-S10) core value funnel: account → baseline → sample → one Now
+   * action → one repair → trial → return check-in → weekly reflection →
+   * paid renewal. Value completions are server-confirmed events.
+   */
+  value_loop: [
+    "signup_completed",
+    "onboarding_completed",
+    "sample_plan_generated",
+    "now_action_done",
+    "plan_repair_completed",
+    "trial_started",
+    "checkin_completed",
+    "weekly_reflection_completed",
+    "subscription_renewed",
+  ],
 } as const satisfies Record<string, readonly AppEvent[]>;
 
 export type FunnelName = keyof typeof FUNNELS;

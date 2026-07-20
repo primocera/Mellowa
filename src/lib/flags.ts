@@ -11,6 +11,11 @@ const KNOWN_FLAGS = [
   "meal_regeneration",
   "reminders",
   "fallback_plan",
+  // v8 (MW-S10): experiment rollback switches — turning one off disables the
+  // surface without touching stored data, so an experiment can be rolled back
+  // without data corruption.
+  "plan_repair",
+  "weekly_reflection",
 ] as const;
 
 export type FeatureFlag = (typeof KNOWN_FLAGS)[number];

@@ -28,6 +28,7 @@ import {
 } from "@/lib/plan/repair";
 import type { MealCardType } from "@/schemas/ai-output-v2";
 import { trackEvent } from "@/lib/analytics";
+import { isFlagEnabled } from "@/lib/flags";
 
 /**
  * MW-S02: atomic "Adjust the rest of today".
@@ -59,6 +60,19 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // MW-S10: experiment rollback switch — disabling the flag pauses the
+  // surface with honest copy and no data change.
+  if (!isFlagEnabled("plan_repair")) {
+    return NextResponse.json(
+      {
+        error: "feature_paused",
+        user_message:
+          "Adjusting the rest of today is briefly paused. Your plan is unchanged — please try again later.",
+      },
+      { status: 503 }
+    );
+  }
 
   const guard = await guardAiRoute(user.id, {
     requirePremium: true,

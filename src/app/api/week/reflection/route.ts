@@ -11,6 +11,7 @@ import {
   type WeeklyReflectionSelections,
 } from "@/lib/week/reflection";
 import { trackEvent } from "@/lib/analytics";
+import { isFlagEnabled } from "@/lib/flags";
 
 /**
  * MW-S06: weekly reflection.
@@ -75,6 +76,17 @@ const Input = z.object({
 });
 
 export async function POST(request: Request) {
+  // MW-S10: experiment rollback switch — pausing never corrupts saved data.
+  if (!isFlagEnabled("weekly_reflection")) {
+    return NextResponse.json(
+      {
+        error: "feature_paused",
+        user_message:
+          "Weekly reflections are briefly paused — nothing you chose was lost. Please try again later.",
+      },
+      { status: 503 }
+    );
+  }
   const supabase = await createClient();
   const {
     data: { user },
