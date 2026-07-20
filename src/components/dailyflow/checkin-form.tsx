@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Loader2, Feather } from "lucide-react";
+import { ChevronDown, Loader2, Feather, X } from "lucide-react";
 import clsx from "clsx";
+import { trackClient } from "@/lib/analytics/client";
 
 function Scale({
   label,
@@ -82,6 +83,27 @@ const AREA_OPTIONS: { value: string; label: string }[] = [
 ];
 
 const DRAFT_KEY = "mellowa_checkin_draft";
+
+// MW-S04: routine preset shape returned by /api/presets.
+type Preset = {
+  id: string;
+  name: string;
+  context: string | null;
+  time_available: string | null;
+  mode: string;
+  areas: string[];
+  weekday_default: number | null;
+};
+
+const WEEKDAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
 
 type Draft = {
   energy: number;
@@ -164,6 +186,14 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
       /* corrupted draft — start fresh */
     }
     restored.current = true;
+    // MW-S08: arriving from a reminder email — schedule category only.
+    try {
+      if (new URLSearchParams(window.location.search).get("from") === "reminder") {
+        trackClient("reminder_link_opened", { surface: "check_in" });
+      }
+    } catch {
+      /* tracking is never load-bearing */
+    }
   }, []);
   useEffect(() => {
     if (!restored.current) return;
@@ -176,6 +206,130 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
+
+  // ---- MW-S04: routine presets -----------------------------------------
+  // A preset prefills PRACTICAL fields only (time, context, mode, areas) and
+  // lists exactly what it filled. Energy/stress and notes always stay fresh
+  // inputs, so a preset can never bypass today's capacity check or safety.
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [applied, setApplied] = useState<{ name: string; fields: string[] } | null>(null);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const [presetWeekday, setPresetWeekday] = useState<string>("");
+  const [presetMsg, setPresetMsg] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  function applyPreset(p: Preset, auto = false) {
+    const fields: string[] = [];
+    setDraft((d) => {
+      const next = { ...d };
+      if (p.time_available) {
+        next.time = p.time_available;
+        fields.push(`time: ${p.time_available.toLowerCase()}`);
+      }
+      if (p.context) {
+        next.context = p.context;
+        const label = CONTEXT_OPTIONS.find((c) => c.value === p.context)?.label;
+        fields.push(`context: ${(label ?? p.context).toLowerCase()}`);
+      }
+      if (p.mode && p.mode !== "auto") {
+        next.mode = p.mode;
+        const label = MODE_OPTIONS.find((m) => m.value === p.mode)?.label;
+        fields.push(`plan focus: ${(label ?? p.mode).toLowerCase()}`);
+      }
+      if (p.areas.length) {
+        next.areas = p.areas;
+        fields.push(`areas: ${p.areas.join(", ")}`);
+      }
+      return next;
+    });
+    setApplied({ name: p.name, fields });
+    trackClient("preset_applied", {
+      surface: "check_in",
+      ...(p.context ? { context_type: p.context } : {}),
+    });
+    if (auto) setPresetMsg(null);
+  }
+
+  function removeApplied() {
+    setDraft((d) => ({
+      ...d,
+      time: DEFAULT_DRAFT.time,
+      context: DEFAULT_DRAFT.context,
+      mode: DEFAULT_DRAFT.mode,
+      areas: DEFAULT_DRAFT.areas,
+    }));
+    setApplied(null);
+  }
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/presets")
+      .then((r) => (r.ok ? r.json() : { presets: [] }))
+      .then((d) => {
+        if (!active) return;
+        const list = (d.presets as Preset[]) ?? [];
+        setPresets(list);
+        // User-configured weekday default: apply only onto an untouched form,
+        // always with the visible "Applied preset" chip and one-tap remove.
+        const weekday = (new Date().getDay() + 6) % 7; // 0 = Monday
+        const dflt = list.find((p) => p.weekday_default === weekday);
+        try {
+          const raw = localStorage.getItem(DRAFT_KEY);
+          const saved = raw ? JSON.parse(raw) : null;
+          const hasToday = saved?.date === localDate() && saved?.draft;
+          if (dflt && !hasToday) applyPreset(dflt, true);
+        } catch {
+          /* draft unreadable — skip auto-apply */
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function savePreset() {
+    const name = presetName.trim();
+    if (!name) return;
+    setPresetMsg(null);
+    try {
+      const res = await fetch("/api/presets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          context: draft.context || null,
+          time_available: draft.time || null,
+          mode: draft.mode,
+          areas: draft.mode === "custom" ? draft.areas : [],
+          weekday_default: presetWeekday === "" ? null : Number(presetWeekday),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSaveOpen(false);
+        setPresetName("");
+        setPresetWeekday("");
+        const refreshed = await fetch("/api/presets").then((r) => r.json());
+        setPresets((refreshed.presets as Preset[]) ?? []);
+      } else {
+        setPresetMsg(data.user_message ?? "The preset couldn't be saved — try again.");
+      }
+    } catch {
+      setPresetMsg("The preset couldn't be saved — try again.");
+    }
+  }
+
+  async function deletePreset(id: string) {
+    setConfirmDelete(null);
+    setPresets((prev) => prev.filter((p) => p.id !== id));
+    try {
+      await fetch(`/api/presets?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    } catch {
+      /* best effort */
+    }
+  }
 
   async function submit(kind: "plan" | "skip") {
     setError(null);
@@ -291,6 +445,72 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
 
   return (
     <div className="space-y-5 rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+      {/* MW-S04: routine presets — practical prefill, never energy/stress. */}
+      {(presets.length > 0 || applied) && (
+        <div>
+          <p className="mb-2 text-sm font-medium text-[#1F2937]">
+            Start from a routine{" "}
+            <span className="font-normal text-[#6B7280]">(optional)</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {presets.map((p) => (
+              <span key={p.id} className="inline-flex items-center">
+                <button
+                  type="button"
+                  onClick={() => applyPreset(p)}
+                  className={clsx(
+                    "rounded-l-full border border-r-0 px-3.5 py-1.5 text-sm transition",
+                    applied?.name === p.name
+                      ? "border-[#7C9A92] bg-[#7C9A92]/10 font-medium text-[#1F2937]"
+                      : "border-[#E5E1DA] bg-white text-[#6B7280] hover:border-[#7C9A92]/50"
+                  )}
+                >
+                  {p.name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    confirmDelete === p.id ? deletePreset(p.id) : setConfirmDelete(p.id)
+                  }
+                  aria-label={
+                    confirmDelete === p.id
+                      ? `Confirm removing preset ${p.name}`
+                      : `Remove preset ${p.name}`
+                  }
+                  className={clsx(
+                    "rounded-r-full border border-l-0 px-2 py-1.5 text-xs transition",
+                    confirmDelete === p.id
+                      ? "border-[#FCA5A5] bg-[#FEE2E2] text-[#991B1B]"
+                      : "border-[#E5E1DA] bg-white text-[#9CA3AF] hover:text-[#991B1B]"
+                  )}
+                >
+                  {confirmDelete === p.id ? "Remove?" : <X className="h-3.5 w-3.5" />}
+                </button>
+              </span>
+            ))}
+          </div>
+          {applied && (
+            <div
+              className="mt-2 flex items-start justify-between gap-2 rounded-xl bg-[#EEF2FF] px-3 py-2 text-xs text-[#1F2937]"
+              aria-live="polite"
+            >
+              <span>
+                Applied preset <span className="font-medium">{applied.name}</span>
+                {applied.fields.length > 0 && <> — filled {applied.fields.join("; ")}</>}
+                . Energy and stress below are always about today.
+              </span>
+              <button
+                type="button"
+                onClick={removeApplied}
+                className="shrink-0 font-medium text-[#7C9A92] underline underline-offset-2 hover:text-[#6D8C7D]"
+              >
+                Remove for today
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <Scale label="Energy available today" low="Running low" high="Plenty available" value={draft.energy} onChange={(v) => set("energy", v)} />
       <Scale label="Stress" low="Calm" high="Very stretched" value={draft.stress} onChange={(v) => set("stress", v)} />
 
@@ -395,6 +615,68 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
         )}
       </div>
 
+      {/* MW-S04: save the practical setup (time/context/focus) for reuse. */}
+      {!saveOpen ? (
+        <button
+          type="button"
+          onClick={() => setSaveOpen(true)}
+          className="text-sm font-medium text-[#7C9A92] underline underline-offset-2 hover:text-[#6D8C7D]"
+        >
+          Save current setup as preset
+        </button>
+      ) : (
+        <div className="rounded-xl bg-[#FAF7F2] p-4">
+          <p className="text-sm font-medium text-[#1F2937]">Save as preset</p>
+          <p className="mt-0.5 text-xs text-[#6B7280]">
+            Saves time, context and plan focus only — never today&apos;s energy,
+            stress or notes. The name stays private to your list.
+          </p>
+          <input
+            type="text"
+            value={presetName}
+            onChange={(e) => setPresetName(e.target.value)}
+            maxLength={40}
+            placeholder="e.g. Office day, Late shift, Travel light"
+            className={`mt-2 ${inputClass}`}
+          />
+          <label className="mt-2 block text-xs text-[#6B7280]">
+            Use automatically on
+            <select
+              value={presetWeekday}
+              onChange={(e) => setPresetWeekday(e.target.value)}
+              className="ml-2 rounded-lg border border-[#E5E1DA] px-2 py-1 text-sm text-[#1F2937]"
+            >
+              <option value="">No day — apply manually</option>
+              {WEEKDAYS.map((d, i) => (
+                <option key={d} value={i}>
+                  {d}s
+                </option>
+              ))}
+            </select>
+          </label>
+          {presetMsg && (
+            <p className="mt-2 text-xs text-[#991B1B]">{presetMsg}</p>
+          )}
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={savePreset}
+              disabled={!presetName.trim()}
+              className="rounded-xl bg-[#7C9A92] px-3.5 py-2 text-sm font-medium text-white transition hover:bg-[#6D8C7D] disabled:opacity-60"
+            >
+              Save preset
+            </button>
+            <button
+              type="button"
+              onClick={() => setSaveOpen(false)}
+              className="rounded-xl border border-[#E5E1DA] px-3.5 py-2 text-sm text-[#6B7280] transition hover:border-[#7C9A92]/50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Optional detail, collapsed by default */}
       <button
         type="button"
@@ -451,6 +733,22 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
       {error && (
         <div className="rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]">{error}</div>
       )}
+
+      {/* MW-S03: compact pre-generation disclosure of what this plan uses. */}
+      <details className="group rounded-xl bg-[#FAF7F2] px-4 py-3 text-xs text-[#6B7280]">
+        <summary className="flex cursor-pointer list-none items-center gap-1 font-medium text-[#6B7280]">
+          <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+          Used for this plan
+        </summary>
+        <ul className="mt-2 space-y-1">
+          <li>• Today&apos;s check-in — energy, stress, time, context and any note (this day only).</li>
+          <li>• Your stable preferences — food preferences, allergies, cooking time and skill, movement level.</li>
+          <li>• Learned signals from your repeated feedback — visible and removable in Settings.</li>
+        </ul>
+        <p className="mt-2">
+          Nothing else is used. Free-text notes are never kept as memory.
+        </p>
+      </details>
 
       <button
         onClick={() => submit("plan")}

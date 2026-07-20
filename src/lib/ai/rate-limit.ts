@@ -22,7 +22,8 @@ export type AiRoute =
   | "habit-plan"
   | "journal-reflection"
   | "low-energy-day"
-  | "regenerate-section";
+  | "regenerate-section"
+  | "plan-repair";
 
 export interface ClaimResult {
   ok: boolean;

@@ -3,6 +3,7 @@ import { generateStructuredJson, type UsageSink } from "@/lib/ai/generate-json";
 import {
   WEEKLY_PLAN_SYSTEM_PROMPT,
   buildWeeklyPlanUserPrompt,
+  type MealContinuityContext,
 } from "@/prompts/weekly-plan";
 import { WeeklyPlanOutput, type WeeklyPlanOutputType } from "@/schemas/ai-output";
 import type { DailyCheckin, WellbeingProfile } from "@/types/dailyflow";
@@ -13,10 +14,12 @@ export async function generateWeeklyPlan(args: {
   habits: string[];
   notes: string;
   weekStart: string;
+  mealContinuity?: MealContinuityContext;
+  carryForward?: string;
   extraInstruction?: string;
   usageSink?: UsageSink;
 }): Promise<WeeklyPlanOutputType> {
-  const { profile, recentCheckins, habits, notes, weekStart, extraInstruction, usageSink } = args;
+  const { profile, recentCheckins, habits, notes, weekStart, mealContinuity, carryForward, extraInstruction, usageSink } = args;
 
   const profileContext = {
     primary_goal: profile.primary_goal,
@@ -45,6 +48,8 @@ export async function generateWeeklyPlan(args: {
     habits,
     notes,
     weekStart,
+    mealContinuity,
+    carryForward,
   });
 
   return generateStructuredJson({

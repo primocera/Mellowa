@@ -45,6 +45,46 @@ export const EVENT_NAMES = [
   "checkin_completed",
   "plan_generated",
   "plan_fallback_served",
+  // v8 value loop (MW-S01): the Now view. Views/deferrals are client claims;
+  // a completed action is server-confirmed by the plan-completion endpoint.
+  "now_viewed",
+  "now_action_done",
+  "now_action_deferred",
+  // v8 value loop (MW-S02): atomic remaining-day repair. All server-emitted —
+  // only the route knows whether a repair really committed.
+  "plan_repair_requested",
+  "plan_repair_completed",
+  "plan_repair_failed",
+  "plan_repair_undone",
+  // v8 (MW-S03): transparent, user-controlled personalization.
+  "personalization_viewed",
+  "preference_changed",
+  "learned_signal_removed",
+  // v8 (MW-S04): routine presets. Create/remove are server-confirmed writes;
+  // applying is a client-side prefill claim.
+  "preset_created",
+  "preset_applied",
+  "preset_removed",
+  // v8 (MW-S05): meal continuity — server-confirmed reuse/draft outcomes.
+  "favourite_reused",
+  "shopping_draft_built",
+  // v8 (MW-S06): weekly reflection and carry-forward.
+  "weekly_reflection_started",
+  "weekly_reflection_completed",
+  "carry_forward_saved",
+  "next_week_plan_created",
+  // v8 (MW-S07): sample value proof.
+  "sample_value_action_completed",
+  "premium_value_explained",
+  // v8 (MW-S08): consent-based reminders — client claims about settings taps
+  // and link opens; delivery truth lives in the email ledger.
+  "reminder_enabled",
+  "reminder_paused",
+  "reminder_disabled",
+  "reminder_link_opened",
+  // v8 (MW-S09): premium packaging.
+  "premium_value_viewed",
+  "reactivation_started",
 ] as const;
 
 export type AppEvent = (typeof EVENT_NAMES)[number];
@@ -71,6 +111,21 @@ export const SERVER_AUTHORITATIVE_EVENTS = new Set<AppEvent>([
   "checkin_completed",
   "plan_generated",
   "plan_fallback_served",
+  "now_action_done",
+  "plan_repair_requested",
+  "plan_repair_completed",
+  "plan_repair_failed",
+  "plan_repair_undone",
+  "learned_signal_removed",
+  "preset_created",
+  "preset_removed",
+  "favourite_reused",
+  "shopping_draft_built",
+  "weekly_reflection_completed",
+  "carry_forward_saved",
+  "next_week_plan_created",
+  "sample_value_action_completed",
+  "reactivation_started",
 ]);
 
 /** Client-describable events (views/clicks). Everything else is server-only. */
@@ -97,6 +152,32 @@ const CANCEL_REASON = [
   "missing_features",
   "taking_a_break",
   "other",
+] as const;
+/** Categorical plan-item type for the Now view (MW-S01) — never item text. */
+const ITEM_TYPE = [
+  "meal",
+  "movement",
+  "calm_reset",
+  "habit",
+  "evening",
+  "focus",
+] as const;
+/** Plan mode category. "unknown" covers legacy plans without a stored mode. */
+const PLAN_MODE = ["minimum", "balanced", "reset", "custom", "unknown"] as const;
+/** Bounded "Not now" reasons (MW-S01) — a closed set, never free text. */
+const DEFER_REASON = [
+  "no_time",
+  "too_much",
+  "not_relevant",
+  "already_handled",
+] as const;
+/** Bounded repair reasons (MW-S02) — categorical, never the user's note. */
+const REPAIR_REASON = [
+  "less_time",
+  "lower_energy",
+  "context_changed",
+  "meal_not_working",
+  "calmer_version",
 ] as const;
 
 /**
@@ -133,6 +214,23 @@ export const propertiesSchema = z
     experiment: slug,
     churn_type: z.enum(CHURN_TYPE),
     cancel_reason: z.enum(CANCEL_REASON),
+    item_type: z.enum(ITEM_TYPE),
+    plan_mode: z.enum(PLAN_MODE),
+    defer_reason: z.enum(DEFER_REASON),
+    repair_reason: z.enum(REPAIR_REASON),
+    /** Hyphen-joined changed-section TYPES (e.g. "meals-movement"), never content. */
+    sections: slug,
+    /** Canonical learned-signal code (MW-S03), e.g. "too_much" — never text. */
+    signal: slug,
+    /** Practical day-context category (MW-S04) — never the preset's name. */
+    context_type: z.enum([
+      "busy",
+      "low_capacity",
+      "out_of_routine",
+      "home",
+      "on_the_go",
+      "social",
+    ]),
   })
   .partial()
   .strict();
@@ -200,6 +298,22 @@ export const FUNNELS = {
     "payment_recovered",
     "trial_canceled",
     "account_deleted",
+  ],
+  /**
+   * v8 (MW-S10) core value funnel: account → baseline → sample → one Now
+   * action → one repair → trial → return check-in → weekly reflection →
+   * paid renewal. Value completions are server-confirmed events.
+   */
+  value_loop: [
+    "signup_completed",
+    "onboarding_completed",
+    "sample_plan_generated",
+    "now_action_done",
+    "plan_repair_completed",
+    "trial_started",
+    "checkin_completed",
+    "weekly_reflection_completed",
+    "subscription_renewed",
   ],
 } as const satisfies Record<string, readonly AppEvent[]>;
 

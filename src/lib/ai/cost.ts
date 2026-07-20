@@ -71,6 +71,7 @@ const ROUTE_TOKEN_ESTIMATE: Record<string, { input: number; output: number }> = 
   "journal-reflection": { input: 700, output: 900 },
   "low-energy-day": { input: 1000, output: 2000 },
   "regenerate-section": { input: 1200, output: 1500 },
+  "plan-repair": { input: 2200, output: 3000 },
 };
 
 const DEFAULT_ESTIMATE = { input: 1500, output: 2500 };

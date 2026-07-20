@@ -38,7 +38,8 @@ describe("today hierarchy copy (CE-8)", () => {
     expect(today).toContain("See ingredients");
     expect(today).toContain("Swap this meal");
     expect(today).toContain("Make it easier");
-    expect(today).toContain("Make today lighter");
+    // MW-S02: the whole-day action is the atomic repair sheet.
+    expect(today).toContain("Adjust the rest of today");
     expect(today).toContain("If today gets smaller:");
   });
 

@@ -50,6 +50,16 @@ export interface WellbeingProfile {
   reminder_time: string | null;
   quiet_hours_start: string | null;
   quiet_hours_end: string | null;
+  // v8 MW-S05: meal continuity (migration 030).
+  meal_reuse_favourites?: boolean;
+  meal_repeat_leftovers?: boolean;
+  meal_variety_level?: string | null;
+  pantry_items?: string[];
+  // v8 MW-S07/S08 (migrations 032/033).
+  sample_adjustment_used_at?: string | null;
+  reminders_paused?: boolean;
+  reminder_skip_date?: string | null;
+  reminder_consent_version?: string | null;
   consent_version: string | null;
   consent_accepted_at: string | null;
   created_at: string;

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { trackClient } from "@/lib/analytics/client";
 import clsx from "clsx";
 
 type Prefs = {
@@ -25,7 +26,24 @@ type Prefs = {
   reminder_time: string;
   quiet_hours_start: string;
   quiet_hours_end: string;
+  // v8 MW-S05: meal continuity — practical reuse, never nutrition targets.
+  meal_reuse_favourites: boolean;
+  meal_repeat_leftovers: boolean;
+  meal_variety_level: string;
+  pantry_items: string[];
+  // v8 MW-S08: reminder controls.
+  reminders_paused: boolean;
+  skip_today: boolean;
 };
+
+/** Version of the reminder consent copy shown before opting in (MW-S08). */
+const REMINDER_CONSENT_VERSION = "2026-07";
+
+const VARIETY_LEVEL = [
+  { value: "keep_it_similar", label: "Keep it similar" },
+  { value: "some_variety", label: "Some variety" },
+  { value: "lots_of_variety", label: "Lots of variety" },
+];
 
 const SCHEDULE_TYPE = [
   { value: "office", label: "Office" },
@@ -180,7 +198,16 @@ export function PlanPreferencesForm({
     reminder_time: initial.reminder_time ?? "",
     quiet_hours_start: initial.quiet_hours_start ?? "",
     quiet_hours_end: initial.quiet_hours_end ?? "",
+    meal_reuse_favourites: initial.meal_reuse_favourites ?? false,
+    meal_repeat_leftovers: initial.meal_repeat_leftovers ?? false,
+    meal_variety_level: initial.meal_variety_level ?? "",
+    pantry_items: initial.pantry_items ?? [],
+    reminders_paused: initial.reminders_paused ?? false,
+    skip_today: initial.skip_today ?? false,
   });
+  const [pantryText, setPantryText] = useState(
+    (initial.pantry_items ?? []).join(", ")
+  );
   const [dislikedText, setDislikedText] = useState(
     (initial.disliked_ingredients ?? []).join(", ")
   );
@@ -220,10 +247,38 @@ export function PlanPreferencesForm({
         reminder_time: prefs.reminder_time || null,
         quiet_hours_start: prefs.quiet_hours_start || null,
         quiet_hours_end: prefs.quiet_hours_end || null,
+        meal_reuse_favourites: prefs.meal_reuse_favourites,
+        meal_repeat_leftovers: prefs.meal_repeat_leftovers,
+        meal_variety_level: prefs.meal_variety_level || null,
+        pantry_items: pantryText
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0 && s.length <= 40)
+          .slice(0, 20),
+        // MW-S08: pause/skip take effect before the next send; consent
+        // version records that the example content was shown before opt-in.
+        reminders_paused: prefs.reminders_paused,
+        reminder_skip_date: prefs.skip_today
+          ? new Date().toISOString().slice(0, 10)
+          : null,
+        ...(prefs.reminders_opt_in && !initial.reminders_opt_in
+          ? { reminder_consent_version: REMINDER_CONSENT_VERSION }
+          : {}),
       })
       .eq("user_id", userId);
     setSaving(false);
     setSaved(true);
+    // MW-S03: categorical event only — never the preference values.
+    trackClient("preference_changed", { surface: "settings" });
+    // MW-S08: reminder lifecycle events, schedule category only.
+    if (prefs.reminders_opt_in && !initial.reminders_opt_in) {
+      trackClient("reminder_enabled", { surface: "settings" });
+    } else if (!prefs.reminders_opt_in && initial.reminders_opt_in) {
+      trackClient("reminder_disabled", { surface: "settings" });
+    }
+    if (prefs.reminders_paused && !initial.reminders_paused) {
+      trackClient("reminder_paused", { surface: "settings" });
+    }
   }
 
   return (
@@ -354,6 +409,69 @@ export function PlanPreferencesForm({
         </div>
 
         <div>
+          <p className="mb-2 text-sm font-medium text-[#1F2937]">
+            Meal continuity{" "}
+            <span className="font-normal text-[#6B7280]">
+              (practical reuse — never a diet)
+            </span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => set("meal_reuse_favourites", !prefs.meal_reuse_favourites)}
+              aria-pressed={prefs.meal_reuse_favourites}
+              className={clsx(
+                "rounded-full border px-3 py-1.5 text-sm transition",
+                prefs.meal_reuse_favourites
+                  ? "border-[#7C9A92] bg-[#7C9A92]/10 font-medium text-[#1F2937]"
+                  : "border-[#E5E1DA] bg-white text-[#6B7280] hover:border-[#7C9A92]/50"
+              )}
+            >
+              Reuse my saved meals
+            </button>
+            <button
+              type="button"
+              onClick={() => set("meal_repeat_leftovers", !prefs.meal_repeat_leftovers)}
+              aria-pressed={prefs.meal_repeat_leftovers}
+              className={clsx(
+                "rounded-full border px-3 py-1.5 text-sm transition",
+                prefs.meal_repeat_leftovers
+                  ? "border-[#7C9A92] bg-[#7C9A92]/10 font-medium text-[#1F2937]"
+                  : "border-[#E5E1DA] bg-white text-[#6B7280] hover:border-[#7C9A92]/50"
+              )}
+            >
+              Plan leftovers
+            </button>
+          </div>
+          <p className="mb-2 mt-3 text-sm font-medium text-[#1F2937]">Variety</p>
+          <Chips
+            options={VARIETY_LEVEL}
+            value={prefs.meal_variety_level}
+            onChange={(v) => set("meal_variety_level", v)}
+          />
+          <label className="mb-1 mt-3 block text-sm font-medium text-[#1F2937]">
+            Usually on hand{" "}
+            <span className="font-normal text-[#6B7280]">
+              (left off shopping drafts — comma separated)
+            </span>
+          </label>
+          <input
+            type="text"
+            value={pantryText}
+            onChange={(e) => {
+              setPantryText(e.target.value);
+              setSaved(false);
+            }}
+            placeholder="e.g. rice, olive oil, oats"
+            className="w-full rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
+          />
+          <p className="mt-1 text-xs text-[#9CA3AF]">
+            We never assume your pantry is complete — the draft just skips what
+            you list here, and shows it separately.
+          </p>
+        </div>
+
+        <div>
           <label className="mb-1 block text-sm font-medium text-[#1F2937]">
             Foods you&apos;d rather avoid{" "}
             <span className="font-normal text-[#6B7280]">
@@ -412,17 +530,65 @@ export function PlanPreferencesForm({
             />
             Send me a gentle daily reminder
           </label>
+          {/* MW-S08: the exact content is shown BEFORE consent — what you see
+              is what is sent. Email only; one per day at most. */}
+          <div className="mt-2 rounded-xl bg-[#FAF7F2] px-3 py-2.5 text-xs text-[#6B7280]">
+            <p className="font-medium text-[#1F2937]">
+              Example of the email you&apos;d get (at most one per day, by email,
+              only on days without a plan yet):
+            </p>
+            <p className="mt-1 italic">
+              Subject: A gentle nudge from Mellowa — &ldquo;Whenever you have a
+              minute, a quick check-in can shape a plan that actually fits
+              today. No pressure — skipping days is part of it.&rdquo;
+            </p>
+            <p className="mt-1">
+              It never mentions your mood, energy, meals, journal or plan
+              content. Quiet hours and your local time are respected; pause or
+              turn it off any time.
+            </p>
+          </div>
           {prefs.reminders_opt_in && (
-            <div className="mt-3">
-              <label className="mb-1 block text-sm font-medium text-[#1F2937]">
-                Preferred reminder time
-              </label>
-              <input
-                type="time"
-                value={prefs.reminder_time}
-                onChange={(e) => set("reminder_time", e.target.value)}
-                className="w-32 rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm text-[#1F2937] focus:border-[#7C9A92] focus:outline-none"
-              />
+            <div className="mt-3 space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#1F2937]">
+                  Preferred reminder time
+                </label>
+                <input
+                  type="time"
+                  value={prefs.reminder_time}
+                  onChange={(e) => set("reminder_time", e.target.value)}
+                  className="w-32 rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm text-[#1F2937] focus:border-[#7C9A92] focus:outline-none"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => set("reminders_paused", !prefs.reminders_paused)}
+                  aria-pressed={prefs.reminders_paused}
+                  className={clsx(
+                    "rounded-full border px-3 py-1.5 text-xs transition",
+                    prefs.reminders_paused
+                      ? "border-[#7C9A92] bg-[#7C9A92]/10 font-medium text-[#1F2937]"
+                      : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"
+                  )}
+                >
+                  {prefs.reminders_paused ? "Paused — tap to resume" : "Pause reminders"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => set("skip_today", !prefs.skip_today)}
+                  aria-pressed={prefs.skip_today}
+                  className={clsx(
+                    "rounded-full border px-3 py-1.5 text-xs transition",
+                    prefs.skip_today
+                      ? "border-[#7C9A92] bg-[#7C9A92]/10 font-medium text-[#1F2937]"
+                      : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"
+                  )}
+                >
+                  {prefs.skip_today ? "Skipping today" : "Skip today"}
+                </button>
+              </div>
             </div>
           )}
         </div>

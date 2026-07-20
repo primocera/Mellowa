@@ -28,7 +28,19 @@ export function isVerdict(v: string): v is Verdict {
   return FEEDBACK_OPTIONS.some((o) => o.verdict === v);
 }
 
-export type FeedbackRow = { item_key: string; verdict: string };
+export type FeedbackRow = {
+  item_key: string;
+  verdict: string;
+  /** ISO timestamp; needed to honour suppression boundaries (MW-S03). */
+  created_at?: string;
+};
+
+/**
+ * MW-S03 removal boundary: feedback at or before suppressed_at no longer
+ * counts toward that signal, so a removed signal cannot reappear until the
+ * threshold is met again from feedback given AFTER the removal.
+ */
+export type SignalSuppression = { signal: string; suppressed_at: string };
 
 export type Learned = {
   /** Stable signal id — also the removal handle. */
@@ -71,12 +83,25 @@ const SIGNALS: Record<
  * Build the user-facing learned list from recent feedback rows. Bounded and
  * ordered by how strongly each signal appears.
  */
-export function deriveLearned(rows: FeedbackRow[]): Learned[] {
+export function deriveLearned(
+  rows: FeedbackRow[],
+  suppressions: SignalSuppression[] = []
+): Learned[] {
+  const boundary = new Map<string, number>();
+  for (const s of suppressions) {
+    const t = Date.parse(s.suppressed_at);
+    if (Number.isFinite(t)) boundary.set(s.signal, t);
+  }
   const counts = new Map<Verdict, number>();
   for (const r of rows) {
-    if (isVerdict(r.verdict) && r.verdict !== "helpful") {
-      counts.set(r.verdict, (counts.get(r.verdict) ?? 0) + 1);
+    if (!isVerdict(r.verdict) || r.verdict === "helpful") continue;
+    const cut = boundary.get(r.verdict);
+    if (cut !== undefined) {
+      // No timestamp on the row → treat as pre-boundary (conservative).
+      const at = r.created_at ? Date.parse(r.created_at) : NaN;
+      if (!Number.isFinite(at) || at <= cut) continue;
     }
+    counts.set(r.verdict, (counts.get(r.verdict) ?? 0) + 1);
   }
   return [...counts.entries()]
     .filter(([, n]) => n >= MIN_COUNT)

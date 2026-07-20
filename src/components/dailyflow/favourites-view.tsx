@@ -25,6 +25,7 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
   const [building, setBuilding] = useState(false);
   const [categories, setCategories] = useState<ShoppingCategory[] | null>(null);
   const [excluded, setExcluded] = useState<string[]>([]);
+  const [onHand, setOnHand] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   // Prompt 13: servings multiplier and a check-off ("have it") set so a
   // pantry item can be ticked without disappearing.
@@ -68,6 +69,7 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
       if (!res.ok) throw new Error("failed");
       setCategories((data.categories as ShoppingCategory[]) ?? []);
       setExcluded((data.excluded_meals as string[]) ?? []);
+      setOnHand((data.on_hand as string[]) ?? []);
     } catch {
       setError(errorCopy("generic"));
     }
@@ -189,6 +191,12 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
             <p className="mt-2 rounded-xl bg-[#FEF3C7] px-3 py-2 text-xs text-[#92400E]">
               Skipped {excluded.join(", ")} — these saved meals may conflict
               with your current allergy list.
+            </p>
+          )}
+          {onHand.length > 0 && (
+            <p className="mt-2 rounded-xl bg-[#FAF7F2] px-3 py-2 text-xs text-[#6B7280]">
+              Marked as usually on hand (not on the list): {onHand.join(", ")}.
+              Double-check your pantry — we never assume it&apos;s complete.
             </p>
           )}
           {categories.length === 0 ? (

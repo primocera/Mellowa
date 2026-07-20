@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MealCardSchema } from "@/schemas/ai-output-v2";
 import { findMealAllergenViolations } from "@/lib/safety/allergens";
 import { aggregateShopping, formatItem } from "@/lib/shopping/aggregate";
+import { trackEvent } from "@/lib/analytics";
 
 const Input = z.object({
   meal_ids: z.array(z.string().uuid()).min(1).max(30),
@@ -47,10 +48,15 @@ export async function POST(request: Request) {
   // before an allergy list changed must not flow into shopping items.
   const { data: profile } = await supabase
     .from("wellbeing_profiles")
-    .select("allergies")
+    .select("allergies, pantry_items")
     .eq("user_id", user.id)
     .maybeSingle();
   const allergies = (profile?.allergies ?? []).filter(Boolean);
+  // MW-S05: persistent pantry — items the user marked as already on hand are
+  // taken off the draft and listed separately (never silently dropped).
+  const pantry = ((profile?.pantry_items as string[] | null) ?? [])
+    .map((s) => String(s).trim().toLowerCase())
+    .filter(Boolean);
 
   // Collect safe meals, then aggregate: merge unit-compatible lines, group by
   // category, keep recipe traceability and scale by servings (Prompt 13).
@@ -72,10 +78,21 @@ export async function POST(request: Request) {
     });
   }
 
-  const categories = aggregateShopping(
+  const allCategories = aggregateShopping(
     safeMeals,
     parsed.data.servings_scale ?? 1
   );
+  const onHand: string[] = [];
+  const categories = allCategories
+    .map((c) => ({
+      ...c,
+      items: c.items.filter((it) => {
+        const isOnHand = pantry.some((p) => it.name.toLowerCase() === p);
+        if (isOnHand) onHand.push(formatItem(it));
+        return !isOnHand;
+      }),
+    }))
+    .filter((c) => c.items.length > 0);
   // Flat, sorted string list kept for backward compatibility + persistence.
   const items = categories
     .flatMap((c) => c.items.map(formatItem))
@@ -90,6 +107,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to save list" }, { status: 500 });
   }
 
+  trackEvent("shopping_draft_built", {
+    userId: user.id,
+    properties: { surface: "week" },
+  });
+
   return NextResponse.json({
     ok: true,
     list: saved,
@@ -98,5 +120,7 @@ export async function POST(request: Request) {
     categories,
     // Surfaced in the UI so exclusions are never silent.
     excluded_meals: excludedMeals,
+    // Pantry items left off the draft — shown, not silently dropped.
+    on_hand: onHand,
   });
 }

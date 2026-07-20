@@ -19,6 +19,7 @@ export type AiRouteName =
   | "low-energy-day"
   | "journal-reflection"
   | "regenerate-section"
+  | "plan-repair"
   | "safety-check";
 
 export interface ModelPolicy {
@@ -100,6 +101,16 @@ export const MODEL_POLICIES: Record<AiRouteName, ModelPolicy> = {
     latencyBudgetMs: 25_000,
     // Non-meal sections are served from the curated library without AI.
     degradation: "curated_fallback",
+  },
+  "plan-repair": {
+    model: null,
+    temperature: 0.6,
+    maxTokens: 4096,
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+    costBudgetUsdPerCall: 0.025,
+    latencyBudgetMs: 35_000,
+    // A failed repair leaves the prior plan untouched — fail closed.
+    degradation: "fail_closed",
   },
   "safety-check": {
     model: null,

@@ -13,6 +13,8 @@ import {
 } from "@/schemas/ai-output-v2";
 import type { MealCardType } from "@/schemas/ai-output-v2";
 import { guardAiRoute } from "@/lib/ai/guard";
+import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
+import { trackEvent } from "@/lib/analytics";
 import type { UsageSink } from "@/lib/ai/generate-json";
 import { finalizeAiUsage, releaseReservation, sumUsage } from "@/lib/ai/usage";
 import { promptVersionId } from "@/prompts/versions";
@@ -89,8 +91,10 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Premium-only + rate limit — regeneration is a provider call.
-  const guard = await guardAiRoute(user.id, { requirePremium: true, route: "regenerate-section" });
+  // Consent/abuse/rate-limit gate. Premium is enforced below per section:
+  // meal regeneration is a provider call and stays Premium-only, while the
+  // sample tier gets ONE lifetime curated (non-AI) section swap (MW-S07).
+  const guard = await guardAiRoute(user.id, { requirePremium: false, route: "regenerate-section" });
   if (guard instanceof NextResponse) return guard;
   const eventId = guard.eventId;
 
@@ -112,6 +116,35 @@ export async function POST(request: Request) {
   }
   const { plan_id, section_name, meal_type, reason, user_note } = parsed.data;
 
+  const sub = await getUserSubscriptionStatus(user.id);
+  let sampleAdjustment = false;
+  if (!sub.isPremium) {
+    if (section_name === "meal_card") {
+      await releaseReservation(eventId);
+      return NextResponse.json(
+        { error: "premium_required", scope: "ai" },
+        { status: 402 }
+      );
+    }
+    // Atomic one-lifetime claim: the conditional update only succeeds while
+    // sample_adjustment_used_at is null. Server-enforced; disclosed in copy.
+    const { data: claimed } = await supabase
+      .from("wellbeing_profiles")
+      .update({ sample_adjustment_used_at: new Date().toISOString() })
+      .eq("user_id", user.id)
+      .is("sample_adjustment_used_at", null)
+      .select("user_id")
+      .maybeSingle();
+    if (!claimed) {
+      await releaseReservation(eventId);
+      return NextResponse.json(
+        { error: "sample_adjustment_used", scope: "ai" },
+        { status: 402 }
+      );
+    }
+    sampleAdjustment = true;
+  }
+
   // Plan must belong to the user (RLS also enforces this)
   const { data: plan } = await supabase
     .from("daily_plans")
@@ -120,8 +153,18 @@ export async function POST(request: Request) {
     .eq("user_id", user.id)
     .maybeSingle();
 
+  // Failed/blocked requests never consume the sample allowance.
+  const refundSampleAdjustment = async () => {
+    if (!sampleAdjustment) return;
+    await supabase
+      .from("wellbeing_profiles")
+      .update({ sample_adjustment_used_at: null })
+      .eq("user_id", user.id);
+  };
+
   if (!plan) {
     await releaseReservation(eventId);
+    await refundSampleAdjustment();
     return NextResponse.json({ error: "Plan not found" }, { status: 404 });
   }
 
@@ -130,6 +173,7 @@ export async function POST(request: Request) {
     const safety = await checkInputSafety(user.id, "regenerate-section", user_note);
     if (safety.should_block_generation) {
       await finalizeAiUsage(eventId, { status: "safety_blocked", promptVersion: PROMPT_VERSION });
+      await refundSampleAdjustment();
       return NextResponse.json(
         { blocked: true, user_message: safety.user_message },
         { status: 200 }
@@ -176,9 +220,17 @@ export async function POST(request: Request) {
     // Curated content = no provider call; release the reservation.
     await releaseReservation(eventId);
     if (curatedError) {
+      await refundSampleAdjustment();
       return NextResponse.json({ error: "Failed to save section" }, { status: 500 });
     }
-    return NextResponse.json({ blocked: false, section: curated });
+    if (sampleAdjustment) {
+      // Server-confirmed: the sample user experienced one real adjustment.
+      trackEvent("sample_value_action_completed", {
+        userId: user.id,
+        properties: { surface: "today" },
+      });
+    }
+    return NextResponse.json({ blocked: false, section: curated, sample_adjustment: sampleAdjustment });
   }
 
   // Only meal cards reach the AI path — everything else was served curated.

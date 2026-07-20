@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Loader2,
   RefreshCw,
@@ -25,6 +25,24 @@ import type {
   MovementMomentType,
 } from "@/schemas/ai-output-v2";
 import { isLighterDay, pickCalmReset } from "@/lib/today/disclosure";
+import { nextAction, type NowItem } from "@/lib/today/next-action";
+import { trackClient } from "@/lib/analytics/client";
+import { useRouter } from "next/navigation";
+
+// MW-S07: honest entitlement copy per server decision. Trial eligibility is
+// decided server-side and shown only on Billing — never promised here.
+function entitlementMessage(code: string | undefined): string {
+  if (code === "sample_adjustment_used") {
+    return "Your free sample included one adjustment, and it's been used — everything you created stays readable. Ongoing daily adjustments, weekly continuity, preference learning and meal planning are part of Premium (see Billing).";
+  }
+  return "Meal swaps and new plans are part of Premium. Your free sample includes one non-meal adjustment — a simpler movement, calm reset or evening option. See Billing for plans.";
+}
+
+function newAttemptKey(): string {
+  return (crypto.randomUUID?.() ?? `r-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    .replace(/[^A-Za-z0-9_-]/g, "")
+    .slice(0, 64);
+}
 
 // ---- shapes stored on the plan row (jsonb) ----
 type Summary = { main_focus: string; energy_match?: string; short_note?: string };
@@ -168,9 +186,78 @@ export function TodayPlanV2({
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [simplifying, setSimplifying] = useState(false);
+  const router = useRouter();
+  // MW-S02 repair sheet state.
+  const [repairOpen, setRepairOpen] = useState(false);
+  const [repairReason, setRepairReason] = useState<string | null>(null);
+  const [repairNote, setRepairNote] = useState("");
+  const [keptKeys, setKeptKeys] = useState<Set<string>>(new Set());
+  const [repairSummary, setRepairSummary] = useState<string | null>(null);
+  const [repairAttemptKey, setRepairAttemptKey] = useState(newAttemptKey);
   const [doneItems, setDoneItems] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(completedKeys.map((k) => [k, true]))
   );
+
+  // ---- MW-S01: Now view state -------------------------------------------
+  // "Not now" deferrals live in localStorage per plan (device-only, bounded
+  // reason codes, no server storage) so they survive a refresh but reset with
+  // a new plan. Nothing here reorders or mutates the stored plan JSON.
+  const deferralStorageKey = `mellowa_now_deferred:${plan.id}`;
+  const [deferred, setDeferred] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem(deferralStorageKey);
+      const parsed: unknown = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((k) => typeof k === "string") : [];
+    } catch {
+      return [];
+    }
+  });
+  // Local time is read once per visit; the phase is a broad window, so a
+  // minute-level tick isn't needed and keeps selection stable while reading.
+  const [nowMinutes] = useState(
+    () => new Date().getHours() * 60 + new Date().getMinutes()
+  );
+  const [showFull, setShowFull] = useState(false);
+  const [deferOpen, setDeferOpen] = useState(false);
+  const planModeCategory = (
+    plan.plan_mode && ["minimum", "balanced", "reset", "custom"].includes(plan.plan_mode)
+      ? plan.plan_mode
+      : "unknown"
+  ) as "minimum" | "balanced" | "reset" | "custom" | "unknown";
+
+  const doneKeys = useMemo(
+    () => Object.keys(doneItems).filter((k) => doneItems[k]),
+    [doneItems]
+  );
+  const nowSelection = useMemo(
+    () => nextAction(plan, doneKeys, nowMinutes, deferred),
+    [plan, doneKeys, nowMinutes, deferred]
+  );
+
+  useEffect(() => {
+    trackClient("now_viewed", { plan_mode: planModeCategory });
+    // Fire once per visit to Today, whatever the selection state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function deferNow(item: NowItem, reason: string) {
+    setDeferOpen(false);
+    setDeferred((prev) => {
+      const next = prev.includes(item.key) ? prev : [...prev, item.key];
+      try {
+        window.localStorage.setItem(deferralStorageKey, JSON.stringify(next));
+      } catch {
+        /* session-only fallback */
+      }
+      return next;
+    });
+    trackClient("now_action_deferred", {
+      plan_mode: planModeCategory,
+      item_type: item.type,
+      defer_reason: reason,
+    });
+  }
 
   const summary = plan.plan_summary;
   const intensity = plan.plan_intensity ?? "normal";
@@ -187,20 +274,40 @@ export function TodayPlanV2({
     relaxation: plan.relaxation_technique,
   });
 
-  // Optimistic toggle + persist to plan_completions. Reverts on failure.
-  const toggleDone = (key: string) => {
+  // MW-S02: preview list for the repair sheet — every plan item with its
+  // completion key, so the user sees exactly what is kept vs. replaceable.
+  const planItems: { key: string; label: string }[] = [
+    ...meals.map((m) => ({
+      key: `meal:${m.meal_type}`,
+      label: `${m.meal_type.charAt(0).toUpperCase()}${m.meal_type.slice(1)} — ${m.title}`,
+    })),
+    ...(movement ? [{ key: "movement", label: `Movement — ${movement.title}` }] : []),
+    ...(calmReset ? [{ key: calmReset, label: "Calm reset" }] : []),
+    ...(showFocus && plan.focus_plan
+      ? [{ key: "focus", label: "Focus block" }]
+      : []),
+    ...(plan.evening_routine ? [{ key: "evening", label: "Evening wind-down" }] : []),
+    ...(plan.habit_focus ? [{ key: "habit", label: `Habit — ${plan.habit_focus.habit}` }] : []),
+  ];
+
+  // Optimistic toggle + persist to plan_completions. Reverts on failure and
+  // surfaces a retryable message so a flaky connection never loses the tap.
+  const toggleDone = (key: string, source: "now" | "plan" = "plan") => {
     const next = !doneItems[key];
     setDoneItems((d) => ({ ...d, [key]: next }));
     fetch("/api/plan/complete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan_id: plan.id, item_key: key, done: next }),
+      body: JSON.stringify({ plan_id: plan.id, item_key: key, done: next, source }),
     })
       .then((res) => {
         if (!res.ok) throw new Error("save failed");
       })
       .catch(() => {
         setDoneItems((d) => ({ ...d, [key]: !next }));
+        setMessage(
+          "That didn't save — your plan is unchanged. Tap it again to retry."
+        );
       });
   };
 
@@ -224,6 +331,9 @@ export function TodayPlanV2({
         setMeals((prev) =>
           prev.map((m) => (m.meal_type === mealType ? data.section : m))
         );
+      } else if (res.status === 402) {
+        setMessage(entitlementMessage(data.error));
+        trackClient("premium_value_explained", { surface: "today" });
       } else setMessage("Couldn't update that meal — try again in a moment.");
     } catch {
       setMessage("Couldn't update that meal — try again in a moment.");
@@ -246,41 +356,88 @@ export function TodayPlanV2({
       });
       const data = await res.json();
       if (data.blocked) setMessage(data.user_message);
-      else if (res.ok && data.section) setMovement(data.section);
-      else setMessage("Couldn't update movement — try again in a moment.");
+      else if (res.ok && data.section) {
+        setMovement(data.section);
+        if (data.sample_adjustment) {
+          setMessage(
+            "That was your sample's included adjustment — the result is yours to keep. Premium adds ongoing daily adjustments, weekly continuity, preference learning and meal planning."
+          );
+        }
+      } else if (res.status === 402) {
+        setMessage(entitlementMessage(data.error));
+        trackClient("premium_value_explained", { surface: "today" });
+      } else setMessage("Couldn't update movement — try again in a moment.");
     } catch {
       setMessage("Couldn't update movement — try again in a moment.");
     }
     setBusy(null);
   }
 
-  async function simplifyDay() {
+  // MW-S02: one atomic "Adjust the rest of today" request instead of the old
+  // per-section loop — a repair commits fully or not at all, and Undo is free.
+  async function submitRepair() {
+    if (!repairReason) return;
     setSimplifying(true);
     setMessage(null);
-    // Simplify each meal, then movement.
-    for (const meal of meals) {
-      try {
-        const res = await fetch("/api/ai/regenerate-section", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            plan_id: plan.id,
-            section_name: "meal_card",
-            meal_type: meal.meal_type,
-            reason: "simplify",
-          }),
-        });
-        const data = await res.json();
-        if (res.ok && data.section) {
-          setMeals((prev) =>
-            prev.map((m) => (m.meal_type === meal.meal_type ? data.section : m))
-          );
-        }
-      } catch {
-        /* keep original on failure */
+    try {
+      const res = await fetch("/api/ai/plan-repair", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-idempotency-key": repairAttemptKey,
+        },
+        body: JSON.stringify({
+          plan_id: plan.id,
+          reason: repairReason,
+          keep_keys: Array.from(keptKeys),
+          user_note: repairNote.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.blocked) {
+        setMessage(data.user_message);
+        setRepairOpen(false);
+      } else if (res.ok && data.repair_summary) {
+        setRepairSummary(data.repair_summary as string);
+        setRepairOpen(false);
+        router.refresh();
+      } else if (res.status === 402) {
+        setMessage(entitlementMessage(data.error));
+        trackClient("premium_value_explained", { surface: "today" });
+      } else {
+        setMessage(
+          data.user_message ??
+            "The adjustment didn't come through, so today's plan is unchanged. Please try again."
+        );
       }
+    } catch {
+      setMessage(
+        "The adjustment didn't come through, so today's plan is unchanged. Please try again."
+      );
     }
-    await regenerateMovement();
+    setRepairAttemptKey(newAttemptKey());
+    setSimplifying(false);
+  }
+
+  async function undoRepair() {
+    setSimplifying(true);
+    try {
+      const res = await fetch("/api/ai/plan-repair", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_id: plan.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.undone) {
+        setRepairSummary(null);
+        setMessage("Undone — your previous plan is back.");
+        router.refresh();
+      } else {
+        setMessage("Undo didn't go through — please try again.");
+      }
+    } catch {
+      setMessage("Undo didn't go through — please try again.");
+    }
     setSimplifying(false);
   }
 
@@ -320,6 +477,85 @@ export function TodayPlanV2({
         </div>
       )}
 
+      {/* MW-S01: Now — one next useful action from the saved plan. */}
+      {nowSelection.action ? (
+        <div className="rounded-2xl border border-[#E5E1DA] bg-white p-5 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+            Now · one next step
+          </p>
+          <div aria-live="polite">
+            <h2 className="mt-1 text-lg font-semibold text-[#1F2937]">
+              {nowSelection.action.title}
+            </h2>
+            <p className="mt-0.5 text-sm text-[#6B7280]">
+              {nowSelection.action.reason}
+              {typeof nowSelection.action.durationMinutes === "number" && (
+                <span className="text-[#9CA3AF]">
+                  {" "}
+                  · about {nowSelection.action.durationMinutes} min
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => toggleDone(nowSelection.action!.key, "now")}
+              className="rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6D8C7D]"
+            >
+              Done
+            </button>
+            <button
+              onClick={() => setDeferOpen((v) => !v)}
+              aria-expanded={deferOpen}
+              className="rounded-xl border border-[#E5E1DA] px-4 py-2 text-sm text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937]"
+            >
+              Not now
+            </button>
+            <button
+              onClick={() => setShowFull((v) => !v)}
+              className="rounded-xl px-3 py-2 text-sm text-[#7C9A92] underline underline-offset-2 hover:text-[#6D8C7D]"
+            >
+              {showFull ? "Hide full plan" : "View full plan"}
+            </button>
+          </div>
+          {deferOpen && (
+            <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Why not now?">
+              {(
+                [
+                  ["no_time", "No time right now"],
+                  ["too_much", "Too much right now"],
+                  ["not_relevant", "Not relevant today"],
+                  ["already_handled", "Already handled"],
+                ] as const
+              ).map(([code, label]) => (
+                <button
+                  key={code}
+                  onClick={() => deferNow(nowSelection.action!, code)}
+                  className="rounded-full border border-[#E5E1DA] px-3 py-1.5 text-xs text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937]"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          <p className="mt-3 text-xs text-[#9CA3AF]">
+            One step at a time is enough. The full plan is always here.
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-[#E5E1DA] bg-white p-5 shadow-sm" aria-live="polite">
+          <p className="text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+            Now
+          </p>
+          <p className="mt-1 text-sm text-[#1F2937]">
+            {nowSelection.allDone
+              ? "That's everything from today's plan. Nothing else is asked of you."
+              : "Nothing pressing right now. The full plan is below if you want it."}
+          </p>
+        </div>
+      )}
+
+      {(showFull || !nowSelection.action) && (<>
       {/* 2. Meal cards */}
       <div className="space-y-3">
         <h2 className="px-1 text-sm font-medium uppercase tracking-wide text-[#9CA3AF]">
@@ -648,24 +884,151 @@ export function TodayPlanV2({
       {/* Gentle feedback (Prompt 10) */}
       <PlanFeedback planId={plan.id} />
 
-      {/* This feels too much */}
-      <button
-        onClick={simplifyDay}
-        disabled={simplifying}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#E5E1DA] bg-white px-4 py-3 text-sm text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937] disabled:opacity-60"
-      >
-        {simplifying ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Making the day simpler…
-          </>
-        ) : (
-          <>
-            <Feather className="h-4 w-4" />
-            Make today lighter
-          </>
-        )}
-      </button>
+      </>)}
+
+      {/* MW-S02: after a committed repair — before/after summary + free Undo */}
+      {repairSummary && (
+        <div className="rounded-2xl bg-[#DCFCE7] p-5 text-sm text-[#1F2937]" aria-live="polite">
+          <p className="font-medium">Rest of today adjusted</p>
+          <p className="mt-1">{repairSummary}</p>
+          <p className="mt-1 text-xs text-[#6B7280]">
+            Done and kept items were left exactly as they were.
+          </p>
+          <button
+            onClick={undoRepair}
+            disabled={simplifying}
+            className="mt-3 rounded-xl border border-[#166534]/30 px-3.5 py-1.5 text-xs font-medium text-[#166534] transition hover:bg-white/60 disabled:opacity-60"
+          >
+            Undo — bring the previous plan back
+          </button>
+        </div>
+      )}
+
+      {/* MW-S02: atomic repair sheet */}
+      {repairOpen ? (
+        <div className="rounded-2xl border border-[#E5E1DA] bg-white p-5 shadow-sm">
+          <h2 className="font-medium text-[#1F2937]">Adjust the rest of today</h2>
+          <p className="mt-1 text-sm text-[#6B7280]">
+            One pass replaces only what&apos;s still open. Anything marked done
+            or kept stays exactly as it is.
+          </p>
+          <p className="mt-2 text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+            What changed?
+          </p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {(
+              [
+                ["less_time", "Less time"],
+                ["lower_energy", "Lower energy"],
+                ["context_changed", "Different context"],
+                ["meal_not_working", "Meals don't work"],
+                ["calmer_version", "Need a calmer version"],
+              ] as const
+            ).map(([code, label]) => (
+              <button
+                key={code}
+                onClick={() => setRepairReason(code)}
+                aria-pressed={repairReason === code}
+                className={clsx(
+                  "rounded-full border px-3 py-1.5 text-xs transition",
+                  repairReason === code
+                    ? "border-[#7C9A92] bg-[#7C9A92]/10 text-[#1F2937]"
+                    : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+            What will change
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {planItems.map((item) => {
+              const isDone = !!doneItems[item.key];
+              const isKept = keptKeys.has(item.key);
+              return (
+                <li key={item.key} className="flex items-center justify-between gap-2 text-sm">
+                  <span className={clsx(isDone || isKept ? "text-[#9CA3AF]" : "text-[#1F2937]")}>
+                    {item.label}
+                  </span>
+                  {isDone ? (
+                    <span className="rounded-full bg-[#DCFCE7] px-2.5 py-0.5 text-xs text-[#166534]">
+                      done — kept
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        setKeptKeys((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(item.key)) next.delete(item.key);
+                          else next.add(item.key);
+                          return next;
+                        })
+                      }
+                      aria-pressed={isKept}
+                      className={clsx(
+                        "rounded-full border px-2.5 py-0.5 text-xs transition",
+                        isKept
+                          ? "border-[#7C9A92] bg-[#7C9A92]/10 text-[#1F2937]"
+                          : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"
+                      )}
+                    >
+                      {isKept ? "Kept — won't change" : "Keep as is"}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <label className="mt-3 block text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+            Anything else? (optional)
+            <textarea
+              value={repairNote}
+              onChange={(e) => setRepairNote(e.target.value)}
+              maxLength={1000}
+              rows={2}
+              className="mt-1 w-full rounded-xl border border-[#E5E1DA] px-3 py-2 text-sm font-normal normal-case tracking-normal text-[#1F2937] focus:border-[#7C9A92] focus:outline-none"
+              placeholder="Used for this adjustment only — not saved or remembered."
+            />
+          </label>
+          <p className="mt-2 text-xs text-[#9CA3AF]">
+            Uses one plan generation from your fair-use allowance. Undo is free.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={submitRepair}
+              disabled={simplifying || !repairReason}
+              className="flex items-center gap-2 rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6D8C7D] disabled:opacity-60"
+            >
+              {simplifying ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Adjusting the rest of today…
+                </>
+              ) : (
+                "Adjust the rest of today"
+              )}
+            </button>
+            <button
+              onClick={() => setRepairOpen(false)}
+              disabled={simplifying}
+              className="rounded-xl border border-[#E5E1DA] px-4 py-2 text-sm text-[#6B7280] transition hover:border-[#7C9A92]/50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setRepairOpen(true)}
+          disabled={simplifying}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#E5E1DA] bg-white px-4 py-3 text-sm text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937] disabled:opacity-60"
+        >
+          <Feather className="h-4 w-4" />
+          Adjust the rest of today
+        </button>
+      )}
     </div>
   );
 }

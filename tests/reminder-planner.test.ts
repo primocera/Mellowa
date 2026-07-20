@@ -61,6 +61,34 @@ describe("planReminders", () => {
     expect(plan.invalidTimezones).toBe(1);
   });
 
+  it("MW-S08: paused profiles are never delivered, effective immediately", () => {
+    const plan = planReminders([profile({ reminders_paused: true })], NOW);
+    expect(plan.toDeliver).toHaveLength(0);
+    expect(plan.pausedOrSkipped).toBe(1);
+  });
+
+  it("MW-S08: skip-today suppresses only the matching local date", () => {
+    const skippedToday = planReminders(
+      [profile({ reminder_skip_date: "2026-07-17" })],
+      NOW
+    );
+    expect(skippedToday.toDeliver).toHaveLength(0);
+    expect(skippedToday.pausedOrSkipped).toBe(1);
+    const skippedYesterday = planReminders(
+      [profile({ reminder_skip_date: "2026-07-16" })],
+      NOW
+    );
+    expect(skippedYesterday.toDeliver).toHaveLength(1);
+  });
+
+  it("MW-S08: pause wins even when a send would otherwise be scheduled", () => {
+    const plan = planReminders(
+      [profile({ reminders_paused: true, reminder_time: "18:00" })],
+      NOW
+    );
+    expect(plan.toDeliver).toHaveLength(0);
+  });
+
   it("plans 10,000 synthetic profiles quickly with correct dedupe", () => {
     const profiles: ReminderProfile[] = [];
     for (let i = 0; i < 10_000; i++) {
