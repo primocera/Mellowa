@@ -41,11 +41,18 @@ experiment kill switches (`FLAG_PLAN_REPAIR`, `FLAG_WEEKLY_REFLECTION`).
 
 None of these can be proven from this environment:
 
-- [ ] **Apply migrations 027–033 to the live Supabase project** (plan repair
+- [x] **Apply migrations 027–033 to the live Supabase project** (plan repair
       versions + RPCs, learned suppressions, presets, meal continuity columns,
-      weekly reflections, sample adjustment claim, reminder controls). The v8
-      app assumes them; deploying without them breaks repair/presets/
-      reflection. Evidence: __
+      weekly reflections, sample adjustment claim, reminder controls) —
+      **applied by the operator on 2026-07-21**, before the v8 merge to `main`
+      (merge commit `f659909`). Confirm once more against the live project ref
+      (must match Vercel `NEXT_PUBLIC_SUPABASE_URL`) via `/api/health/ready`.
+- [x] **Live Stripe configuration switched** on 2026-07-21: live secret key,
+      live webhook endpoint (`/api/stripe/webhook`, 6 subscribed events) with
+      its live signing secret, and the two live EUR price IDs
+      (`STRIPE_PRICE_PRO_MONTHLY` €9.99, `STRIPE_PRICE_PRO_YEARLY` €59.99).
+      **Configuration only — this does NOT prove a charge works.** The
+      transaction rehearsal below remains open.
 - [ ] **One real low-value transaction** end to end: verified signup →
       onboarding → free sample → **one sample adjustment** → live trial
       checkout → exact charge disclosure → cancel → reactivate → billing
@@ -59,7 +66,15 @@ None of these can be proven from this environment:
       visibility; verify pause/skip-today suppresses delivery. Evidence: __
 - [ ] **AI cost/latency + daily cost ceiling** observed live, now including
       the plan-repair route. Evidence: __
-- [ ] **Cron completion**: all crons fire (native + external pingers).
+- [x] **Cron pingers configured** on 2026-07-21: cron-job.org jobs for
+      `/api/cron/email-outbox` (10–15 min), `/api/cron/billing-reconcile`
+      (daily) and `/api/cron/retention` (daily), all with
+      `Authorization: Bearer <CRON_SECRET>`; `trial-reminders` and
+      `daily-reminders` run on Vercel's two native cron slots.
+      **Still to observe:** that each job actually returns 200 in its run
+      history over a few days. Evidence: __
+- [ ] **Health monitoring** (`/api/health`, `/api/health/ready` with the admin
+      bearer) not configured yet — optional for beta, wanted before paid.
 - [ ] **Export/delete** on a test account; confirm no rows remain in the four
       new v8 tables (versions, suppressions, presets, reflections).
 - [ ] **Backup restore evidence + rollback drill** (Supabase PITR; redeploy),
@@ -75,9 +90,8 @@ None of these can be proven from this environment:
 
 | Sev | Item | Owner | Deadline | Mitigation |
 |---|---|---|---|---|
-| P0 | Live transaction rehearsal not yet run | Primoz | before any invite | none — hard gate |
-| P0 | Migrations 027–033 applied to the live project (verify ref vs Vercel URL) | Primoz | before invite | app assumes them |
-| P1 | Cron pingers for retention + billing-reconcile not configured | Primoz | week 1 | webhook keeps subs in sync meanwhile |
+| P0 | Live transaction rehearsal not yet run (live keys are set, a real charge is still unproven) | Primoz | before any invite | none — hard gate |
+| P1 | Health/uptime monitoring not configured | Primoz | week 1 | crons + Vercel logs surface hard failures |
 | P1 | `SUPABASE_SERVICE_ROLE_KEY` rotation pending | Primoz | before paid launch | key only in Vercel env today |
 | P1 | Beta experiment plan armed (metrics + stop criteria in `docs/analytics-events-v8.md`) before invites | Primoz | before invite | flags default ON; kill switches tested in drill |
 | P1 | Binary PWA PNG icons (192/512) | Primoz | before paid launch | SVG installs fine |
@@ -114,9 +128,15 @@ switch) or pause invites immediately if any of:
 - **Public paid launch: NO-GO.** Section 2 live evidence and the P0/P1 items in
   section 3 are open. Nothing in the v8 code pass changes this — the blockers
   are external configuration and live rehearsal, not code.
-- **Small invite-only beta (≤50): CONDITIONAL GO** — permitted once the two P0
-  rows are closed, with P1 items tracked to their deadlines, rollback triggers
-  armed, and the experiment stop criteria in `docs/analytics-events-v8.md`
-  monitored weekly.
+- **Small invite-only beta (≤50): CONDITIONAL GO** — permitted once the single
+  remaining P0 row (live transaction rehearsal) is closed, with P1 items
+  tracked to their deadlines, rollback triggers armed, and the experiment stop
+  criteria in `docs/analytics-events-v8.md` monitored weekly.
+
+**Status update 2026-07-21:** migrations 027–033 applied, v8 merged to `main`
+(`f659909`) and deployed, live Stripe keys/webhook/prices configured, three
+external cron jobs running. One P0 remains: an actual end-to-end live
+transaction. Until a real charge, cancel and refund path has been executed and
+recorded here, the paid verdict above stays NO-GO.
 
 Signed: ________________  Date: __________
