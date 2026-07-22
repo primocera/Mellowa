@@ -1,0 +1,79 @@
+name: CI
+
+# MW-V9-00: make missing tests visible on every PR and on protected main.
+# Authenticated Playwright E2E is environment-aware: it runs only when a seeded
+# test-user environment is present and is otherwise reported as SKIPPED (never
+# silently green). A release candidate must treat that skip as non-green.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    env:
+      # Placeholder build-time env. The server env accessors are lazy getters,
+      # so `next build` succeeds without real secrets. These values are NOT
+      # used for any live provider call in CI.
+      NEXT_PUBLIC_SUPABASE_URL: https://ci.placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit / contract / safety / eval suite
+        run: npm run test
+      - name: Production build
+        run: npm run build
+      - name: Public browser journeys
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e:public
+
+  authenticated-e2e:
+    name: Authenticated E2E (env-gated)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Check for seeded test-user environment
+        id: env
+        run: |
+          if [ -n "${{ secrets.E2E_TEST_USER_EMAIL }}" ] && [ -n "${{ secrets.E2E_SUPABASE_URL }}" ]; then
+            echo "seeded=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "seeded=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Authenticated E2E skipped::No seeded test-user environment configured. This job is NOT green for a release candidate — see docs/PRODUCT_ELEVATION_V9.md."
+          fi
+      - if: steps.env.outputs.seeded == 'true'
+        run: npm ci
+      - if: steps.env.outputs.seeded == 'true'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+          E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
