@@ -57,6 +57,7 @@ prohibited properties, and the product question it answers.
 | premium_value_viewed | billing plan card rendered | client | surface | Is the offer seen? |
 | reactivation_started | cancel flag cleared via API | server | surface | Do canceled users return? |
 | primary_nav_viewed | a primary destination opened (MW-V9-01) | client | surface, entitlement | Which of Today/Week/Saved/You do users use? |
+| checkin_started | daily check-in opened (MW-V9-02) | client | surface | Do people who open the check-in finish it? |
 
 Legacy (v6) events, unchanged: landing_cta_clicked, signup_started,
 signup_completed, email_verified, onboarding_started, onboarding_completed,

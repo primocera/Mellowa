@@ -89,6 +89,10 @@ export const EVENT_NAMES = [
   // destination was opened — destination + entitlement category only, never
   // check-in or plan content.
   "primary_nav_viewed",
+  // v9 (MW-V9-02): the daily check-in was opened/started. Client claim, surface
+  // only — never any energy/stress/mood value or note. Completion truth stays
+  // server-side via checkin_completed.
+  "checkin_started",
 ] as const;
 
 export type AppEvent = (typeof EVENT_NAMES)[number];
