@@ -85,6 +85,10 @@ export const EVENT_NAMES = [
   // v8 (MW-S09): premium packaging.
   "premium_value_viewed",
   "reactivation_started",
+  // v9 (MW-V9-01): Now-first IA. A client claim about which primary
+  // destination was opened — destination + entitlement category only, never
+  // check-in or plan content.
+  "primary_nav_viewed",
 ] as const;
 
 export type AppEvent = (typeof EVENT_NAMES)[number];
@@ -140,6 +144,21 @@ const SURFACE = [
   "landing", "pricing", "signup", "login", "verify_email", "onboarding",
   "today", "check_in", "week", "library", "patterns", "paywall", "billing",
   "settings", "email",
+  // v9 (MW-V9-01): the four primary destinations of the Now-first IA. "library"
+  // is retained (its route is unchanged); "saved" is its user-facing label.
+  "saved", "you",
+] as const;
+/**
+ * Bounded entitlement category for primary_nav_viewed (MW-V9-01). Coarse
+ * billing state only — never a user id, plan content or check-in signal.
+ */
+const ENTITLEMENT = [
+  "free",
+  "trialing",
+  "premium",
+  "past_due",
+  "canceled",
+  "unknown",
 ] as const;
 const PLAN_INTERVAL = ["monthly", "yearly"] as const;
 const OUTCOME = ["success", "failure", "blocked", "skipped", "cancelled"] as const;
@@ -222,6 +241,8 @@ export const propertiesSchema = z
     sections: slug,
     /** Canonical learned-signal code (MW-S03), e.g. "too_much" — never text. */
     signal: slug,
+    /** Coarse billing state for primary_nav_viewed (MW-V9-01) — never identity. */
+    entitlement: z.enum(ENTITLEMENT),
     /** Practical day-context category (MW-S04) — never the preset's name. */
     context_type: z.enum([
       "busy",

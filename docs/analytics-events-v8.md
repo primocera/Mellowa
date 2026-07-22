@@ -56,6 +56,7 @@ prohibited properties, and the product question it answers.
 | reminder_link_opened | arrival with from=reminder | client | surface | Do reminders bring people back? |
 | premium_value_viewed | billing plan card rendered | client | surface | Is the offer seen? |
 | reactivation_started | cancel flag cleared via API | server | surface | Do canceled users return? |
+| primary_nav_viewed | a primary destination opened (MW-V9-01) | client | surface, entitlement | Which of Today/Week/Saved/You do users use? |
 
 Legacy (v6) events, unchanged: landing_cta_clicked, signup_started,
 signup_completed, email_verified, onboarding_started, onboarding_completed,
