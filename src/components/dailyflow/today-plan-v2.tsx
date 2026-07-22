@@ -220,6 +220,10 @@ export function TodayPlanV2({
   );
   const [showFull, setShowFull] = useState(false);
   const [deferOpen, setDeferOpen] = useState(false);
+  // MW-V9-03: after Done on the Now card the item leaves selection and the next
+  // action appears. Keep a short, explicit undo/unmark for the item just marked
+  // so a mistaken tap is one click to reverse.
+  const [justDone, setJustDone] = useState<string | null>(null);
   const planModeCategory = (
     plan.plan_mode && ["minimum", "balanced", "reset", "custom"].includes(plan.plan_mode)
       ? plan.plan_mode
@@ -243,6 +247,7 @@ export function TodayPlanV2({
 
   function deferNow(item: NowItem, reason: string) {
     setDeferOpen(false);
+    setJustDone(null);
     setDeferred((prev) => {
       const next = prev.includes(item.key) ? prev : [...prev, item.key];
       try {
@@ -477,6 +482,26 @@ export function TodayPlanV2({
         </div>
       )}
 
+      {/* MW-V9-03: brief undo for the item just marked Done from the Now card. */}
+      {justDone && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center justify-between gap-2 rounded-xl bg-[#DCFCE7] px-4 py-2.5 text-sm text-[#166534]"
+        >
+          <span>Marked done.</span>
+          <button
+            onClick={() => {
+              toggleDone(justDone, "now");
+              setJustDone(null);
+            }}
+            className="shrink-0 font-medium underline underline-offset-2 hover:text-[#14532D]"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
       {/* MW-S01: Now — one next useful action from the saved plan. */}
       {nowSelection.action ? (
         <div className="rounded-2xl border border-[#E5E1DA] bg-white p-5 shadow-sm">
@@ -499,7 +524,10 @@ export function TodayPlanV2({
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
-              onClick={() => toggleDone(nowSelection.action!.key, "now")}
+              onClick={() => {
+                toggleDone(nowSelection.action!.key, "now");
+                setJustDone(nowSelection.action!.key);
+              }}
               className="rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6D8C7D]"
             >
               Done

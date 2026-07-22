@@ -19,6 +19,15 @@
 
 import { isLighterDay, pickCalmReset } from "@/lib/today/disclosure";
 
+/**
+ * Version of the deterministic selection rules (MW-V9-03). Bump this whenever
+ * the phase windows (phaseForMinutes), the per-phase priority order
+ * (PHASE_ORDER) or the lighter-day reordering change, so behaviour, tests and
+ * any analysis can pin the exact ruleset that produced a selection. The rules
+ * themselves are documented in the file header above.
+ */
+export const NOW_SELECTOR_VERSION = "v9-1";
+
 export type DayPhase = "morning" | "midday" | "later" | "evening";
 
 export type NowItemType =
