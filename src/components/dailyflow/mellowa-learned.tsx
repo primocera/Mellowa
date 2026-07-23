@@ -15,16 +15,23 @@ type LearnedItem = { signal: string; label: string; effect: string };
  */
 export function MellowaLearned() {
   const [items, setItems] = useState<LearnedItem[]>([]);
+  const [carryForward, setCarryForward] = useState<string[]>([]);
   const [removed, setRemoved] = useState<LearnedItem | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // MW-V9-05: reset-all state — confirmation gate and the exact set the reset
+  // suppressed, so "Undo reset" restores precisely those signals.
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetSignals, setResetSignals] = useState<string[] | null>(null);
 
   useEffect(() => {
     let active = true;
     trackClient("personalization_viewed", { surface: "settings" });
     fetch("/api/plan/feedback")
-      .then((r) => (r.ok ? r.json() : { learned: [] }))
+      .then((r) => (r.ok ? r.json() : { learned: [], carryForward: [] }))
       .then((d) => {
-        if (active) setItems((d.learned as LearnedItem[]) ?? []);
+        if (!active) return;
+        setItems((d.learned as LearnedItem[]) ?? []);
+        setCarryForward((d.carryForward as string[]) ?? []);
       })
       .catch(() => {})
       .finally(() => {
@@ -57,6 +64,43 @@ export function MellowaLearned() {
         `/api/plan/feedback?signal=${encodeURIComponent(item.signal)}&restore=1`,
         { method: "DELETE" }
       );
+    } catch {
+      /* best effort */
+    }
+  }
+
+  async function resetLearned() {
+    const previous = items;
+    setConfirmReset(false);
+    setItems([]);
+    setRemoved(null);
+    try {
+      const res = await fetch("/api/plan/feedback?reset=learned", { method: "DELETE" });
+      const data = res.ok ? await res.json() : { reset: previous.map((i) => i.signal) };
+      setResetSignals((data.reset as string[]) ?? previous.map((i) => i.signal));
+    } catch {
+      setResetSignals(previous.map((i) => i.signal));
+    }
+  }
+
+  async function undoReset() {
+    const signals = resetSignals;
+    if (!signals) return;
+    setResetSignals(null);
+    try {
+      // Restore exactly the signals this reset suppressed (conflict-safe).
+      await Promise.all(
+        signals.map((signal) =>
+          fetch(`/api/plan/feedback?signal=${encodeURIComponent(signal)}&restore=1`, {
+            method: "DELETE",
+          })
+        )
+      );
+      const r = await fetch("/api/plan/feedback");
+      if (r.ok) {
+        const d = await r.json();
+        setItems((d.learned as LearnedItem[]) ?? []);
+      }
     } catch {
       /* best effort */
     }
@@ -150,6 +194,90 @@ export function MellowaLearned() {
                 Undo
               </button>
             </div>
+          )}
+
+          {/* MW-V9-05: reset all learned signals at once — bounded scope,
+              feedback history and profile settings kept. */}
+          {loaded && items.length > 0 && !confirmReset && (
+            <button
+              type="button"
+              onClick={() => setConfirmReset(true)}
+              className="mt-3 text-xs font-medium text-[#6B7280] underline underline-offset-2 hover:text-[#991B1B]"
+            >
+              Reset learned preferences
+            </button>
+          )}
+          {confirmReset && (
+            <div className="mt-3 rounded-xl border border-[#E5E1DA] bg-white px-3 py-2.5 text-xs text-[#1F2937]">
+              <p>
+                This removes all {items.length} learned signal
+                {items.length === 1 ? "" : "s"} from future plans. Your feedback
+                history and profile settings are kept, and you can undo it right
+                after.
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={resetLearned}
+                  className="rounded-lg bg-[#7C9A92] px-3 py-1.5 font-medium text-white transition hover:bg-[#6D8C7D]"
+                >
+                  Reset all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmReset(false)}
+                  className="rounded-lg border border-[#E5E1DA] px-3 py-1.5 text-[#6B7280] transition hover:border-[#7C9A92]/50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+          {resetSignals && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-2 flex items-center justify-between gap-2 rounded-xl bg-[#EEF2FF] px-3 py-2 text-xs text-[#1F2937]"
+            >
+              <span>Learned preferences reset — none affect your next plan.</span>
+              <button
+                type="button"
+                onClick={undoReset}
+                className="flex shrink-0 items-center gap-1 font-medium text-[#7C9A92] underline underline-offset-2 hover:text-[#6D8C7D]"
+              >
+                <Undo2 className="h-3.5 w-3.5" />
+                Undo reset
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* MW-V9-05: Weekly carry-forward — the explicit choices from your
+            latest weekly reflection that shape next week's plan. */}
+        <div className="rounded-xl bg-[#FAF7F2] px-3 py-2.5">
+          <p className="text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
+            Weekly carry-forward · from your weekly reflection
+          </p>
+          {!loaded ? (
+            <p className="mt-1 text-sm text-[#6B7280]">Loading…</p>
+          ) : carryForward.length === 0 ? (
+            <p className="mt-1 text-sm text-[#6B7280]">
+              Nothing carried forward. When you finish a weekly reflection, the
+              choices you keep for next week appear here.
+            </p>
+          ) : (
+            <>
+              <ul className="mt-2 space-y-1.5">
+                {carryForward.map((effect) => (
+                  <li key={effect} className="text-sm text-[#1F2937]">
+                    {effect}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-[#6B7280]">
+                {"Used for next week's plan. Change these in the weekly reflection."}
+              </p>
+            </>
           )}
         </div>
       </div>

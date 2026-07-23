@@ -7,6 +7,11 @@ import {
   type FeedbackRow,
   type SignalSuppression,
 } from "@/lib/feedback/learned";
+import {
+  reflectionSelectionsFromRow,
+  isReflectionFresh,
+  carryForwardEffects,
+} from "@/lib/week/reflection";
 import { trackEvent } from "@/lib/analytics";
 
 const Input = z.object({
@@ -96,7 +101,7 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [{ data }, suppressions] = await Promise.all([
+  const [{ data }, suppressions, { data: reflection }] = await Promise.all([
     supabase
       .from("plan_feedback")
       .select("item_key, verdict, created_at")
@@ -104,12 +109,28 @@ export async function GET() {
       .order("created_at", { ascending: false })
       .limit(60),
     readSuppressions(supabase, user.id),
+    supabase
+      .from("weekly_reflections")
+      .select("keep, lighter, next_week_constraint, created_at")
+      .eq("user_id", user.id)
+      .order("week_start", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const learned = deriveLearned((data ?? []) as FeedbackRow[], suppressions).map(
     ({ signal, label, hint }) => ({ signal, label, effect: hint })
   );
-  return NextResponse.json({ learned });
+
+  // MW-V9-05: the same carry-forward view the weekly prompt builder uses, so
+  // the center shows exactly what a future weekly plan would apply. Stale
+  // reflections (>14 days) no longer carry forward and are shown as inactive.
+  const carryForward =
+    reflection && isReflectionFresh(reflection.created_at)
+      ? carryForwardEffects(reflectionSelectionsFromRow(reflection))
+      : [];
+
+  return NextResponse.json({ learned, carryForward });
 }
 
 /**
@@ -146,6 +167,41 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Failed to remove" }, { status: 500 });
     }
     return NextResponse.json({ ok: true, undone: true });
+  }
+
+  // MW-V9-05: "Reset learned preferences" — suppress every currently-active
+  // learned signal at once. Same boundary mechanism as a single removal: it
+  // only sets suppression rows, so feedback history and stable settings are
+  // untouched. Undo restores exactly the set this reset suppressed (the client
+  // calls per-signal restore for each returned signal).
+  if (url.searchParams.get("reset") === "learned") {
+    const [{ data: fb }, suppressions] = await Promise.all([
+      supabase
+        .from("plan_feedback")
+        .select("item_key, verdict, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(60),
+      readSuppressions(supabase, user.id),
+    ]);
+    const active = deriveLearned((fb ?? []) as FeedbackRow[], suppressions).map(
+      (l) => l.signal as string
+    );
+    if (active.length === 0) {
+      return NextResponse.json({ ok: true, reset: [] });
+    }
+    const now = new Date().toISOString();
+    const { error } = await supabase.from("learned_signal_suppressions").upsert(
+      active.map((signal) => ({ user_id: user.id, signal, suppressed_at: now })),
+      { onConflict: "user_id,signal" }
+    );
+    if (error) {
+      return NextResponse.json({ error: "Failed to reset" }, { status: 500 });
+    }
+    for (const signal of active) {
+      trackEvent("learned_signal_removed", { userId: user.id, properties: { signal } });
+    }
+    return NextResponse.json({ ok: true, reset: active });
   }
 
   const signal = url.searchParams.get("signal") ?? "";

@@ -127,4 +127,41 @@ describe("MW-S03: suppression boundary and control-center contract", () => {
     expect(checkin).toContain("Used for this plan");
     expect(checkin).toMatch(/never kept as memory/i);
   });
+
+  it("MW-V9-05: the center groups all four input categories, including weekly carry-forward", async () => {
+    const { readFileSync } = await import("node:fs");
+    const cc = readFileSync("src/components/dailyflow/mellowa-learned.tsx", "utf8");
+    expect(cc).toContain("Stable preferences");
+    expect(cc).toContain("Today only");
+    expect(cc).toContain("Learned from feedback");
+    expect(cc).toContain("Weekly carry-forward");
+    // The carry-forward effects come from the server (same view as the prompt).
+    expect(cc).toContain("carryForward");
+    // Neutral framing, editable at its source.
+    expect(cc).toMatch(/Change these in the weekly reflection/i);
+  });
+
+  it("MW-V9-05: 'Reset learned preferences' confirms scope and is undoable", async () => {
+    const { readFileSync } = await import("node:fs");
+    const cc = readFileSync("src/components/dailyflow/mellowa-learned.tsx", "utf8");
+    expect(cc).toContain("Reset learned preferences");
+    // Exact scope + kept guarantees in the confirmation.
+    expect(cc).toMatch(/feedback\s+history and profile settings are kept/i);
+    expect(cc).toContain("Undo reset");
+
+    const route = readFileSync("src/app/api/plan/feedback/route.ts", "utf8");
+    // Reset only suppresses currently-active signals; history is preserved.
+    expect(route).toContain('reset") === "learned"');
+    expect(route).toContain("deriveLearned");
+    // It never deletes plan_feedback rows.
+    expect(route).not.toMatch(/from\("plan_feedback"\)\s*\.delete\(\)[\s\S]{0,80}reset/);
+  });
+
+  it("MW-V9-05: the center reads the same carry-forward the weekly builder applies", async () => {
+    const { readFileSync } = await import("node:fs");
+    const route = readFileSync("src/app/api/plan/feedback/route.ts", "utf8");
+    expect(route).toContain("reflectionSelectionsFromRow");
+    expect(route).toContain("carryForwardEffects");
+    expect(route).toContain("isReflectionFresh");
+  });
 });
