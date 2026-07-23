@@ -19,16 +19,21 @@
   none yet).
 - **Non-indexable private surfaces**: the `(app)` layout and admin pages set
   `robots: { index: false, follow: false }`.
-- **PWA manifest**: installable, standalone, scalable SVG icon with `any` +
-  `maskable` purposes, categories and portrait orientation.
+- **PWA manifest**: installable, standalone. Icons are real binary PNGs
+  generated from the brand SVG (MW-V9-09) — `icon-192.png`, `icon-512.png` and
+  a padded `icon-maskable-512.png` (`maskable` purpose) — plus the scalable SVG
+  as an `any` entry and `apple-touch-icon.png` for iOS. Categories and portrait
+  orientation set. Regenerate from `public/mellowa-icon.svg` with `sharp` if the
+  brand mark changes.
 - **No service worker**: intentionally none. There is no cache that could leak
   one user's data to another session; `tests/seo-pwa.test.ts` guards against a
   caching SW slipping in.
 
 ## Known follow-ups (pre-public-launch polish, not blockers)
 
-- **Binary PNG icons** at 192×192 and 512×512 for stores/older Android. The
-  SVG installs correctly today; add PNGs when a designer exports them.
+- ~~**Binary PNG icons** at 192×192 and 512×512~~ — done in MW-V9-09
+  (`public/icon-192.png`, `icon-512.png`, `icon-maskable-512.png`,
+  `apple-touch-icon.png`; validated by `tests/pwa-ui.test.ts`).
 - **Core Web Vitals / performance budget**: the project rule is **no CI**
   (GitHub Actions cause email spam), so there is no automated Lighthouse/perf
   gate. Run Lighthouse manually against the deployed public pages before
