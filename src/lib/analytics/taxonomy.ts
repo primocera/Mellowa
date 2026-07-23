@@ -85,6 +85,14 @@ export const EVENT_NAMES = [
   // v8 (MW-S09): premium packaging.
   "premium_value_viewed",
   "reactivation_started",
+  // v9 (MW-V9-01): Now-first IA. A client claim about which primary
+  // destination was opened — destination + entitlement category only, never
+  // check-in or plan content.
+  "primary_nav_viewed",
+  // v9 (MW-V9-02): the daily check-in was opened/started. Client claim, surface
+  // only — never any energy/stress/mood value or note. Completion truth stays
+  // server-side via checkin_completed.
+  "checkin_started",
 ] as const;
 
 export type AppEvent = (typeof EVENT_NAMES)[number];
@@ -140,6 +148,21 @@ const SURFACE = [
   "landing", "pricing", "signup", "login", "verify_email", "onboarding",
   "today", "check_in", "week", "library", "patterns", "paywall", "billing",
   "settings", "email",
+  // v9 (MW-V9-01): the four primary destinations of the Now-first IA. "library"
+  // is retained (its route is unchanged); "saved" is its user-facing label.
+  "saved", "you",
+] as const;
+/**
+ * Bounded entitlement category for primary_nav_viewed (MW-V9-01). Coarse
+ * billing state only — never a user id, plan content or check-in signal.
+ */
+const ENTITLEMENT = [
+  "free",
+  "trialing",
+  "premium",
+  "past_due",
+  "canceled",
+  "unknown",
 ] as const;
 const PLAN_INTERVAL = ["monthly", "yearly"] as const;
 const OUTCOME = ["success", "failure", "blocked", "skipped", "cancelled"] as const;
@@ -222,6 +245,8 @@ export const propertiesSchema = z
     sections: slug,
     /** Canonical learned-signal code (MW-S03), e.g. "too_much" — never text. */
     signal: slug,
+    /** Coarse billing state for primary_nav_viewed (MW-V9-01) — never identity. */
+    entitlement: z.enum(ENTITLEMENT),
     /** Practical day-context category (MW-S04) — never the preset's name. */
     context_type: z.enum([
       "busy",
@@ -300,19 +325,26 @@ export const FUNNELS = {
     "account_deleted",
   ],
   /**
-   * v8 (MW-S10) core value funnel: account → baseline → sample → one Now
-   * action → one repair → trial → return check-in → weekly reflection →
-   * paid renewal. Value completions are server-confirmed events.
+   * Core value funnel (v8 MW-S10, extended in v9 MW-V9-11 to the full beta
+   * journey): account → baseline → sample generated → sample opened → sample
+   * value action → trial → return check-in → one Now action → one repair →
+   * weekly reflection → next-week plan → paid renewal. Every value-completion
+   * step is a server-confirmed event, so the client cannot spoof a milestone.
+   * This is the single canonical beta dashboard funnel — see docs/beta-research.md
+   * for the numerator/denominator/decision mapping per step.
    */
   value_loop: [
     "signup_completed",
     "onboarding_completed",
     "sample_plan_generated",
-    "now_action_done",
-    "plan_repair_completed",
+    "sample_plan_opened",
+    "sample_value_action_completed",
     "trial_started",
     "checkin_completed",
+    "now_action_done",
+    "plan_repair_completed",
     "weekly_reflection_completed",
+    "next_week_plan_created",
     "subscription_renewed",
   ],
 } as const satisfies Record<string, readonly AppEvent[]>;

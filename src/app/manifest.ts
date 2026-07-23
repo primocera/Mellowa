@@ -10,9 +10,10 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     background_color: "#FAF7F2",
     theme_color: "#7C9A92",
-    // Scalable SVG covers every size ("any"); a maskable entry lets Android
-    // render a safe-area icon. A binary 192/512 PNG set is a pre-launch polish
-    // item (see docs/seo-pwa.md) — the SVG installs correctly today.
+    // MW-V9-09: real binary PNG icons (generated from the brand SVG, no brand
+    // change) at the required 192/512 sizes, plus a maskable 512 with ~20%
+    // safe-area padding so Android's mask never clips the mark. The scalable
+    // SVG is kept as an "any" entry for crisp rendering at arbitrary sizes.
     icons: [
       {
         src: "/mellowa-icon.svg",
@@ -21,9 +22,21 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
       {
-        src: "/mellowa-icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: "/icon-maskable-512.png",
+        sizes: "512x512",
+        type: "image/png",
         purpose: "maskable",
       },
     ],

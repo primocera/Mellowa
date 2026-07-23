@@ -107,6 +107,7 @@ describe("event validation", () => {
         "sections",
         "signal",
         "context_type",
+        "entitlement",
       ].sort()
     );
   });

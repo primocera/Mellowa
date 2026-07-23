@@ -16,8 +16,8 @@ const movement = readFileSync("src/app/(app)/movement/page.tsx", "utf8");
 const resets = readFileSync("src/app/(app)/stress-reset/page.tsx", "utf8");
 
 describe("library copy (CE-11)", () => {
-  it("positions the Library as ready-to-reuse", () => {
-    expect(library).toContain("Useful things, ready when you need them");
+  it("positions Saved as ready-to-reuse (MW-V9-01)", () => {
+    expect(library).toContain("Yours to revisit");
     expect(library.replace(/\s+/g, " ")).toContain(
       "reuse without creating a new plan."
     );

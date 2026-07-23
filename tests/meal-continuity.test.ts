@@ -137,4 +137,20 @@ describe("MW-S05 surface copy", () => {
     expect(prefs).toMatch(/never a diet/i);
     expect(prefs).not.toMatch(/calorie|macro target|weight/i);
   });
+
+  it("MW-V9-06: favourites show live allergen revalidation status per card", () => {
+    // Status is computed against the user's CURRENT allergies, not stored.
+    expect(favView).toContain("findMealAllergenViolations");
+    expect(favView).toMatch(/May conflict with your current allergies/i);
+    expect(favView).toMatch(/Checked against your current allergies/i);
+    // Never claim a favourite is universally safe or nutritious.
+    expect(favView).not.toMatch(/always safe|guaranteed safe|healthy choice/i);
+  });
+
+  it("MW-V9-06: pantry offers safe common-item chips so free text is optional", () => {
+    expect(prefs).toContain("COMMON_PANTRY_ITEMS");
+    expect(prefs).toMatch(/free text is optional/i);
+    // Chips are everyday staples, not allergen-critical claims.
+    expect(prefs).not.toMatch(/allergen-free|safe for allergies/i);
+  });
 });

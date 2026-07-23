@@ -145,6 +145,50 @@ export const CARRY_EFFECTS: Record<string, string> = {
   "constraint:irregular_schedule": "Plan around an irregular schedule.",
 };
 
+/**
+ * MW-V9-05: the single canonical reading of a stored weekly_reflections row
+ * into carry-forward selections. Both the weekly prompt builder and the
+ * personalization center use this, so the effect shown in "What Mellowa uses"
+ * is exactly what a future weekly generation would apply — no second mapping.
+ * "nothing" / "same_as_usual" collapse to null (no carry-forward for that axis).
+ */
+export interface RawReflectionRow {
+  keep?: string[] | null;
+  lighter?: string | null;
+  next_week_constraint?: string | null;
+  created_at?: string | null;
+}
+
+export function reflectionSelectionsFromRow(
+  row: RawReflectionRow | null | undefined
+): WeeklyReflectionSelections {
+  if (!row) return { keep: [], lighter: null, constraint: null };
+  const keep = ((row.keep ?? []) as string[]).filter((k): k is WeeklyReflectionSelections["keep"][number] =>
+    (KEEP_OPTIONS as readonly string[]).includes(k)
+  );
+  const lighter =
+    row.lighter && row.lighter !== "nothing" && (LIGHTER_OPTIONS as readonly string[]).includes(row.lighter)
+      ? (row.lighter as WeeklyReflectionSelections["lighter"])
+      : null;
+  const constraint =
+    row.next_week_constraint &&
+    row.next_week_constraint !== "same_as_usual" &&
+    (CONSTRAINT_OPTIONS as readonly string[]).includes(row.next_week_constraint)
+      ? (row.next_week_constraint as WeeklyReflectionSelections["constraint"])
+      : null;
+  return { keep, lighter, constraint };
+}
+
+/** A reflection older than 14 days no longer carries forward (matches the
+ * weekly generation window), so the center never shows a stale carry-forward. */
+export function isReflectionFresh(
+  createdAt: string | null | undefined,
+  now: Date = new Date()
+): boolean {
+  const t = createdAt ? Date.parse(createdAt) : NaN;
+  return Number.isFinite(t) && t > now.getTime() - 14 * 86400_000;
+}
+
 export function carryForwardEffects(sel: WeeklyReflectionSelections): string[] {
   const effects: string[] = [];
   for (const k of sel.keep) {

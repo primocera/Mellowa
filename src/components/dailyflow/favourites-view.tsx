@@ -6,6 +6,7 @@ import clsx from "clsx";
 import type { MealCardType } from "@/schemas/ai-output-v2";
 import type { ShoppingCategory } from "@/lib/shopping/aggregate";
 import { formatItem } from "@/lib/shopping/aggregate";
+import { findMealAllergenViolations } from "@/lib/safety/allergens";
 import { errorCopy } from "@/lib/microcopy/errors";
 
 export type FavouriteMeal = {
@@ -19,7 +20,15 @@ export type FavouriteMeal = {
  * Favourites (Prompt 6): browse saved meals, pick some, and build a merged
  * shopping list from their grocery items.
  */
-export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
+export function FavouritesView({
+  initial,
+  allergies = [],
+}: {
+  initial: FavouriteMeal[];
+  /** The user's CURRENT allergy list, so a favourite saved before an allergy
+   *  changed is flagged for review right on the card (MW-V9-06). */
+  allergies?: string[];
+}) {
   const [meals, setMeals] = useState(initial);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [building, setBuilding] = useState(false);
@@ -120,6 +129,16 @@ export function FavouritesView({ initial }: { initial: FavouriteMeal[] }) {
                   {m.meal.short_description}
                 </p>
               )}
+              {allergies.length > 0 &&
+                (findMealAllergenViolations(m.meal, allergies).length > 0 ? (
+                  <p className="mt-1 inline-block rounded-full bg-[#FEF3C7] px-2.5 py-0.5 text-xs text-[#92400E]">
+                    May conflict with your current allergies — review before reuse
+                  </p>
+                ) : (
+                  <p className="mt-1 inline-block rounded-full bg-[#DCFCE7] px-2.5 py-0.5 text-xs text-[#166534]">
+                    Checked against your current allergies
+                  </p>
+                ))}
             </div>
             <button
               type="button"

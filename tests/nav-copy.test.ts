@@ -2,9 +2,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
- * Navigation copy regression (Content Elevation v6, Prompt 2).
- * Five hubs renamed around user intent: Plan→Week, Progress→Patterns,
- * Calm→Resets. Today, Library and You are unchanged. Routes/URLs stay.
+ * Navigation copy regression.
+ * MW-V9-01 (Now-first IA): the four primary destinations are Today, Week,
+ * Saved and You. Patterns moves off the top bar (it lives under You). Content
+ * Elevation v6 copy for the Week/Patterns/Resets pages is unchanged. Routes
+ * and URLs stay (/library keeps its route; its label is Saved).
  */
 
 const nav = readFileSync("src/components/layout/app-nav.tsx", "utf8");
@@ -13,20 +15,23 @@ const patterns = readFileSync("src/app/(app)/progress/page.tsx", "utf8");
 const library = readFileSync("src/app/(app)/library/page.tsx", "utf8");
 const resets = readFileSync("src/app/(app)/stress-reset/page.tsx", "utf8");
 
-describe("navigation copy (CE-2)", () => {
-  it("uses the elevated top-level labels", () => {
-    expect(nav).toContain('label: "Week"');
-    expect(nav).toContain('label: "Patterns"');
+describe("navigation copy (MW-V9-01)", () => {
+  it("uses the four primary destination labels", () => {
     expect(nav).toContain('label: "Today"');
-    expect(nav).toContain('label: "Library"');
+    expect(nav).toContain('label: "Week"');
+    expect(nav).toContain('label: "Saved"');
     expect(nav).toContain('label: "You"');
     expect(nav).not.toContain('label: "Plan"');
     expect(nav).not.toContain('label: "Progress"');
+    // Patterns and Library are no longer top-level nav labels.
+    expect(nav).not.toContain('label: "Patterns"');
+    expect(nav).not.toContain('label: "Library"');
   });
 
   it("preserves the underlying routes", () => {
     expect(nav).toContain('href: "/plan"');
-    expect(nav).toContain('href: "/progress"');
+    expect(nav).toContain('href: "/library"');
+    expect(nav).toContain('href: "/you"');
   });
 
   it("Week hub describes what the user accomplishes", () => {

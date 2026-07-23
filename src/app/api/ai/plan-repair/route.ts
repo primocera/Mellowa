@@ -179,7 +179,7 @@ export async function POST(request: Request) {
     return fail(400, {
       error: "nothing_to_adjust",
       user_message:
-        "Everything left in today's plan is marked done or kept, so there's nothing to adjust.",
+        "Everything left in today's plan is marked done or kept, so there's nothing to adjust. No plan generation was used.",
     });
   }
 
@@ -294,7 +294,7 @@ ${allergenExclusionInstruction(allergies)}`
         return fail(502, {
           error: "repair_check_failed",
           user_message:
-            "We couldn't create an adjustment we're confident is right for you, so today's plan is unchanged. Please try again.",
+            "We couldn't create an adjustment we're confident is right for you. Your previous plan is unchanged. This attempt counts toward fair-use pacing; please try again.",
         });
       }
     }
@@ -315,7 +315,7 @@ ${allergenExclusionInstruction(allergies)}`
       error: "Repair failed",
       code,
       user_message:
-        "The adjustment didn't come through, so today's plan is unchanged. Please try again in a moment.",
+        "The adjustment didn't come through. Your previous plan is unchanged. Please try again in a moment.",
     });
   }
 
@@ -351,7 +351,7 @@ ${allergenExclusionInstruction(allergies)}`
     return fail(500, {
       error: "Failed to save",
       user_message:
-        "The adjustment couldn't be saved, so today's plan is unchanged. Please try again.",
+        "The adjustment couldn't be saved. Your previous plan is unchanged. Please try again.",
     });
   }
 
@@ -371,10 +371,14 @@ ${allergenExclusionInstruction(allergies)}`
     },
   });
 
+  // MW-V9-04: the factual diff the UI shows is derived from these
+  // server-computed categorical fields, never from repair_summary.
   return NextResponse.json({
     blocked: false,
     repair_summary: repair.repair_summary,
     changed_sections: changedTypes,
+    kept_count: keep_keys.length,
+    completed_count: completedKeys.length,
     version,
   });
 }
@@ -393,16 +397,40 @@ export async function DELETE(request: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-  const parsed = z.object({ plan_id: z.string().uuid() }).safeParse(body);
+  const parsed = z
+    .object({
+      plan_id: z.string().uuid(),
+      expected_version: z.number().int().positive().optional(),
+    })
+    .safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 
-  const { data: version, error } = await supabase.rpc("undo_plan_repair", {
-    p_user_id: user.id,
-    p_plan_id: parsed.data.plan_id,
-  });
+  // MW-V9-04: when the client says which version it is undoing, the RPC
+  // (migration 034) refuses to unwind a newer repair made in another tab.
+  const { expected_version } = parsed.data;
+  const { data: version, error } = await supabase.rpc(
+    "undo_plan_repair",
+    expected_version != null
+      ? {
+          p_user_id: user.id,
+          p_plan_id: parsed.data.plan_id,
+          p_expected_version: expected_version,
+        }
+      : { p_user_id: user.id, p_plan_id: parsed.data.plan_id }
+  );
   if (error) {
+    if (error.message?.includes("version_conflict")) {
+      return NextResponse.json(
+        {
+          error: "version_conflict",
+          user_message:
+            "This plan was adjusted again since this page loaded. Refresh to see the latest version before undoing.",
+        },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { error: "Undo failed", user_message: "Undo didn't go through — please try again." },
       { status: 500 }

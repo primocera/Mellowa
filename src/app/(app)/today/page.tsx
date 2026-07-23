@@ -6,8 +6,6 @@ import { TodayPlanV2 } from "@/components/dailyflow/today-plan-v2";
 import { LowEnergyDayCard } from "@/components/dailyflow/low-energy-day-card";
 import { isValidTimeZone, localDateFor } from "@/lib/dates/local-day";
 import { TimezoneRepair } from "@/components/dailyflow/timezone-repair";
-import { WeeklyRecapCard } from "@/components/dailyflow/weekly-recap";
-import { summarizeWeek } from "@/lib/retention/recap";
 
 export const metadata: Metadata = { title: "Today — Mellowa" };
 
@@ -15,8 +13,20 @@ function ninetyDaysAgoIso(): string {
   return new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 }
 
-function sevenDaysAgoIso(): string {
-  return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+/**
+ * MW-V9-07: Today stays focused on the one next action. The weekly recorded
+ * summary and carry-forward live on Week — Today only offers a quiet link so
+ * the recap never competes with Now.
+ */
+function WeekLink() {
+  return (
+    <Link
+      href="/weekly-plan"
+      className="block px-2 text-center text-xs text-[#9CA3AF] underline underline-offset-2 hover:text-[#6B7280]"
+    >
+      Review your week
+    </Link>
+  );
 }
 
 export default async function TodayPage() {
@@ -52,22 +62,6 @@ export default async function TodayPage() {
 
   const plan = planRes.data;
 
-  // Neutral weekly recap (Prompt 22): plans created + feedback themes over the
-  // last 7 days. No adherence, streaks or mood — see summarizeWeek.
-  const weekAgoIso = sevenDaysAgoIso();
-  const [{ data: weekPlans }, { data: weekFeedback }] = await Promise.all([
-    supabase
-      .from("daily_plans")
-      .select("created_at")
-      .eq("user_id", user.id)
-      .gte("created_at", weekAgoIso),
-    supabase
-      .from("plan_feedback")
-      .select("verdict, created_at")
-      .eq("user_id", user.id)
-      .gte("created_at", weekAgoIso),
-  ]);
-  const recap = summarizeWeek(weekPlans ?? [], weekFeedback ?? []);
   // Opt-in only (Prompt 7); a recent eating-disorder safety signal overrides
   // the preference so estimates never show to someone at risk.
   let showMacros = profileRes.data?.show_macros ?? false;
@@ -105,7 +99,7 @@ export default async function TodayPage() {
         </Link>
         </div>
         <LowEnergyDayCard />
-        <WeeklyRecapCard recap={recap} />
+        <WeekLink />
       </div>
     );
   }
@@ -129,7 +123,7 @@ export default async function TodayPage() {
         showMacros={showMacros}
         completedKeys={completedKeys}
       />
-      <WeeklyRecapCard recap={recap} />
+      <WeekLink />
     </div>
   );
 }

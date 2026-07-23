@@ -12,13 +12,21 @@ export default async function FavouritesPage() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("favourite_meals")
-    .select("id, title, meal_type, meal")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  const [{ data }, { data: profile }] = await Promise.all([
+    supabase
+      .from("favourite_meals")
+      .select("id, title, meal_type, meal")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("wellbeing_profiles")
+      .select("allergies")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+  ]);
 
   const meals = (data ?? []) as FavouriteMeal[];
+  const allergies = ((profile?.allergies as string[] | null) ?? []).filter(Boolean);
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
@@ -30,7 +38,7 @@ export default async function FavouritesPage() {
           Your favourite meals, ready to reuse — and to turn into a shopping list.
         </p>
       </div>
-      <FavouritesView initial={meals} />
+      <FavouritesView initial={meals} allergies={allergies} />
     </div>
   );
 }

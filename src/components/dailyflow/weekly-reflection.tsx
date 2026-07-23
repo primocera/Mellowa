@@ -122,9 +122,8 @@ export function WeeklyReflection() {
         <div className="mt-2">
           <p className="text-sm text-[#6B7280]">
             Not much was recorded this week — that&apos;s fine, there&apos;s
-            nothing to summarize and nothing to catch up on. If you want next
-            week shaped differently, the most direct way is to set your
-            preferences.
+            nothing to catch up on. If you want next week shaped differently, the
+            most direct way is to set your preferences.
           </p>
           <Link
             href="/settings"
@@ -134,18 +133,10 @@ export function WeeklyReflection() {
           </Link>
         </div>
       ) : (
-        <>
-          <p className="mt-1 text-xs text-[#6B7280]">
-            Only what you recorded — no scores, no interpretation.
-          </p>
-          <ul className="mt-2 space-y-1">
-            {facts.map((f, i) => (
-              <li key={i} className="text-sm text-[#1F2937]">
-                • {f.text}
-              </li>
-            ))}
-          </ul>
-        </>
+        <p className="mt-1 text-sm text-[#6B7280]">
+          Pick what to reuse and what to lighten. It only shapes next week when
+          you create it yourself — nothing here changes your recorded week.
+        </p>
       )}
 
       {savedEffects && (

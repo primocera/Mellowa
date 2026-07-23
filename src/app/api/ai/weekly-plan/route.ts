@@ -16,7 +16,8 @@ import { findMealAllergenViolations } from "@/lib/safety/allergens";
 import { trackEvent } from "@/lib/analytics";
 import {
   reflectionToWeeklyHints,
-  type WeeklyReflectionSelections,
+  reflectionSelectionsFromRow,
+  isReflectionFresh,
 } from "@/lib/week/reflection";
 import { checkWeeklyPlanOutput, correctiveInstruction } from "@/lib/ai/output-guards";
 import { allergenExclusionInstruction } from "@/lib/safety/allergens";
@@ -214,19 +215,10 @@ export async function POST(request: Request) {
     .order("week_start", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const reflectionFresh =
-    reflection && Date.parse(reflection.created_at) > Date.now() - 14 * 86400_000;
-  const carryForwardHints = reflectionFresh
-    ? reflectionToWeeklyHints({
-        keep: (reflection.keep ?? []) as WeeklyReflectionSelections["keep"],
-        lighter:
-          reflection.lighter === "nothing" ? null : (reflection.lighter as WeeklyReflectionSelections["lighter"]),
-        constraint:
-          reflection.next_week_constraint === "same_as_usual"
-            ? null
-            : (reflection.next_week_constraint as WeeklyReflectionSelections["constraint"]),
-      })
-    : "";
+  const carryForwardHints =
+    reflection && isReflectionFresh(reflection.created_at)
+      ? reflectionToWeeklyHints(reflectionSelectionsFromRow(reflection))
+      : "";
 
   const [checkinsRes, habitsRes] = await Promise.all([
     supabase

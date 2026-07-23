@@ -91,6 +91,56 @@ describe("honest, evidence-based claims", () => {
   });
 });
 
+describe("MW-V9-08 wedge, mechanism and Premium jobs", () => {
+  it("names the wedge — days without a consistent routine, fewer decisions", () => {
+    expect(landing).toMatch(/follow a routine/i);
+    expect(landing).toContain("Fewer decisions");
+  });
+
+  it("spells out the four-beat mechanism", () => {
+    expect(landing).toContain("One-minute check-in");
+    expect(landing).toContain("One next step");
+    expect(landing).toContain("Adjust the rest");
+    expect(landing).toContain("Carry it into the week");
+  });
+
+  it("frames Premium as the three ongoing jobs", () => {
+    expect(landing).toContain("Adapt today");
+    expect(landing).toContain("Reuse what works");
+    expect(landing).toContain("Carry it into next week");
+  });
+
+  it("does not imply the free sample includes a Premium whole-day repair", () => {
+    // The sample is explicitly one day; the ongoing loop (which includes
+    // whole-day "adjust the rest") is named as Premium.
+    expect(landing).toContain("The free sample is one day. Premium is the ongoing loop");
+    expect(landing).toContain("What Premium keeps doing");
+  });
+
+  it("makes no banned pressure or outcome claims", () => {
+    expect(landing).not.toMatch(/unlimited/i);
+    expect(landing).not.toMatch(/transform your life|\banxiety\b|\bcure\b|guaranteed/i);
+  });
+});
+
+describe("MW-V9-08 yearly emphasis is opt-in (default off)", () => {
+  const flags = readFileSync("src/lib/flags.ts", "utf8");
+
+  it("the emphasis flag defaults OFF — no aggressive yearly default", () => {
+    // Inverse of the kill-switch flags: this one is only on when explicitly set.
+    expect(flags).toContain("isYearlyEmphasisEnabled");
+    expect(flags).toContain("FLAG_EMPHASIZE_YEARLY");
+    expect(flags).toMatch(/raw === "1" \|\| raw\?\.toLowerCase\(\) === "true"/);
+  });
+
+  it("pricing reads the flag and emphasizes Monthly by default", () => {
+    expect(pricing).toContain("isYearlyEmphasisEnabled");
+    expect(pricing).toContain("emphasizeYearly");
+    // Monthly keeps the accent border unless the flag flips it.
+    expect(pricing).toMatch(/emphasizeYearly\s*\n?\s*\?\s*"rounded-2xl bg-white/);
+  });
+});
+
 describe("privacy-safe CTA instrumentation", () => {
   it("primary CTAs are tracked with landing_cta_clicked", () => {
     expect(landing).toContain("TrackedCta");

@@ -68,6 +68,20 @@ describe("daily check-in copy (CE-7)", () => {
     expect(form).toMatch(/already being created/i);
   });
 
+  it("MW-V9-02: shows an always-visible pre-generation summary of the setup", () => {
+    // The summary reflects the practical choices (mode/time/context) and states
+    // where exclusions come from — never energy/stress/mood or the free note.
+    expect(form).toContain("This plan will use");
+    expect(form).toContain("Plan focus:");
+    expect(form).toContain("Time for yourself:");
+    expect(form).toMatch(/allergy exclusions come from your saved preferences/i);
+    expect(form).toMatch(/Edit anything above before creating the plan/i);
+  });
+
+  it("MW-V9-02: fires checkin_started on open, surface only", () => {
+    expect(form).toContain('trackClient("checkin_started", { surface: "check_in" })');
+  });
+
   it("uses the canonical CTA, loading and secondary action", () => {
     expect(form).toContain("Shape today&apos;s plan".replace("&apos;", "'"));
     expect(form).toContain("Matching the plan to your time and energy…");

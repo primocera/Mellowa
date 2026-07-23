@@ -186,6 +186,8 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
       /* corrupted draft — start fresh */
     }
     restored.current = true;
+    // MW-V9-02: the check-in was opened. Surface only — never a signal value.
+    trackClient("checkin_started", { surface: "check_in" });
     // MW-S08: arriving from a reminder email — schedule category only.
     try {
       if (new URLSearchParams(window.location.search).get("from") === "reminder") {
@@ -729,6 +731,44 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
           </div>
         </div>
       )}
+
+      {/* MW-V9-02: always-visible compact summary of the choices this plan
+          will use. Reflects the live draft; every field above stays editable
+          and nothing here is a separate input. Energy/stress/mood and free-text
+          notes are deliberately omitted — this is the practical setup only. */}
+      <div className="rounded-xl border border-[#E5E1DA] bg-[#FAF7F2] px-4 py-3 text-sm text-[#1F2937]">
+        <p className="mb-1.5 font-medium">This plan will use</p>
+        <ul className="space-y-0.5 text-[#6B7280]">
+          <li>
+            Plan focus:{" "}
+            <span className="text-[#1F2937]">
+              {MODE_OPTIONS.find((m) => m.value === draft.mode)?.label ?? "Choose for me"}
+            </span>
+            {draft.mode === "custom" && draft.areas.length > 0 && (
+              <> — {draft.areas.join(", ")}</>
+            )}
+          </li>
+          <li>
+            Time for yourself:{" "}
+            <span className="text-[#1F2937]">
+              {draft.time ? draft.time.toLowerCase() : "not set yet"}
+            </span>
+          </li>
+          {draft.context && (
+            <li>
+              Day:{" "}
+              <span className="text-[#1F2937]">
+                {(CONTEXT_OPTIONS.find((c) => c.value === draft.context)?.label ?? draft.context).toLowerCase()}
+              </span>
+            </li>
+          )}
+          <li>Food preferences and any allergy exclusions come from your saved preferences.</li>
+        </ul>
+        <p className="mt-2 text-xs text-[#9CA3AF]">
+          Mellowa will shape meals, a water cue, optional movement and one reset
+          around this. Edit anything above before creating the plan.
+        </p>
+      </div>
 
       {error && (
         <div className="rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]">{error}</div>

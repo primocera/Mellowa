@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   nextAction,
   phaseForMinutes,
+  NOW_SELECTOR_VERSION,
   type NowPlanInput,
 } from "@/lib/today/next-action";
 
@@ -126,6 +127,25 @@ describe("nextAction selection", () => {
     expect(sel.deferred).toBe(allKeys.length);
   });
 
+  it("MW-V9-03: the ruleset is versioned", () => {
+    expect(typeof NOW_SELECTOR_VERSION).toBe("string");
+    expect(NOW_SELECTOR_VERSION.length).toBeGreaterThan(0);
+  });
+
+  it("MW-V9-03: always returns at most one action across every phase and progressive completion", () => {
+    for (const minutes of [MORNING, MIDDAY, LATER, EVENING, 0, 23 * 60 + 59]) {
+      let done: string[] = [];
+      // Walk the whole plan to exhaustion; each step must yield 0 or 1 action.
+      for (let guard = 0; guard < 20; guard++) {
+        const sel = nextAction(fullPlan, done, minutes);
+        // NowSelection.action is a single item or null — never a list.
+        expect(sel.action === null || typeof sel.action.key === "string").toBe(true);
+        if (!sel.action) break;
+        done = [...done, sel.action.key];
+      }
+    }
+  });
+
   it("handles an empty plan without inventing anything", () => {
     const sel = nextAction({}, [], MIDDAY);
     expect(sel.action).toBeNull();
@@ -174,5 +194,12 @@ describe("MW-S01 Now view content contract", () => {
 
   it("save failure keeps copy honest and retryable", () => {
     expect(src).toMatch(/didn't save — your plan is unchanged/i);
+  });
+
+  it("MW-V9-03: offers a short undo right after Done on the Now card", () => {
+    expect(src).toContain("Marked done.");
+    expect(src).toMatch(/setJustDone\(nowSelection\.action!\.key\)/);
+    // Undo unmarks by toggling the same key back.
+    expect(src).toMatch(/toggleDone\(justDone, "now"\)/);
   });
 });

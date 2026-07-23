@@ -14,21 +14,29 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
+// The mechanism, in the four beats the product actually runs: a one-minute
+// check-in, one next step, adjusting the rest when the day changes, and
+// carrying what worked into the week.
 const STEPS = [
   {
     step: "1",
-    title: "Check in",
+    title: "One-minute check-in",
     text: "Share your energy, available time and what today looks like. Approximate is enough.",
   },
   {
     step: "2",
-    title: "Get today's shape",
-    text: "Mellowa creates a realistic structure for food, movement, focus and recovery.",
+    title: "One next step",
+    text: "Mellowa shapes the day and shows the single next thing that fits — not a long list.",
   },
   {
     step: "3",
-    title: "Adjust without starting over",
-    text: "Swap a meal, make the day lighter or tell Mellowa what did not fit.",
+    title: "Adjust the rest",
+    text: "When the day changes, adjust what's left in one pass — completed things stay put, and Undo is free.",
+  },
+  {
+    step: "4",
+    title: "Carry it into the week",
+    text: "Keep what worked and lighten what didn't, so next week starts from your real choices.",
   },
 ];
 
@@ -85,6 +93,23 @@ const PLAN_CATEGORIES = [
   "One calm reset",
   "An evening wind-down",
   "One small habit with a minimum version",
+];
+
+// Premium framed as the three ongoing jobs it actually does — each names only
+// implemented capabilities, with no outcome or open-ended-volume claims.
+const PREMIUM_JOBS = [
+  {
+    title: "Adapt today",
+    text: "Create plans day to day and adjust the rest of any day in one pass — completed items stay put, Undo is free.",
+  },
+  {
+    title: "Reuse what works",
+    text: "Save meals, plan leftovers and build shopping drafts, with preference learning you can see, edit and remove.",
+  },
+  {
+    title: "Carry it into next week",
+    text: "A weekly reflection carries your own choices forward, so next week starts from what fit — not a blank slate.",
+  },
 ];
 
 const DIFFERENCE = [
@@ -203,7 +228,7 @@ export default function LandingPage() {
       {/* 1. Hero */}
       <section className="mx-auto max-w-3xl px-6 pb-12 pt-14 text-center sm:pt-20">
         <p className="text-sm font-medium uppercase tracking-wide text-[#6D8C7D]">
-          Daily wellbeing, shaped around real life.
+          For days that don&rsquo;t follow a routine.
         </p>
         <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
           {TERMS.promise}
@@ -358,7 +383,7 @@ export default function LandingPage() {
         <h2 className="text-center text-2xl font-semibold tracking-tight">
           From check-in to a clearer day
         </h2>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map((item) => (
             <div key={item.step} className="rounded-2xl bg-white p-6 shadow-sm">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#7C9A92]/10 text-sm font-semibold text-[#6D8C7D]">
@@ -387,6 +412,25 @@ export default function LandingPage() {
             </li>
           ))}
         </ul>
+      </section>
+
+      {/* 7b. Premium — three ongoing jobs */}
+      <section className="mx-auto max-w-5xl px-6 py-12">
+        <h2 className="text-center text-2xl font-semibold tracking-tight">
+          What Premium keeps doing
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl text-center text-[#6B7280]">
+          The free sample is one day. Premium is the ongoing loop — three jobs,
+          day after day and week after week.
+        </p>
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          {PREMIUM_JOBS.map((job) => (
+            <div key={job.title} className="rounded-2xl bg-white p-6 shadow-sm">
+              <h3 className="font-medium text-[#1F2937]">{job.title}</h3>
+              <p className="mt-1 text-sm text-[#6B7280]">{job.text}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* 8. Offer */}

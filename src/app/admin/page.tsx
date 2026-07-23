@@ -71,6 +71,18 @@ export default async function AdminPage({
         <Row label="Contribution / payer / mo" value={eur(r.economics.contributionPerUserEur)} />
       </Section>
 
+      <Section title="Usage & cost distribution (fair-use)">
+        <Row label="Active AI users" value={String(r.usage.activeUsers)} />
+        <Row label="Generations p50 / user" value={String(r.usage.generationsP50 ?? "—")} />
+        <Row label="Generations p90 / user" value={String(r.usage.generationsP90 ?? "—")} />
+        <Row
+          label={`High-use users (≥${r.usage.highUseThreshold}/mo)`}
+          value={String(r.usage.highUseUsers)}
+        />
+        <Row label="Global ceiling denials" value={String(r.usage.ceilingDenials)} />
+        <Row label="AI cost (window)" value={`$${r.usage.totalCostUsd.toFixed(2)}`} />
+      </Section>
+
       <Section title="Generation health">
         <Row label="Generated" value={String(r.generation.generated)} />
         <Row label="Fallback served" value={String(r.generation.fallbackServed)} />
@@ -81,6 +93,21 @@ export default async function AdminPage({
       <Section title="Churn">
         <Row label="Voluntary (cancels)" value={String(r.churn.voluntary)} />
         <Row label="Involuntary (payment fails)" value={String(r.churn.involuntary)} />
+      </Section>
+
+      <Section title="Beta value loop (signup → renewal)">
+        {r.funnels.value_loop.map((step) => (
+          <Row
+            key={step.event}
+            label={step.event}
+            value={`${step.reached}${step.stepRate !== null ? ` · ${pct(step.stepRate)}` : ""}`}
+          />
+        ))}
+        <p style={{ color: "#9CA3AF", fontSize: 12, marginTop: 6 }}>
+          Each row: distinct people reached · step conversion from the prior step
+          (— when the prior cohort is under 5). Decision mapping in
+          docs/beta-research.md.
+        </p>
       </Section>
 
       <Section title="Reconciliation (events vs system-of-record)">

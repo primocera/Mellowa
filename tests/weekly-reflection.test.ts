@@ -4,6 +4,8 @@ import {
   weeklyFacts,
   carryForwardEffects,
   reflectionToWeeklyHints,
+  reflectionSelectionsFromRow,
+  isReflectionFresh,
   CARRY_EFFECTS,
   KEEP_OPTIONS,
   LIGHTER_OPTIONS,
@@ -159,5 +161,54 @@ describe("MW-S06 surface + route contracts", () => {
 
   it("no journal content can reach the reflection summary", () => {
     expect(route).not.toMatch(/journal/i);
+  });
+
+  it("MW-V9-05: the weekly generation reads the canonical selection helper", () => {
+    expect(weekly).toContain("reflectionSelectionsFromRow");
+    expect(weekly).toContain("isReflectionFresh");
+  });
+});
+
+describe("MW-V9-05 canonical carry-forward view", () => {
+  it("normalizes a stored row: 'nothing'/'same_as_usual' collapse to null", () => {
+    const sel = reflectionSelectionsFromRow({
+      keep: ["meals", "movement", "bogus"],
+      lighter: "nothing",
+      next_week_constraint: "same_as_usual",
+      created_at: now.toISOString(),
+    });
+    expect(sel.keep).toEqual(["meals", "movement"]); // unknown code dropped
+    expect(sel.lighter).toBeNull();
+    expect(sel.constraint).toBeNull();
+  });
+
+  it("maps real selections to the SAME effects the prompt builder applies", () => {
+    const sel = reflectionSelectionsFromRow({
+      keep: ["meals"],
+      lighter: "mornings",
+      next_week_constraint: "less_time",
+      created_at: now.toISOString(),
+    });
+    // The center's effects are exactly carryForwardEffects(sel).
+    expect(carryForwardEffects(sel)).toEqual([
+      CARRY_EFFECTS["keep:meals"],
+      CARRY_EFFECTS["lighter:mornings"],
+      CARRY_EFFECTS["constraint:less_time"],
+    ]);
+  });
+
+  it("a null/empty row yields no carry-forward", () => {
+    expect(reflectionSelectionsFromRow(null)).toEqual({
+      keep: [],
+      lighter: null,
+      constraint: null,
+    });
+    expect(carryForwardEffects(reflectionSelectionsFromRow(null))).toEqual([]);
+  });
+
+  it("reflections older than 14 days no longer carry forward", () => {
+    expect(isReflectionFresh(daysAgo(3), now)).toBe(true);
+    expect(isReflectionFresh(daysAgo(20), now)).toBe(false);
+    expect(isReflectionFresh(null, now)).toBe(false);
   });
 });
