@@ -1,6 +1,8 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { estimateRouteCostUsd, globalDailyCeilingUsd } from "@/lib/ai/cost";
+import { monthlyGenerationCap } from "@/lib/ai/fair-use";
+import { isFlagEnabled } from "@/lib/flags";
 
 /**
  * AI generation limits (Prompt 16) — protects the AI provider key and caps
@@ -27,11 +29,16 @@ export type AiRoute =
 
 export interface ClaimResult {
   ok: boolean;
-  /** Why the claim was denied. "capacity" = global ceiling reached. */
-  scope?: "hour" | "day" | "capacity";
+  /** Why the claim was denied. "capacity" = global ceiling reached;
+   *  "month" = the per-user monthly fair-use cap. */
+  scope?: "hour" | "day" | "month" | "capacity";
   retryAfterMinutes?: number;
   eventId?: string;
 }
+
+// A cap this high is effectively "no monthly cap" — used when the fair-use
+// flag is off so the atomic RPC path is identical either way (rollback = flag).
+const MONTHLY_CAP_DISABLED = 1_000_000;
 
 /**
  * Atomically reserve one AI generation for the user. Call this BEFORE
@@ -46,11 +53,18 @@ export async function claimAiGeneration(
   // Service-role call (migration 025): the RPC is no longer executable by
   // authenticated users, so limits/cost can never be caller-chosen.
   const supabase = createAdminClient();
+  // MW-V9-10: the monthly fair-use cap is a kill-switchable safeguard. When
+  // FLAG_MONTHLY_FAIR_USE is off, an effectively-infinite cap makes the atomic
+  // RPC behave exactly as before — a zero-risk rollback with no deploy.
+  const perMonth = isFlagEnabled("monthly_fair_use")
+    ? monthlyGenerationCap()
+    : MONTHLY_CAP_DISABLED;
   const { data, error } = await supabase.rpc("claim_ai_generation", {
     p_user_id: userId,
     p_route: route,
     p_per_hour: AI_RATE_LIMITS.perHour,
     p_per_day: AI_RATE_LIMITS.perDay,
+    p_per_month: perMonth,
     p_est_cost: estimateRouteCostUsd(route),
     p_global_daily_ceiling: globalDailyCeilingUsd(),
   });
@@ -73,6 +87,10 @@ export async function claimAiGeneration(
       return { ok: false, scope: "hour", retryAfterMinutes: 60 };
     case "day":
       return { ok: false, scope: "day", retryAfterMinutes: 24 * 60 };
+    case "month":
+      // Trailing-30-day window; there's no single reset instant, so guide the
+      // user to a day rather than imply a hard midnight reset.
+      return { ok: false, scope: "month", retryAfterMinutes: 24 * 60 };
     default:
       return { ok: false, scope: "capacity", retryAfterMinutes: 15 };
   }

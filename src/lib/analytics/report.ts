@@ -9,9 +9,11 @@ import {
   generationHealth,
   reconcile,
   detectAnomalies,
+  usageScorecard,
   type EventRow,
   type SubRow,
   type CostRow,
+  type UsageRow,
 } from "@/lib/analytics/metrics";
 
 /**
@@ -30,6 +32,7 @@ export interface MetricsReport {
   retention: { d1: number | null; d7: number | null; d30: number | null };
   churn: ReturnType<typeof churnCounts>;
   economics: ReturnType<typeof unitEconomics>;
+  usage: ReturnType<typeof usageScorecard>;
   generation: ReturnType<typeof generationHealth>;
   reconciliation: ReturnType<typeof reconcile>[];
   anomalies: ReturnType<typeof detectAnomalies>;
@@ -54,13 +57,17 @@ export async function buildMetricsReport(
         .gte("created_at", priorSince)
         .lt("created_at", since),
       admin.from("subscriptions").select("user_id, status, plan_name, trial_used_at, cancel_at_period_end, created_at"),
-      admin.from("ai_usage_events").select("estimated_cost_usd, created_at").gte("created_at", since),
+      admin
+        .from("ai_usage_events")
+        .select("user_id, status, estimated_cost_usd, actual_cost_usd, created_at")
+        .gte("created_at", since),
     ]);
 
   const events = (eventRows ?? []) as EventRow[];
   const prior = (priorEventRows ?? []) as EventRow[];
   const subs = (subRows ?? []) as SubRow[];
   const costs = (costRows ?? []) as CostRow[];
+  const usageRows = (costRows ?? []) as unknown as UsageRow[];
 
   // Server-authoritative counts for reconciliation.
   const [{ count: plansInWindow }, { count: safetyBlocked }, { count: paidTrials }] = await Promise.all([
@@ -106,6 +113,10 @@ export async function buildMetricsReport(
     },
     churn: churnCounts(events),
     economics: unitEconomics(subs, costs),
+    // Ceiling denials are not persisted (a denied claim writes no ledger row),
+    // so the count is 0 here; p50/p90 + high-use already flag unsustainable use.
+    // Denial logging is a documented follow-up in docs/runbooks/monitoring-alerts.md.
+    usage: usageScorecard(usageRows, 0),
     generation: generationHealth(events, safetyBlocked ?? 0),
     reconciliation: [
       reconcile(countEvent(events, "plan_generated"), plansInWindow ?? 0, "plans_generated_vs_events", 2),
@@ -132,6 +143,11 @@ export function reportToCsv(report: MetricsReport): string {
   push("economics", "active_payers", report.economics.activePayers);
   push("economics", "mrr_eur", report.economics.mrrEur);
   push("economics", "contribution_per_user_eur", report.economics.contributionPerUserEur);
+  push("usage", "generations_p50", report.usage.generationsP50);
+  push("usage", "generations_p90", report.usage.generationsP90);
+  push("usage", "high_use_users", report.usage.highUseUsers);
+  push("usage", "ceiling_denials", report.usage.ceilingDenials);
+  push("usage", "total_cost_usd", report.usage.totalCostUsd);
   push("generation", "fallback_rate", report.generation.fallbackRate);
   for (const r of report.reconciliation) push("reconcile", r.metric, r.reconciled ? "ok" : "MISMATCH");
   return lines.join("\n");

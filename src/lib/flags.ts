@@ -16,6 +16,10 @@ const KNOWN_FLAGS = [
   // without data corruption.
   "plan_repair",
   "weekly_reflection",
+  // v9 (MW-V9-10): monthly fair-use abuse cap. Default ON; setting
+  // FLAG_MONTHLY_FAIR_USE=0 makes the claim RPC apply an effectively-infinite
+  // monthly cap, a zero-deploy rollback of the safeguard.
+  "monthly_fair_use",
 ] as const;
 
 export type FeatureFlag = (typeof KNOWN_FLAGS)[number];

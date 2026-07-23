@@ -34,6 +34,69 @@ export interface CostRow {
   created_at: string;
 }
 
+/** One AI ledger row with the fields the cost scorecard needs. */
+export interface UsageRow {
+  user_id: string | null;
+  status: string | null;
+  estimated_cost_usd: number | string | null;
+  actual_cost_usd?: number | string | null;
+}
+
+export interface UsageScorecard {
+  /** Generations counted per user (excludes released reservations). */
+  generationsP50: number | null;
+  generationsP90: number | null;
+  /** Users above the high-use threshold in the window. */
+  highUseUsers: number;
+  highUseThreshold: number;
+  /** Global daily spend-ceiling denials seen in the window. */
+  ceilingDenials: number;
+  /** Actual-or-estimated total USD across the window. */
+  totalCostUsd: number;
+  activeUsers: number;
+}
+
+function percentile(sortedAsc: number[], p: number): number | null {
+  if (sortedAsc.length === 0) return null;
+  const idx = Math.min(sortedAsc.length - 1, Math.ceil(p * sortedAsc.length) - 1);
+  return sortedAsc[Math.max(0, idx)];
+}
+
+const rowCost = (r: UsageRow): number =>
+  Number(r.actual_cost_usd ?? r.estimated_cost_usd ?? 0);
+
+/**
+ * MW-V9-10: per-user generation and cost distribution for the admin scorecard.
+ * Released reservations (no provider call) don't count as generations. "Ceiling
+ * denials" are surfaced from a separate count because a denied claim never
+ * writes a ledger row. Internal IDs and bands only — never user content.
+ */
+export function usageScorecard(
+  rows: UsageRow[],
+  ceilingDenials: number,
+  highUseThreshold = 90
+): UsageScorecard {
+  const perUser = new Map<string, number>();
+  let totalCostUsd = 0;
+  for (const r of rows) {
+    if (r.status === "released") continue;
+    totalCostUsd += rowCost(r);
+    const id = r.user_id;
+    if (id) perUser.set(id, (perUser.get(id) ?? 0) + 1);
+  }
+  const counts = [...perUser.values()].sort((a, b) => a - b);
+  const highUseUsers = counts.filter((c) => c >= highUseThreshold).length;
+  return {
+    generationsP50: percentile(counts, 0.5),
+    generationsP90: percentile(counts, 0.9),
+    highUseUsers,
+    highUseThreshold,
+    ceilingDenials,
+    totalCostUsd: round2(totalCostUsd),
+    activeUsers: perUser.size,
+  };
+}
+
 /** Identity used for uniqueness: the user if known, else the anonymous id. */
 function subject(r: EventRow): string | null {
   return r.user_id ?? r.anon_id ?? null;

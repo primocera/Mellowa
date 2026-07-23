@@ -73,6 +73,20 @@ export async function guardAiRoute(
         { status: 503 }
       );
     }
+    if (claim.scope === "month") {
+      // MW-V9-10: fair-use safeguard, not "unlimited". State what remains and
+      // when to try again — never an upsell, never a hidden throttle.
+      return NextResponse.json(
+        {
+          error: "rate_limited",
+          scope: "month",
+          user_message:
+            "You've reached this month's fair-use limit for new AI plans. Everything you've created stays available to view, and you can create new plans again soon.",
+          retryAfterMinutes: claim.retryAfterMinutes,
+        },
+        { status: 429 }
+      );
+    }
     return NextResponse.json(
       {
         error: "rate_limited",

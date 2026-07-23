@@ -71,6 +71,18 @@ export default async function AdminPage({
         <Row label="Contribution / payer / mo" value={eur(r.economics.contributionPerUserEur)} />
       </Section>
 
+      <Section title="Usage & cost distribution (fair-use)">
+        <Row label="Active AI users" value={String(r.usage.activeUsers)} />
+        <Row label="Generations p50 / user" value={String(r.usage.generationsP50 ?? "—")} />
+        <Row label="Generations p90 / user" value={String(r.usage.generationsP90 ?? "—")} />
+        <Row
+          label={`High-use users (≥${r.usage.highUseThreshold}/mo)`}
+          value={String(r.usage.highUseUsers)}
+        />
+        <Row label="Global ceiling denials" value={String(r.usage.ceilingDenials)} />
+        <Row label="AI cost (window)" value={`$${r.usage.totalCostUsd.toFixed(2)}`} />
+      </Section>
+
       <Section title="Generation health">
         <Row label="Generated" value={String(r.generation.generated)} />
         <Row label="Fallback served" value={String(r.generation.fallbackServed)} />
