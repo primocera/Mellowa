@@ -25,7 +25,10 @@ jobs:
       # used for any live provider call in CI.
       NEXT_PUBLIC_SUPABASE_URL: https://ci.placeholder.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      # Must be https so the SEO/sitemap invariant (tests/seo-pwa.test.ts)
+      # matches production. The public E2E server still binds to localhost via
+      # Playwright's own baseURL, independent of this value.
+      NEXT_PUBLIC_APP_URL: https://mellowa.app
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_ci_placeholder
     steps:
       - uses: actions/checkout@v4
