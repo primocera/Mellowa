@@ -45,6 +45,23 @@ const VARIETY_LEVEL = [
   { value: "lots_of_variety", label: "Lots of variety" },
 ];
 
+// MW-V9-06: safe, common staples offered as one-tap chips so pantry entry
+// doesn't require free text. Everyday non-allergen-critical items only.
+const COMMON_PANTRY_ITEMS = [
+  "rice",
+  "pasta",
+  "olive oil",
+  "oats",
+  "eggs",
+  "onions",
+  "garlic",
+  "salt",
+  "pepper",
+  "flour",
+  "canned tomatoes",
+  "stock",
+];
+
 const SCHEDULE_TYPE = [
   { value: "office", label: "Office" },
   { value: "home", label: "Home" },
@@ -455,6 +472,37 @@ export function PlanPreferencesForm({
               (left off shopping drafts — comma separated)
             </span>
           </label>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {COMMON_PANTRY_ITEMS.map((item) => {
+              const current = pantryText
+                .split(",")
+                .map((s) => s.trim().toLowerCase())
+                .filter(Boolean);
+              const active = current.includes(item);
+              return (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => {
+                    const next = active
+                      ? current.filter((c) => c !== item)
+                      : [...current, item];
+                    setPantryText(next.join(", "));
+                    setSaved(false);
+                  }}
+                  aria-pressed={active}
+                  className={clsx(
+                    "rounded-full border px-3 py-1 text-xs transition",
+                    active
+                      ? "border-[#7C9A92] bg-[#7C9A92]/10 text-[#1F2937]"
+                      : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"
+                  )}
+                >
+                  {item}
+                </button>
+              );
+            })}
+          </div>
           <input
             type="text"
             value={pantryText}
@@ -465,6 +513,9 @@ export function PlanPreferencesForm({
             placeholder="e.g. rice, olive oil, oats"
             className="w-full rounded-xl border border-[#E5E1DA] px-4 py-2.5 text-sm text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"
           />
+          <p className="mt-1 text-xs text-[#9CA3AF]">
+            Tap a common item or type your own — free text is optional.
+          </p>
           <p className="mt-1 text-xs text-[#9CA3AF]">
             We never assume your pantry is complete — the draft just skips what
             you list here, and shows it separately.
