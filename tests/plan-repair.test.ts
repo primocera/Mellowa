@@ -4,6 +4,7 @@ import {
   replaceableScope,
   repairOutputSchema,
   buildRepairUpdates,
+  deterministicDiff,
   REPAIR_REASONS,
   type RepairPlanRow,
 } from "@/lib/plan/repair";
@@ -143,6 +144,46 @@ describe("buildRepairUpdates", () => {
   });
 });
 
+describe("MW-V9-04 deterministic diff", () => {
+  it("is derived from categorical changed types, same input → same sentence", () => {
+    expect(deterministicDiff(["meals"])).toBe("Changed: meals.");
+    expect(deterministicDiff(["meals", "calm"])).toBe(
+      "Changed: meals and the calm reset."
+    );
+    expect(deterministicDiff(["meals", "movement", "evening"])).toBe(
+      "Changed: meals, movement and the evening wind-down."
+    );
+    expect(deterministicDiff(["meals", "calm"])).toBe(deterministicDiff(["meals", "calm"]));
+  });
+
+  it("unknown or empty types never leak content into the diff", () => {
+    expect(deterministicDiff([])).toBe("Nothing was changed.");
+    expect(deterministicDiff(["<script>", "peanut salad"])).toBe("Nothing was changed.");
+  });
+});
+
+describe("MW-V9-04 version-checked undo (migration 034)", () => {
+  const migration = readFileSync(
+    "supabase/migrations/034_mellowa_v9_repair_undo_version_check.sql",
+    "utf8"
+  );
+
+  it("is additive: an overload with an expected version, invoker rights, row lock", () => {
+    expect(migration).toContain("p_expected_version integer");
+    expect(migration).toContain("security invoker");
+    expect(migration).toContain("for update");
+    expect(migration).toContain(
+      "grant execute on function public.undo_plan_repair(uuid, uuid, integer) to authenticated"
+    );
+  });
+
+  it("conflicts raise instead of silently unwinding a newer repair", () => {
+    expect(migration).toMatch(/raise exception 'version_conflict'/);
+    // No versions left = idempotent no-op, not an error.
+    expect(migration).toMatch(/if not found then\s*[\s\S]*?return null;/);
+  });
+});
+
 describe("MW-S02 route + component contract", () => {
   const route = readFileSync("src/app/api/ai/plan-repair/route.ts", "utf8");
   const component = readFileSync("src/components/dailyflow/today-plan-v2.tsx", "utf8");
@@ -171,8 +212,25 @@ describe("MW-S02 route + component contract", () => {
     expect(route).toContain("replaceableScope");
   });
 
-  it("failure copy is honest: plan unchanged, retry offered", () => {
-    expect(route).toMatch(/today's plan is unchanged/i);
+  it("failure copy is honest: previous plan unchanged, cost outcome stated", () => {
+    expect(route).toMatch(/Your previous plan is unchanged/);
+    // Pre-provider outcomes state that nothing was used; post-provider
+    // attempts state the fair-use pacing policy.
+    expect(route).toMatch(/No plan generation was used/);
+    expect(route).toMatch(/counts toward fair-use pacing/);
+  });
+
+  it("MW-V9-04: undo accepts an expected version and 409s on conflict", () => {
+    expect(route).toContain("expected_version");
+    expect(route).toContain("p_expected_version");
+    expect(route).toContain("version_conflict");
+    expect(route).toMatch(/status: 409/);
+  });
+
+  it("MW-V9-04: success response carries the deterministic diff inputs", () => {
+    expect(route).toContain("changed_sections: changedTypes");
+    expect(route).toContain("kept_count");
+    expect(route).toContain("completed_count");
   });
 
   it("never logs or emails the raw repair note", () => {
@@ -191,12 +249,29 @@ describe("MW-S02 route + component contract", () => {
 
   it("the UI offers preview with kept items, fair-use disclosure and free Undo", () => {
     expect(component).toContain("Adjust the rest of today");
-    expect(component).toContain("Keep as is");
+    expect(component).toContain("Keep this");
     expect(component).toMatch(/Uses one plan generation from your fair-use allowance/);
     expect(component).toContain("Undo — bring the previous plan back");
     expect(component).toMatch(/not saved or remembered/i);
     // The old multi-request simplify loop is gone.
     expect(component).not.toContain("simplifyDay");
+  });
+
+  it("MW-V9-04: exact scope is shown before the AI call", () => {
+    expect(component).toContain("Can change:");
+    expect(component).toContain("Already done:");
+    expect(component).toContain("Already done — kept");
+  });
+
+  it("MW-V9-04: the result diff is deterministic, not the model summary", () => {
+    expect(component).toContain("deterministicDiff(repairResult.changed)");
+    // The model-written summary is secondary context, never the factual diff.
+    expect(component).not.toMatch(/<p className="mt-1">\{repairSummary\}/);
+  });
+
+  it("MW-V9-04: undo sends the shown version and explains the empty case", () => {
+    expect(component).toContain("expected_version: repairResult?.version");
+    expect(component).toContain("There's no earlier version of this plan to restore.");
   });
 
   it("repair reasons are the bounded set", () => {

@@ -146,6 +146,32 @@ export function repairOutputSchema(scope: RepairScope) {
   return z.object(shape).strict();
 }
 
+/**
+ * MW-V9-04: deterministic diff line derived from the categorical changed
+ * types that the server computed from stored versions — never from the
+ * model-written repair_summary. Same input always yields the same sentence.
+ */
+const CHANGED_TYPE_LABELS: Record<string, string> = {
+  meals: "meals",
+  movement: "movement",
+  calm: "the calm reset",
+  focus: "the focus block",
+  evening: "the evening wind-down",
+  habit: "the habit",
+};
+
+export function deterministicDiff(changedTypes: readonly string[]): string {
+  const labels = changedTypes
+    .map((t) => CHANGED_TYPE_LABELS[t])
+    .filter((l): l is string => !!l);
+  if (!labels.length) return "Nothing was changed.";
+  const list =
+    labels.length === 1
+      ? labels[0]
+      : `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
+  return `Changed: ${list}.`;
+}
+
 export interface RepairUpdates {
   /** Column → new value, ready for the atomic apply_plan_repair RPC. */
   updates: Record<string, unknown>;

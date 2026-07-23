@@ -26,6 +26,7 @@ import type {
 } from "@/schemas/ai-output-v2";
 import { isLighterDay, pickCalmReset } from "@/lib/today/disclosure";
 import { nextAction, type NowItem } from "@/lib/today/next-action";
+import { deterministicDiff } from "@/lib/plan/repair";
 import { trackClient } from "@/lib/analytics/client";
 import { useRouter } from "next/navigation";
 
@@ -192,7 +193,16 @@ export function TodayPlanV2({
   const [repairReason, setRepairReason] = useState<string | null>(null);
   const [repairNote, setRepairNote] = useState("");
   const [keptKeys, setKeptKeys] = useState<Set<string>>(new Set());
-  const [repairSummary, setRepairSummary] = useState<string | null>(null);
+  // MW-V9-04: the committed repair's factual result. The diff shown to the
+  // user is derived from server-computed changed_sections/counts + the stored
+  // version number — the model-written summary is context only.
+  const [repairResult, setRepairResult] = useState<{
+    summary: string;
+    changed: string[];
+    keptCount: number;
+    completedCount: number;
+    version: number | null;
+  } | null>(null);
   const [repairAttemptKey, setRepairAttemptKey] = useState(newAttemptKey);
   const [doneItems, setDoneItems] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(completedKeys.map((k) => [k, true]))
@@ -403,7 +413,16 @@ export function TodayPlanV2({
         setMessage(data.user_message);
         setRepairOpen(false);
       } else if (res.ok && data.repair_summary) {
-        setRepairSummary(data.repair_summary as string);
+        setRepairResult({
+          summary: data.repair_summary as string,
+          changed: Array.isArray(data.changed_sections) ? data.changed_sections : [],
+          keptCount: typeof data.kept_count === "number" ? data.kept_count : keptKeys.size,
+          completedCount:
+            typeof data.completed_count === "number"
+              ? data.completed_count
+              : Object.values(doneItems).filter(Boolean).length,
+          version: typeof data.version === "number" ? data.version : null,
+        });
         setRepairOpen(false);
         router.refresh();
       } else if (res.status === 402) {
@@ -412,12 +431,12 @@ export function TodayPlanV2({
       } else {
         setMessage(
           data.user_message ??
-            "The adjustment didn't come through, so today's plan is unchanged. Please try again."
+            "The adjustment didn't come through. Your previous plan is unchanged. Please try again."
         );
       }
     } catch {
       setMessage(
-        "The adjustment didn't come through, so today's plan is unchanged. Please try again."
+        "The adjustment didn't come through. Your previous plan is unchanged. Please try again."
       );
     }
     setRepairAttemptKey(newAttemptKey());
@@ -430,15 +449,24 @@ export function TodayPlanV2({
       const res = await fetch("/api/ai/plan-repair", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan_id: plan.id }),
+        // MW-V9-04: undo exactly the version this page showed. A newer repair
+        // from another tab returns a 409 instead of being silently unwound.
+        body: JSON.stringify({
+          plan_id: plan.id,
+          expected_version: repairResult?.version ?? undefined,
+        }),
       });
       const data = await res.json();
       if (res.ok && data.undone) {
-        setRepairSummary(null);
+        setRepairResult(null);
         setMessage("Undone — your previous plan is back.");
         router.refresh();
+      } else if (res.ok && !data.undone) {
+        setRepairResult(null);
+        setMessage("There's no earlier version of this plan to restore.");
+        router.refresh();
       } else {
-        setMessage("Undo didn't go through — please try again.");
+        setMessage(data.user_message ?? "Undo didn't go through — please try again.");
       }
     } catch {
       setMessage("Undo didn't go through — please try again.");
@@ -914,14 +942,18 @@ export function TodayPlanV2({
 
       </>)}
 
-      {/* MW-S02: after a committed repair — before/after summary + free Undo */}
-      {repairSummary && (
+      {/* MW-S02/MW-V9-04: after a committed repair — deterministic diff + free Undo */}
+      {repairResult && (
         <div className="rounded-2xl bg-[#DCFCE7] p-5 text-sm text-[#1F2937]" aria-live="polite">
           <p className="font-medium">Rest of today adjusted</p>
-          <p className="mt-1">{repairSummary}</p>
-          <p className="mt-1 text-xs text-[#6B7280]">
-            Done and kept items were left exactly as they were.
+          <p className="mt-1">
+            {deterministicDiff(repairResult.changed)}
+            {" Kept as they were: "}
+            {repairResult.keptCount} kept item{repairResult.keptCount === 1 ? "" : "s"} and{" "}
+            {repairResult.completedCount} already-done item
+            {repairResult.completedCount === 1 ? "" : "s"} — untouched.
           </p>
+          <p className="mt-1 text-xs text-[#6B7280]">{repairResult.summary}</p>
           <button
             onClick={undoRepair}
             disabled={simplifying}
@@ -971,6 +1003,11 @@ export function TodayPlanV2({
           <p className="mt-3 text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
             What will change
           </p>
+          <p className="mt-1 text-xs text-[#6B7280]">
+            Can change: {planItems.filter((i) => !doneItems[i.key] && !keptKeys.has(i.key)).length}{" "}
+            · Kept: {planItems.filter((i) => !doneItems[i.key] && keptKeys.has(i.key)).length} ·
+            Already done: {planItems.filter((i) => !!doneItems[i.key]).length}
+          </p>
           <ul className="mt-1.5 space-y-1">
             {planItems.map((item) => {
               const isDone = !!doneItems[item.key];
@@ -982,7 +1019,7 @@ export function TodayPlanV2({
                   </span>
                   {isDone ? (
                     <span className="rounded-full bg-[#DCFCE7] px-2.5 py-0.5 text-xs text-[#166534]">
-                      done — kept
+                      Already done — kept
                     </span>
                   ) : (
                     <button
@@ -1002,7 +1039,7 @@ export function TodayPlanV2({
                           : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"
                       )}
                     >
-                      {isKept ? "Kept — won't change" : "Keep as is"}
+                      {isKept ? "Kept — won't change" : "Keep this"}
                     </button>
                   )}
                 </li>
