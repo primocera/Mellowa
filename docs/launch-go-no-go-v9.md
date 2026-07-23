@@ -61,9 +61,13 @@ None of these can be proven from this environment. See
 
 - [x] **Apply migrations 027–033 to live Supabase** — applied by the operator on
       2026-07-21 before the v8 merge (`f659909`).
-- [ ] **Apply v9 migrations `034` (repair-undo version check) and `035`
-      (monthly fair-use overload) to live Supabase** — owner-run before the v9
-      deploy. Evidence: __
+- [x] **Apply v9 migrations `034` (repair-undo version check) and `035`
+      (monthly fair-use overload) to live Supabase** — applied by the operator on
+      2026-07-23; both returned "Success. No rows returned" (expected for the
+      `CREATE OR REPLACE FUNCTION` + `GRANT` DDL — neither migration issues a
+      `SELECT`). Confirm the overloads exist against the live project ref via
+      `/api/health/ready` and a `\df claim_ai_generation` / `\df undo_plan_repair`
+      check before the deploy that ships the seven-arg claim call.
 - [x] **Live Stripe configuration** switched 2026-07-21 (live key, webhook +
       signing secret, two live EUR price IDs). Configuration only.
 - [ ] **One real low-value transaction** end to end: signup → sample → sample
@@ -81,7 +85,7 @@ None of these can be proven from this environment. See
 | # | Level | Item | Owner | Acceptance |
 |---|---|---|---|---|
 | 1 | **P0** | Live transaction rehearsal (charge→cancel→reactivate→refund) unrun | Owner | Recorded evidence in §4 |
-| 2 | **P0** | v9 migrations `034`/`035` applied to live Supabase | Owner | `/api/health/ready` + row check |
+| 2 | ~~P0~~ done | v9 migrations `034`/`035` applied to live Supabase (2026-07-23) | Owner | ✅ applied; confirm overloads via `/api/health/ready` |
 | 3 | **P1** | Authenticated seeded E2E not run in this env | Owner/CI | Green run recorded |
 | 4 | **P1** | Reminder/cron/email live rehearsal | Owner | Evidence in §4 |
 | 5 | **P2** | Ceiling-denial counting not instrumented (scorecard shows 0) | Eng | Denial logging or accept |
@@ -99,9 +103,10 @@ reverts. No migration reversal is required to roll back any v9 behaviour.
 ## 7. Verdict
 
 - **Automated code gate:** ✅ GO — lint/typecheck/604 tests/build all green at the RC.
-- **Capped private beta (≤50 invites, no card for the sample):** ✅ **CONDITIONAL GO**
-  — permitted once v9 migrations `034`/`035` are applied to live Supabase (P0 #2);
-  all beta surfaces are flag-guarded and data-safe.
+- **Capped private beta (≤50 invites, no card for the sample):** ✅ **GO** — the
+  one gating condition (v9 migrations `034`/`035` on live Supabase, P0 #2) was
+  applied 2026-07-23; all beta surfaces are flag-guarded and data-safe. Confirm
+  the overloads against the live project ref before pointing traffic at them.
 - **Public paid launch: NO-GO** — the live transaction rehearsal (P0 #1) is open
   and is owner-run, not Claude-run. This is honest and expected: a code-complete
   RC is not a proven paid product. No public surface overstates safety,
