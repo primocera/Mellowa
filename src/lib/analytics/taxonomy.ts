@@ -325,19 +325,26 @@ export const FUNNELS = {
     "account_deleted",
   ],
   /**
-   * v8 (MW-S10) core value funnel: account → baseline → sample → one Now
-   * action → one repair → trial → return check-in → weekly reflection →
-   * paid renewal. Value completions are server-confirmed events.
+   * Core value funnel (v8 MW-S10, extended in v9 MW-V9-11 to the full beta
+   * journey): account → baseline → sample generated → sample opened → sample
+   * value action → trial → return check-in → one Now action → one repair →
+   * weekly reflection → next-week plan → paid renewal. Every value-completion
+   * step is a server-confirmed event, so the client cannot spoof a milestone.
+   * This is the single canonical beta dashboard funnel — see docs/beta-research.md
+   * for the numerator/denominator/decision mapping per step.
    */
   value_loop: [
     "signup_completed",
     "onboarding_completed",
     "sample_plan_generated",
-    "now_action_done",
-    "plan_repair_completed",
+    "sample_plan_opened",
+    "sample_value_action_completed",
     "trial_started",
     "checkin_completed",
+    "now_action_done",
+    "plan_repair_completed",
     "weekly_reflection_completed",
+    "next_week_plan_created",
     "subscription_renewed",
   ],
 } as const satisfies Record<string, readonly AppEvent[]>;

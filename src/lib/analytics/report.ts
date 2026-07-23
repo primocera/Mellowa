@@ -81,6 +81,9 @@ export async function buildMetricsReport(
     activation: funnelConversion(events, "activation"),
     monetization: funnelConversion(events, "monetization"),
     billing_health: funnelConversion(events, "billing_health"),
+    // MW-V9-11: the full beta value loop, signup → renewal. Same DISTINCT-subject
+    // math and MIN_COHORT suppression as the other funnels.
+    value_loop: funnelConversion(events, "value_loop"),
   };
 
   const countEvent = (rows: EventRow[], e: string) =>

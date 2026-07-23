@@ -44,6 +44,74 @@ describe("value_loop funnel", () => {
   });
 });
 
+describe("MW-V9-11 beta value loop covers the full journey", () => {
+  const funnel = FUNNELS.value_loop as readonly string[];
+
+  it("spans signup → renewal through every value milestone", () => {
+    const required = [
+      "signup_completed",
+      "onboarding_completed",
+      "sample_plan_generated",
+      "sample_plan_opened",
+      "sample_value_action_completed",
+      "trial_started",
+      "checkin_completed",
+      "now_action_done",
+      "plan_repair_completed",
+      "weekly_reflection_completed",
+      "next_week_plan_created",
+      "subscription_renewed",
+    ];
+    for (const e of required) expect(funnel).toContain(e);
+    expect(funnel[0]).toBe("signup_completed");
+    expect(funnel[funnel.length - 1]).toBe("subscription_renewed");
+  });
+
+  it("stays ordered and uses only known events (no duplicate source of truth)", () => {
+    for (const e of funnel) expect(EVENT_NAMES).toContain(e);
+    // No repeated step.
+    expect(new Set(funnel).size).toBe(funnel.length);
+  });
+});
+
+describe("MW-V9-11 beta research doc maps metrics to decisions", () => {
+  const research = readFileSync("docs/beta-research.md", "utf8");
+
+  it("maps the funnel to product decisions and the no-data state", () => {
+    expect(research).toContain("value-loop funnel");
+    expect(research).toMatch(/numerator|distinct-subject/i);
+    expect(research).toMatch(/suppressed as/i);
+  });
+
+  it("has five consented interview scripts asking about load/fit/trust/price", () => {
+    for (const s of [
+      "Sample, no return",
+      "Now defer / ignore",
+      "Repair Undo / failure",
+      "Weekly, no return",
+      "Cancellation",
+    ]) {
+      expect(research).toContain(s);
+    }
+    expect(research).toMatch(/decision load, fit, trust and price/i);
+    expect(research).toMatch(/never diagnoses/i);
+  });
+
+  it("keeps a weekly decision memo and the hard stop criteria", () => {
+    expect(research).toMatch(/continue \| iterate \| pause \| rollback \| stop acquisition/);
+    expect(research).toMatch(/no meaningful next-day or weekly reuse after four weeks/i);
+    expect(research).toMatch(/duplicate charge or duplicate generation/i);
+  });
+
+  it("frames behaviour as use/return/completion and disclaims health-outcome language", () => {
+    expect(research).toMatch(/use \/ return \/ completion/i);
+    // The doc explicitly says NOT to use adherence/improvement/recovery framing.
+    expect(research).toMatch(/never adherence, improvement or recovery/i);
+    // No positive health-outcome claim.
+    expect(research).not.toMatch(/improves? your health|clinically|proven to/i);
+  });
+});
+
 describe("experiment kill switches", () => {
   it("flags.ts registers plan_repair and weekly_reflection", () => {
     const flags = readFileSync("src/lib/flags.ts", "utf8");

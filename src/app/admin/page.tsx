@@ -95,6 +95,21 @@ export default async function AdminPage({
         <Row label="Involuntary (payment fails)" value={String(r.churn.involuntary)} />
       </Section>
 
+      <Section title="Beta value loop (signup → renewal)">
+        {r.funnels.value_loop.map((step) => (
+          <Row
+            key={step.event}
+            label={step.event}
+            value={`${step.reached}${step.stepRate !== null ? ` · ${pct(step.stepRate)}` : ""}`}
+          />
+        ))}
+        <p style={{ color: "#9CA3AF", fontSize: 12, marginTop: 6 }}>
+          Each row: distinct people reached · step conversion from the prior step
+          (— when the prior cohort is under 5). Decision mapping in
+          docs/beta-research.md.
+        </p>
+      </Section>
+
       <Section title="Reconciliation (events vs system-of-record)">
         {r.reconciliation.map((rec) => (
           <Row
