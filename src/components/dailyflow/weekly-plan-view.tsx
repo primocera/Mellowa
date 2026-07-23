@@ -1,10 +1,68 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, Copy, Check, Feather, CalendarPlus } from "lucide-react";
 import type { WeeklyPlan } from "@/types/dailyflow";
 import { errorCopy } from "@/lib/microcopy/errors";
+import {
+  carryForwardEffects,
+  reflectionSelectionsFromRow,
+} from "@/lib/week/reflection";
+
+/**
+ * MW-V9-07: before the AI creates next week, show exactly what it will apply —
+ * the carry-forward the user chose, plus a plain note that stable preferences
+ * and meal continuity always apply. Read-only review with edit links; nothing
+ * generates until the user presses the button below it.
+ */
+function NextWeekReview() {
+  const [effects, setEffects] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/week/reflection")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!active || !d) return;
+        setEffects(carryForwardEffects(reflectionSelectionsFromRow(d.reflection)));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <div className="rounded-2xl border border-[#E5E1DA] bg-white p-4 text-sm">
+      <p className="font-medium text-[#1F2937]">What next week will use</p>
+      {effects && effects.length > 0 ? (
+        <ul className="mt-1.5 space-y-0.5 text-[#6B7280]">
+          {effects.map((e) => (
+            <li key={e}>• {e}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1.5 text-[#6B7280]">
+          Nothing carried forward — next week starts from your usual
+          preferences.
+        </p>
+      )}
+      <p className="mt-1.5 text-xs text-[#9CA3AF]">
+        Your saved preferences and meal continuity always apply. Change these in{" "}
+        <Link href="#carry-forward-heading" className="underline underline-offset-2">
+          Carry forward
+        </Link>{" "}
+        or{" "}
+        <Link href="/settings" className="underline underline-offset-2">
+          preferences
+        </Link>{" "}
+        before you create the plan.
+      </p>
+    </div>
+  );
+}
 
 type PlanItem = { title: string; description?: string; time_hint?: string };
 type Section = { title: string; items: PlanItem[] };
@@ -283,17 +341,20 @@ export function WeeklyPlanView({ plan }: { plan: WeeklyPlan }) {
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2">
-        <GenerateButton
-          label="Make this week simpler"
-          notes="Please make this week simpler and lighter than usual — fewer steps, easier meals."
-          icon={<Feather className="h-4 w-4" />}
-        />
-        <GenerateButton
-          label="Generate next week"
-          icon={<CalendarPlus className="h-4 w-4" />}
-        />
+      {/* Actions — review what will be applied, then create next week yourself */}
+      <div className="space-y-3">
+        <NextWeekReview />
+        <div className="flex flex-wrap gap-2">
+          <GenerateButton
+            label="Make this week simpler"
+            notes="Please make this week simpler and lighter than usual — fewer steps, easier meals."
+            icon={<Feather className="h-4 w-4" />}
+          />
+          <GenerateButton
+            label="Generate next week"
+            icon={<CalendarPlus className="h-4 w-4" />}
+          />
+        </div>
       </div>
     </div>
   );
