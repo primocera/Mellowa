@@ -9,7 +9,9 @@ repo, read this file first — not the individual `launch-go-no-go-*.md` history
 `90f5482` = `main`). Automated suite: **900 tests / 81 files green**, lint clean
 (0 errors), typecheck clean, production build clean, 39 public Playwright
 journeys green across desktop / 375px / 320px. The 33-test authenticated state
-matrix added in MW-V10-03 is **unrun** — no seeded environment exists.
+matrix added in MW-V10-03 has now been **RUN AND IS GREEN** (2026-07-26): 87
+executions across desktop / 375px / 320px against the deployed v10 preview on
+real Vercel infrastructure, with migrations `036`–`039` applied to live Supabase.
 
 **v10 progress:** MW-V10-00 ✅ · MW-V10-01 ✅ (copy reduction fell short of
 target — see `launch-go-no-go-v10.md`) · MW-V10-02 ✅ (infrastructure only; the
@@ -84,7 +86,7 @@ Verified absent or partial in the code as of `90f5482`.
 | # | Gap | Evidence it is open | Owner |
 |---|---|---|---|
 | 1 | **One real transaction end to end** (charge → cancel → reactivate → portal → refund) | No recorded evidence; `launch-go-no-go-v9.md` §4 blank | Owner (not Claude — live Stripe) |
-| 2 | **Authenticated seeded E2E never run** | `e2e/journeys.spec.ts` **and** the MW-V10-03 matrix `e2e/daily-journey.spec.ts` (8 states × 3 viewports) exist but need a seeded env; CI job skips. MW-V10-03 found a `journeys.spec.ts` assertion that could only ever have failed — direct proof this gate is doing nothing. | Owner/CI |
+| ~~2~~ | ~~Authenticated seeded E2E never run~~ | **CLOSED 2026-07-26.** Run against the deployed v10 preview: 87 executions green. The first run found four defects — all in the tests and the seed fixture, none in the product — including a fixture whose meal cards used the wrong field names, so Today was crashing into the error boundary and the matrix was asserting against a broken page. | — |
 | 3 | **Reminder / cron / email live rehearsal** | Planner is *tested*, never *rehearsed live*. MW-V10-05 wrote the step-by-step worksheet (end of `docs/ops-cron.md`) and found two conflicts the tests could not see: `past_due`/`canceled` users were being nudged into a paywall, and users with a recent crisis signal were still receiving activity nudges. | Owner |
 | 4 | **Key rotation + backup/rollback drill** | No runbook evidence recorded | Owner |
 | 5 | `/api/health/ready` validates only migrations `020`/`021` | Reads `generation_requests` + `email_deliveries`; does not verify the `034`/`035` RPC overloads the app actually calls | Eng |

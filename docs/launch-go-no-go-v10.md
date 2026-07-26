@@ -36,7 +36,7 @@ Nothing below claims production behaviour was verified from tests or mocks.
 | Production build | `npm run build` | ✅ clean |
 | Public browser journeys | `npm run test:e2e:public` | ✅ **48 passed** across desktop / 375px / 320px, now including landmark, heading, focus-visibility and measured 44px-target checks |
 | **Daily-journey state matrix** | `npm run test:e2e:journey` | ⛔ **not run — no seeded env.** 33 tests exist; unrun tests are not evidence. |
-| **Authenticated browser journeys** | `npm run test:e2e` | ⛔ **not run — no seeded env. Non-green for RC.** |
+| **Authenticated browser journeys** | `npm run test:e2e` + `npm run test:e2e:journey` | ✅ **39 passed / 6 skipped** against the deployed v10 preview, 2026-07-26 |
 | Env/readiness presence | `npm run release-check` | ⚠ run with production env pulled |
 | Optional live provider eval | `scripts/eval-live.mjs` | ⏭ **SKIPPED by design** — opt-in, advisory, cannot gate a release |
 
@@ -394,13 +394,26 @@ Owner-attested, undated (recorded here so it stops being re-asked):
       which existed when the crons were last exercised. The step-by-step
       worksheet is at the end of `docs/ops-cron.md`. Evidence: __
 
-      **One consequence worth knowing before the next send:** the consent gate
-      fails closed, so any account that opted in before `reminder_consent_version`
-      was recorded now gets no reminder until it re-confirms. If reminders were
-      working for real accounts before v10, this will look like they stopped.
-- [ ] **Authenticated seeded E2E** — both `npm run test:e2e` and the MW-V10-03
-      state matrix `npm run test:e2e:journey` (8 seeded states × 3 viewports),
-      with `seed:test-user`, against staging. Evidence: __
+      **The consent-gate concern is closed by data (2026-07-26):** a read-only
+      check of `wellbeing_profiles` found **0 accounts with `reminders_opt_in`
+      set**, so the fail-closed consent gate takes nothing away from anyone. No
+      grandfathering migration is needed. Re-check this if reminders are enabled
+      for real users before the gate is exercised.
+- [x] **Authenticated seeded E2E — RUN AND GREEN, 2026-07-26.** Executed twice:
+      first locally against live Supabase, then against the deployed v10 preview
+      (`mellowaa-o26mb4y2m`, Vercel, protection bypass) with migrations `036`–`039`
+      applied. Result: **48 public + 39 authenticated passed, 6 skipped**
+      (state-dependent), across desktop / 375px / 320px.
+
+      The first execution found four defects — all in the tests and the seed
+      fixture, none in the product: the fixture used `steps` and string
+      ingredients instead of `preparation_steps` and ingredient objects, so
+      Today crashed into the error boundary and the matrix was asserting against
+      a broken page; three tests read authenticated pages without logging in
+      (one passed anyway, for the wrong reason); a settings assertion looked for
+      `/export/i` against a control labelled "Download my data (JSON)"; and a
+      billing assertion raced the loading skeleton added in MW-V10-07. Fixed in
+      `8834cac`. This is the gate finally doing its job.
 - [ ] **Key-rotation drill + backup/rollback rehearsal** — procedure and
       evidence template in `docs/runbooks/key-rotation-and-backup.md`.
       Evidence: __
@@ -410,7 +423,7 @@ Owner-attested, undated (recorded here so it stops being re-asked):
 | # | Level | Item | Owner | Acceptance |
 |---|---|---|---|---|
 | 1 | **P0** | Live transaction rehearsal (charge→cancel→reactivate→refund) unrun | Owner | Recorded evidence in §3 |
-| 2 | **P1** | Authenticated seeded E2E not run in this environment | Owner/CI | Green run recorded; `RC_GATE=1` enforces it |
+| ~~2~~ | ~~P1~~ | ~~Authenticated seeded E2E not run~~ | — | **CLOSED 2026-07-26.** 87 executions green against the deployed v10 preview; evidence in §3 |
 | 3 | **P1** | Reminder/cron/email live rehearsal, incl. one-click unsubscribe | Owner | Evidence in §3 |
 | 4 | **P1** | Key rotation + backup/restore drill never rehearsed | Owner | Evidence in §3 |
 | ~~5~~ | ~~P2~~ | ~~Trial-length experiment infrastructure absent (MW-V10-02)~~ | — | **Closed.** Server-owned, pinned, allowlisted assignment; experiment shipped but **not running** |
@@ -478,15 +491,15 @@ Every command below was run at `e817aa4`. Nothing here is inferred.
 | `npm run test:e2e:public` | ✅ 48 passed × desktop / 375px / 320px |
 | `git diff --check` | ✅ clean |
 | `npm run release-check` (local, no secrets) | ✅ **fails closed as designed** — 14 missing, 4 warnings, "NOT ready", and **no value printed**. Owner must re-run with production env pulled. |
-| `npm run test:e2e` + `npm run test:e2e:journey` | ⛔ **NOT RUN** — no seeded environment. 66 authenticated tests exist and have never executed. |
+| `npm run test:e2e` + `npm run test:e2e:journey` | ✅ **39 passed / 6 skipped** — run against the deployed v10 preview on real Vercel infrastructure, 2026-07-26 |
 | `scripts/eval-live.mjs` | ⏭ SKIPPED by design (opt-in, advisory, cannot gate a release) |
 | Lighthouse / Web Vitals | ⛔ **NOT MEASURED.** No score is claimed anywhere. |
 
 ### Verdict
 
-- **Automated code gate:** ✅ GO at `e817aa4` — lint, typecheck, 900 tests, the
-  81-test eval gate, build and the 48 public browser journeys green. **Not** part
-  of this GO: the 66 authenticated tests (never executed), the live provider eval
+- **Automated code gate:** ✅ GO — lint, typecheck, 900 tests, the 81-test eval
+  gate, build, 48 public browser journeys and **39 authenticated journeys against
+  a real deployment** all green. **Not** part of this GO: the live provider eval
   (skipped by design) and any performance number (never measured).
 - **Capped private beta (≤50 invites, no card for the sample):** ✅ GO — and as
   of MW-V10-06 the cap is *enforced* by a database trigger rather than
@@ -514,10 +527,11 @@ Nothing in the code. Four owner-run items, ordered by risk removed per hour:
 
 | # | Action | Why it comes first | Effort |
 |---|---|---|---|
-| 1 | Seed the E2E environment (`npm run seed:test-user` + 3 env vars) and run both authenticated suites | Unblocks 66 tests that have never run; MW-V10-03 proved this gate currently does nothing | ~5 min + one run |
-| 2 | Apply migrations `036`–`039` to live Supabase; confirm via `/api/health/ready` | These four files were created during v10 and are the only ones not yet applied — earlier migrations were applied by the owner ahead of each release. Trial pinning, provenance, cron leases and the beta cap enforce nothing until they land. | ~10 min |
-| 3 | One real low-value transaction end to end (charge → cancel → reactivate → portal → refund) | The only P0 | ~30 min |
-| 4 | Reminder/cron/email rehearsal using the worksheet at the end of `docs/ops-cron.md` | Delivery is not *observed* until a message lands in a real inbox | ~45 min |
+| ~~1~~ | ~~Seed the E2E environment and run both authenticated suites~~ | **DONE 2026-07-26** — 87 executions green, four test/fixture defects found and fixed | — |
+| ~~2~~ | ~~Apply migrations `036`–`039` to live Supabase~~ | **DONE 2026-07-26** — all four verified present by a read-only check before the E2E run | — |
+| 1 | One real low-value transaction end to end (charge → cancel → reactivate → portal → refund) | The only remaining P0. Use the €9.99 monthly plan, and refund it as part of the rehearsal. | ~30 min |
+| 2 | Reminder/cron/email rehearsal using the worksheet at the end of `docs/ops-cron.md` | Delivery is not *observed* until a message lands in a real inbox. `RESEND_API_KEY` is live on Vercel, so this is runnable against the deployment. | ~45 min |
+| 3 | Key rotation + backup/restore drill (`docs/runbooks/key-rotation-and-backup.md`) | Never rehearsed | ~60 min |
 
 Record each result in §3. When all four carry evidence and no stop criterion is
 open, the public-paid verdict may be revisited — by a human.
