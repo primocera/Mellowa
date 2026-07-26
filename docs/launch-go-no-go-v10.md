@@ -362,6 +362,22 @@ P2 #8 stays open.
 None of these can be proven from this environment. Claude Code must not mutate
 live Stripe, Supabase, Vercel, Resend, DNS or cron.
 
+**Read the checkboxes carefully: an unticked box means "no evidence is written
+here", NOT "the owner has not done it."** The owner has run live operational work
+throughout v7–v9 — cron scheduling (set up and exercised in v7), migrations
+applied ahead of each release, and manual testing across versions — and that work
+is only partly captured below. A future pack must **ask the owner** before
+treating an empty line as an open task. This document is the record, not the
+world, and where the two disagree the owner is right.
+
+Owner-attested, undated (recorded here so it stops being re-asked):
+
+- [x] **Vercel + cron-job.org schedules configured and exercised** — owner, v7.
+      Includes `CRON_SECRET` bearer headers on every scheduled route.
+- [x] **Migrations applied to live Supabase ahead of each release** — owner,
+      every version through v9 (see the dated entries below).
+- [x] **Manual functional testing across versions** — owner, ongoing.
+
 - [x] Migrations `027`–`033` applied to live Supabase — 2026-07-21, before the
       v8 merge.
 - [x] Migrations `034`/`035` applied to live Supabase — 2026-07-23. **Confirm
@@ -371,12 +387,17 @@ live Stripe, Supabase, Vercel, Resend, DNS or cron.
 - [ ] **One real low-value transaction** end to end: signup → sample → sample
       adjustment → live trial checkout → exact charge disclosure → daily repair
       + Undo → cancel → reactivate → billing portal → refund. Evidence: __
-- [ ] **Reminder / cron / email** live rehearsal — the worksheet is now written
-      out step by step at the end of `docs/ops-cron.md` (consent preview, the
-      disclosed timing window, pause/skip/disable, double-trigger idempotency,
-      the native Gmail/Apple Mail one-click unsubscribe, a deliberate provider
-      break and dead-letter recovery, and `past_due`/`canceled` suppression).
-      Evidence: __
+- [ ] **Reminder / cron / email** live rehearsal *of the v10 behaviour*.
+      Scheduling itself is configured and exercised (owner, v7 — see above), so
+      what is open is narrower than it looks: MW-V10-05 added a consent-version
+      gate, `past_due`/`canceled` suppression and safety suppression, none of
+      which existed when the crons were last exercised. The step-by-step
+      worksheet is at the end of `docs/ops-cron.md`. Evidence: __
+
+      **One consequence worth knowing before the next send:** the consent gate
+      fails closed, so any account that opted in before `reminder_consent_version`
+      was recorded now gets no reminder until it re-confirms. If reminders were
+      working for real accounts before v10, this will look like they stopped.
 - [ ] **Authenticated seeded E2E** — both `npm run test:e2e` and the MW-V10-03
       state matrix `npm run test:e2e:journey` (8 seeded states × 3 viewports),
       with `seed:test-user`, against staging. Evidence: __
@@ -494,7 +515,7 @@ Nothing in the code. Four owner-run items, ordered by risk removed per hour:
 | # | Action | Why it comes first | Effort |
 |---|---|---|---|
 | 1 | Seed the E2E environment (`npm run seed:test-user` + 3 env vars) and run both authenticated suites | Unblocks 66 tests that have never run; MW-V10-03 proved this gate currently does nothing | ~5 min + one run |
-| 2 | Apply migrations `036`–`039` to live Supabase; confirm via `/api/health/ready` | Four v10 mechanisms (trial pinning, provenance, cron leases, beta cap) enforce nothing until applied | ~10 min |
+| 2 | Apply migrations `036`–`039` to live Supabase; confirm via `/api/health/ready` | These four files were created during v10 and are the only ones not yet applied — earlier migrations were applied by the owner ahead of each release. Trial pinning, provenance, cron leases and the beta cap enforce nothing until they land. | ~10 min |
 | 3 | One real low-value transaction end to end (charge → cancel → reactivate → portal → refund) | The only P0 | ~30 min |
 | 4 | Reminder/cron/email rehearsal using the worksheet at the end of `docs/ops-cron.md` | Delivery is not *observed* until a message lands in a real inbox | ~45 min |
 
