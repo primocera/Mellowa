@@ -54,3 +54,8 @@ PROGRESS.md
 
 # playbook working files (never commit)
 /playbooks/
+
+# .env.example is a template with no secret values — it must be committed so
+# CI and new contributors have the canonical variable list (MW-V10-08: a test
+# reads it, and it was silently absent in CI).
+!.env.example
