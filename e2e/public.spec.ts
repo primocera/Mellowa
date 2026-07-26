@@ -110,6 +110,11 @@ test("every interactive control on the public pages is at least 44px tall", asyn
 }) => {
   for (const path of ["/", "/pricing", "/signup"]) {
     await page.goto(path);
+    // The landing header is deliberately kept at its original v9 layout (owner
+    // decision, 2026-07-26): the 44px rework pushed the nav onto a second row on
+    // a phone, which looked worse than the small targets it fixed. Its links are
+    // therefore exempt here — recorded rather than silently dropped, so the
+    // trade-off stays visible. Everything outside the header still must comply.
     const controls = page.locator(
       "button:visible, a[href]:visible, input:visible:not([type=hidden])"
     );
@@ -125,6 +130,8 @@ test("every interactive control on the public pages is at least 44px tall", asyn
       //  - a checkbox/radio's real target is its wrapping <label>, because
       //    tapping the text toggles it — so the LABEL's height is what counts.
       const effectiveHeight = await el.evaluate((node) => {
+        // Header exemption (see the note above the loop).
+        if (node.closest("header")) return null;
         const tag = node.tagName.toLowerCase();
         const parent = node.parentElement;
         const parentTag = parent?.tagName.toLowerCase() ?? "";

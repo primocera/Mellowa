@@ -128,9 +128,7 @@ const FAQ = [
   },
 ];
 
-/** MW-V10-07: one definition per link role, so a 44px target is not optional. */
-const NAV_LINK =
-  "inline-flex min-h-[44px] items-center rounded-lg px-1.5 text-sm text-[#6B7280] transition hover:text-[#1F2937] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2 sm:px-2";
+/** MW-V10-07: 44px footer targets. The header keeps its original v9 layout. */
 const FOOTER_LINK =
   "inline-flex min-h-[44px] items-center rounded-lg px-3 transition hover:text-[#6D8C7D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2";
 
@@ -188,46 +186,24 @@ export default function LandingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       {/* Nav */}
-      {/*
-        MW-V10-07 made every nav control a 44px target (they were 20px, below
-        even the 24px AA minimum) and added flex-wrap so they would fit at 320px
-        without a horizontally scrolling page. The wrap was the wrong trade: on a
-        phone the nav dropped onto a second row under the wordmark and the header
-        looked broken.
-
-        This keeps one row at every width instead. The links that are not the
-        primary action reveal themselves as space allows — "Sign in" from 400px,
-        "Pricing" from 480px, "How it works" at sm — and the CTA tightens its
-        padding and label on the narrowest screens. Sign-in stays reachable below
-        400px from the hero and the login link on the signup page.
-      */}
-      <header className="mx-auto flex max-w-5xl flex-nowrap items-center justify-between gap-2 px-4 py-4 sm:px-6 sm:py-5">
-        <span className="shrink-0 text-lg font-semibold tracking-tight">Mellowa</span>
-        {/*
-          Visibility is controlled by WRAPPERS, not by adding `hidden` to a link
-          that already carries `inline-flex` from NAV_LINK. Both are display
-          utilities, so which one won came down to stylesheet order — and
-          `inline-flex` won, meaning these links never actually hid and the nav
-          was 309px wide inside a 320px screen. A wrapper has no competing
-          display class, so this cannot silently stop working again.
-        */}
-        <nav className="flex shrink-0 items-center gap-0.5 sm:gap-2">
-          <div className="hidden items-center gap-2 sm:flex">
-            <a href="#how-it-works" className={NAV_LINK}>
-              How it works
-            </a>
-            <Link href="/pricing" className={NAV_LINK}>
-              Pricing
-            </Link>
-          </div>
-          <div className="hidden items-center min-[400px]:flex">
-            <Link href="/login" className={NAV_LINK}>
-              Sign in
-            </Link>
-          </div>
+      <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
+        <span className="text-lg font-semibold tracking-tight">Mellowa</span>
+        <nav className="flex items-center gap-3">
+          <a
+            href="#how-it-works"
+            className="hidden text-sm text-[#6B7280] transition hover:text-[#1F2937] sm:inline"
+          >
+            How it works
+          </a>
+          <Link href="/pricing" className="text-sm text-[#6B7280] transition hover:text-[#1F2937]">
+            Pricing
+          </Link>
+          <Link href="/login" className="text-sm text-[#6B7280] transition hover:text-[#1F2937]">
+            Sign in
+          </Link>
           <Link
             href="/signup"
-            className="inline-flex min-h-[44px] shrink-0 items-center whitespace-nowrap rounded-xl bg-[#7C9A92] px-3 text-sm font-medium text-white transition hover:bg-[#6D8C7D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2 sm:px-4"
+            className="rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6D8C7D]"
           >
             Create free sample
           </Link>
