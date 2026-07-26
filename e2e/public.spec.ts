@@ -150,6 +150,33 @@ test("every interactive control on the public pages is at least 44px tall", asyn
   }
 });
 
+/**
+ * The header must stay on ONE row at every width. MW-V10-07 fixed a 320px
+ * overflow with flex-wrap, which pushed the nav under the wordmark on a phone
+ * and looked broken. Measured by comparing vertical positions rather than by
+ * inspecting classes, so any future layout change that re-wraps it fails here.
+ */
+test("the header never wraps onto a second row", async ({ page }) => {
+  await page.goto("/");
+  const wordmark = page.locator("header span").first();
+  const cta = page.locator('header a[href="/signup"]');
+  const wordmarkBox = await wordmark.boundingBox();
+  const ctaBox = await cta.boundingBox();
+  expect(wordmarkBox).not.toBeNull();
+  expect(ctaBox).not.toBeNull();
+
+  // Same row = their vertical centres are within half a target height.
+  const wordmarkMid = wordmarkBox!.y + wordmarkBox!.height / 2;
+  const ctaMid = ctaBox!.y + ctaBox!.height / 2;
+  expect(
+    Math.abs(wordmarkMid - ctaMid),
+    "header nav has wrapped below the wordmark"
+  ).toBeLessThan(22);
+
+  // …and the CTA sits to the RIGHT of the wordmark, not under it.
+  expect(ctaBox!.x).toBeGreaterThan(wordmarkBox!.x);
+});
+
 test("focus is visible on the primary signup control", async ({ page }) => {
   await page.goto("/signup");
   const email = page.locator('input[type="email"]');
