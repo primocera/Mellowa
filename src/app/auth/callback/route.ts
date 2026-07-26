@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { recordRequiredConsents } from "@/lib/consent/status";
 import { deliverEmail } from "@/lib/email/deliver";
@@ -9,32 +10,67 @@ import {
   sanitizeNextPath,
 } from "@/lib/auth/intent";
 
+/** Email link types we accept on this callback. */
+const OTP_TYPES = new Set<EmailOtpType>([
+  "signup",
+  "email",
+  "email_change",
+  "magiclink",
+  "recovery",
+  "invite",
+]);
+
+function parseOtpType(raw: string | null): EmailOtpType | null {
+  return raw && OTP_TYPES.has(raw as EmailOtpType) ? (raw as EmailOtpType) : null;
+}
+
 /**
  * Email-verification callback (Launch audit v6, Prompt 1).
  *
- * Exchanges the Supabase verification code for a session, then performs the
- * trusted post-verification steps server-side: records the consents captured
- * at signup and sends the welcome email (idempotent via its event key).
- * Redirects only to allow-listed relative paths.
+ * Accepts both Supabase email-link shapes, because they fail in different
+ * places:
+ *   - `token_hash` + `type` → `verifyOtp`. Device-independent, so opening the
+ *     link on a different device than the one used to sign up still works.
+ *   - `code` → `exchangeCodeForSession`. PKCE; requires the code-verifier
+ *     cookie set by the browser that started the flow, so a cross-device open
+ *     cannot succeed and must fall back to resend rather than look "expired".
+ *
+ * Then performs the trusted post-verification steps server-side: records the
+ * consents captured at signup and sends the welcome email (idempotent via its
+ * event key). Redirects only to allow-listed relative paths.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
+  const tokenHash = url.searchParams.get("token_hash");
+  const otpType = parseOtpType(url.searchParams.get("type"));
   const plan = parsePlanIntent(url.searchParams.get("plan"));
   const next = sanitizeNextPath(url.searchParams.get("next"));
 
   const redirect = (path: string) => NextResponse.redirect(new URL(path, url.origin));
 
-  if (!code) {
+  if (!tokenHash && !code) {
     return redirect("/login?error=verify_link_invalid");
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+  // Prefer the device-independent path when the link carries a token hash.
+  const { data, error } =
+    tokenHash && otpType
+      ? await supabase.auth.verifyOtp({ token_hash: tokenHash, type: otpType })
+      : await supabase.auth.exchangeCodeForSession(code as string);
 
   if (error || !data.user) {
-    // Expired, already-used or malformed link. The verify page offers resend.
+    // Expired, already-used, malformed, or a PKCE link opened on another
+    // device. The verify page offers resend.
     return redirect("/verify-email?error=link_expired");
+  }
+
+  // A recovery link authenticates the user for a password change only; send
+  // them to the reset form instead of into the app.
+  if (otpType === "recovery") {
+    return redirect("/reset-password");
   }
 
   const user = data.user;

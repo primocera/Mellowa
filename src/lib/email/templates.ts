@@ -222,13 +222,19 @@ export function accountDeletedEmail(): Email {
  * One-time onboarding nudge — sent once if setup wasn't finished within a day.
  * Optional category: never repeated, suppressed the moment a profile exists.
  */
-export function onboardingNudgeEmail(): Email {
+export function onboardingNudgeEmail(optOutUrl?: string | null): Email {
   return {
     subject: "Finish your Mellowa setup",
     html: shell(
       `${p("You created a Mellowa account but haven't finished setup. It takes about two minutes, then your free sample day is ready to create.")}
        <p style="margin:24px 0;">${button("Finish setup", `${appUrl()}/onboarding`)}</p>
-       ${p("This is the only reminder we'll send about setup.")}`,
+       ${p(
+         `This is the only reminder we'll send about setup.${
+           optOutUrl
+             ? ` <a href="${optOutUrl}" style="color:#6B7280">Turn reminder emails off</a>.`
+             : ""
+         }`
+       )}`,
       "Two minutes of setup, then your free sample day."
     ),
   };

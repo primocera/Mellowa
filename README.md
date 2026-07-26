@@ -5,6 +5,14 @@ realistic plan for food, energy, mood and habits — adapted to how the day
 actually feels. Not a diet app, macro tracker, therapy tool or medical
 service.
 
+## Project state
+
+**Before scoping new work, read [`docs/BUILD_STATE.md`](docs/BUILD_STATE.md).**
+It is the canonical list of what is already built and tested versus what is
+genuinely open, so new prompt packs stop re-commissioning shipped features. The
+per-release `docs/launch-go-no-go-*.md` files are history; `BUILD_STATE.md` is
+the current truth.
+
 ## Stack
 
 Next.js App Router · TypeScript (strict) · Tailwind CSS · Supabase (Auth +

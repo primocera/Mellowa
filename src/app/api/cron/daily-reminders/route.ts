@@ -4,6 +4,7 @@ import { serverEnv } from "@/lib/env";
 import { requireBearerSecret } from "@/lib/cron-auth";
 import { deliverEmail } from "@/lib/email/deliver";
 import { getUserEmails } from "@/lib/email/recipients";
+import { unsubscribeUrl } from "@/lib/email/unsubscribe";
 import { planReminders, type ReminderProfile } from "@/lib/email/reminder-planner";
 import { onboardingNudgeEmail } from "@/lib/email/templates";
 
@@ -95,12 +96,16 @@ export async function GET(request: Request) {
         const email = emails.get(r.userId);
         if (!email) continue;
 
+        // Opt-out must work from the email itself, signed out, on a phone.
+        const optOut = unsubscribeUrl(r.userId, "daily_reminder");
+
         const result = await deliverEmail({
           eventKey: `daily_reminder:${r.userId}:${r.localDate}`,
           userId: r.userId,
           template: "daily_reminder",
           to: email,
           scheduledAt: r.scheduledAt,
+          unsubscribeUrl: optOut,
           subject: "A gentle nudge from Mellowa",
           html: `<div style="font-family:sans-serif;color:#1F2937;line-height:1.6">
             <p>Hi,</p>
@@ -108,7 +113,11 @@ export async function GET(request: Request) {
             can shape a plan that actually fits today.</p>
             <p><a href="${serverEnv.appUrl}/check-in?from=reminder" style="color:#6D8C7D">Open Mellowa</a></p>
             <p style="color:#6B7280;font-size:13px">No pressure — skipping days is
-            part of it. You can turn these reminders off any time in Settings.</p>
+            part of it.${
+              optOut
+                ? ` <a href="${optOut}" style="color:#6B7280">Turn these reminders off</a>.`
+                : " You can turn these reminders off any time in Settings."
+            }</p>
           </div>`,
         });
 
@@ -171,12 +180,14 @@ export async function GET(request: Request) {
       for (const userId of pending) {
         const email = emails.get(userId);
         if (!email) continue;
-        const { subject, html } = onboardingNudgeEmail();
+        const optOut = unsubscribeUrl(userId, "onboarding_nudge");
+        const { subject, html } = onboardingNudgeEmail(optOut);
         const result = await deliverEmail({
           eventKey: `onboarding_nudge:${userId}`,
           userId,
           template: "onboarding_nudge",
           to: email,
+          unsubscribeUrl: optOut,
           subject,
           html,
         });

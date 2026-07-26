@@ -7,6 +7,9 @@ import { UpgradeButton } from "@/components/dailyflow/upgrade-button";
 import { ManageBilling } from "@/components/dailyflow/manage-billing";
 import { readLegalConfig } from "@/lib/legal/config";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getStripe } from "@/lib/stripe/client";
+import { adoptSubscriptionForCustomer } from "@/lib/stripe/reconcile";
 
 export const metadata: Metadata = { title: "Billing — Mellowa" };
 
@@ -14,8 +17,47 @@ function formatDate(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString() : null;
 }
 
-export default async function BillingPage() {
+/**
+ * Returning from Stripe checkout, the webhook is usually already applied — but
+ * it can be delayed or dropped entirely. Without this, a user who just paid
+ * sees "no membership" and has no way to recover. Adopt straight from Stripe
+ * so access is correct on the first render; the webhook stays authoritative.
+ */
+async function syncAfterCheckout(userId: string) {
+  const admin = createAdminClient();
+  const { data: row } = await admin
+    .from("subscriptions")
+    .select("stripe_customer_id, stripe_subscription_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!row?.stripe_customer_id || row.stripe_subscription_id) return;
+  try {
+    await adoptSubscriptionForCustomer(
+      getStripe(),
+      admin,
+      userId,
+      row.stripe_customer_id
+    );
+  } catch (err) {
+    // Never block the page: reconcile retries daily and the user keeps read
+    // access meanwhile.
+    console.error("[billing] post-checkout sync failed", {
+      message: err instanceof Error ? err.message : "unknown",
+    });
+  }
+}
+
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
   const user = await requireUser();
+
+  if ((await searchParams).status === "success") {
+    await syncAfterCheckout(user.id);
+  }
+
   const sub = await getUserSubscriptionStatus(user.id);
 
   // Server-derived trial eligibility (MW-08): one 3-day trial ever. The
