@@ -4,7 +4,9 @@ import { serverEnv } from "@/lib/env";
 import { requireBearerSecret } from "@/lib/cron-auth";
 import { deliverEmail } from "@/lib/email/deliver";
 import { getUserEmails } from "@/lib/email/recipients";
+import { unsubscribeUrl } from "@/lib/email/unsubscribe";
 import { planReminders, type ReminderProfile } from "@/lib/email/reminder-planner";
+import { acquireCronLease } from "@/lib/cron-lease";
 import { onboardingNudgeEmail } from "@/lib/email/templates";
 
 /**
@@ -23,6 +25,10 @@ import { onboardingNudgeEmail } from "@/lib/email/templates";
 
 const BATCH_SIZE = 200;
 const TIME_BUDGET_MS = 50_000;
+/** Slightly longer than the time budget, so a run cannot outlive its lease. */
+const LEASE_TTL_SECONDS = 90;
+/** A crisis signal within this window suppresses activity nudges entirely. */
+const SAFETY_SUPPRESSION_DAYS = 30;
 
 export async function GET(request: Request) {
   const denied = requireBearerSecret(request, serverEnv.cronSecret);
@@ -32,11 +38,27 @@ export async function GET(request: Request) {
   const startedAt = Date.now();
   const now = new Date();
 
+  // MW-V10-05: a second overlapping run is a no-op rather than a duplicate
+  // scan. Duplicate SENDS were already impossible (ledger event key); this
+  // stops the duplicated work and provider load. Fails open by design.
+  const lease = await acquireCronLease(admin, "daily-reminders", LEASE_TTL_SECONDS);
+  if (!lease.acquired) {
+    return NextResponse.json({ ok: true, skipped: "already_running" });
+  }
+
   let cursor: string | null = null;
   let sent = 0;
   let invalidTimezones = 0;
   let scanned = 0;
   let truncated = false;
+  // Aggregate skip reasons — counts only, so an ops log never carries identity.
+  const skips = {
+    staleConsent: 0,
+    billingState: 0,
+    safetySuppressed: 0,
+    pausedOrSkipped: 0,
+    inQuietHours: 0,
+  };
 
   for (;;) {
     if (Date.now() - startedAt > TIME_BUDGET_MS) {
@@ -47,7 +69,7 @@ export async function GET(request: Request) {
     let query = admin
       .from("wellbeing_profiles")
       .select(
-        "user_id, reminder_time, quiet_hours_start, quiet_hours_end, timezone, last_reminder_sent_date, reminders_paused, reminder_skip_date"
+        "user_id, reminder_time, quiet_hours_start, quiet_hours_end, timezone, last_reminder_sent_date, reminders_paused, reminder_skip_date, reminder_consent_version"
       )
       .eq("reminders_opt_in", true)
       .not("reminder_time", "is", null)
@@ -64,8 +86,40 @@ export async function GET(request: Request) {
     scanned += profiles.length;
     cursor = profiles[profiles.length - 1].user_id;
 
-    const plan = planReminders(profiles as ReminderProfile[], now);
+    // MW-V10-05: the planner decides everything, but it is pure — the two
+    // facts it cannot know are fetched here, once per batch.
+    const batchIds = profiles.map((p) => p.user_id as string);
+    const [{ data: subs }, { data: safetyRows }] = await Promise.all([
+      admin.from("subscriptions").select("user_id, status").in("user_id", batchIds),
+      // A recent crisis / eating-disorder signal suppresses activity nudges.
+      // Only the user id is read — never the signal's content.
+      admin
+        .from("safety_events")
+        .select("user_id")
+        .in("user_id", batchIds)
+        .gte(
+          "created_at",
+          new Date(now.getTime() - SAFETY_SUPPRESSION_DAYS * 86_400_000).toISOString()
+        ),
+    ]);
+    const statusByUser = new Map(
+      (subs ?? []).map((r) => [r.user_id as string, r.status as string | null])
+    );
+    const suppressed = new Set((safetyRows ?? []).map((r) => r.user_id as string));
+
+    const enriched: ReminderProfile[] = (profiles as ReminderProfile[]).map((p) => ({
+      ...p,
+      subscription_status: statusByUser.get(p.user_id) ?? null,
+      safety_suppressed: suppressed.has(p.user_id),
+    }));
+
+    const plan = planReminders(enriched, now);
     invalidTimezones += plan.invalidTimezones;
+    skips.staleConsent += plan.staleConsent;
+    skips.billingState += plan.billingState;
+    skips.safetySuppressed += plan.safetySuppressed;
+    skips.pausedOrSkipped += plan.pausedOrSkipped;
+    skips.inQuietHours += plan.inQuietHours;
 
     // MW-S08: relevance — this reminder means "no plan created yet today".
     // Users who already made today's plan are not nudged about it.
@@ -95,12 +149,16 @@ export async function GET(request: Request) {
         const email = emails.get(r.userId);
         if (!email) continue;
 
+        // Opt-out must work from the email itself, signed out, on a phone.
+        const optOut = unsubscribeUrl(r.userId, "daily_reminder");
+
         const result = await deliverEmail({
-          eventKey: `daily_reminder:${r.userId}:${r.localDate}`,
+          eventKey: r.dedupeKey,
           userId: r.userId,
           template: "daily_reminder",
           to: email,
           scheduledAt: r.scheduledAt,
+          unsubscribeUrl: optOut,
           subject: "A gentle nudge from Mellowa",
           html: `<div style="font-family:sans-serif;color:#1F2937;line-height:1.6">
             <p>Hi,</p>
@@ -108,7 +166,11 @@ export async function GET(request: Request) {
             can shape a plan that actually fits today.</p>
             <p><a href="${serverEnv.appUrl}/check-in?from=reminder" style="color:#6D8C7D">Open Mellowa</a></p>
             <p style="color:#6B7280;font-size:13px">No pressure — skipping days is
-            part of it. You can turn these reminders off any time in Settings.</p>
+            part of it.${
+              optOut
+                ? ` <a href="${optOut}" style="color:#6B7280">Turn these reminders off</a>.`
+                : " You can turn these reminders off any time in Settings."
+            }</p>
           </div>`,
         });
 
@@ -171,12 +233,14 @@ export async function GET(request: Request) {
       for (const userId of pending) {
         const email = emails.get(userId);
         if (!email) continue;
-        const { subject, html } = onboardingNudgeEmail();
+        const optOut = unsubscribeUrl(userId, "onboarding_nudge");
+        const { subject, html } = onboardingNudgeEmail(optOut);
         const result = await deliverEmail({
           eventKey: `onboarding_nudge:${userId}`,
           userId,
           template: "onboarding_nudge",
           to: email,
+          unsubscribeUrl: optOut,
           subject,
           html,
         });
@@ -185,12 +249,16 @@ export async function GET(request: Request) {
     }
   }
 
+  await lease.release();
+
   return NextResponse.json({
     ok: true,
     sent,
     nudged,
     scanned,
     invalid_timezones: invalidTimezones,
+    // Categories only — an ops response never carries a user id.
+    skipped: skips,
     truncated,
   });
 }

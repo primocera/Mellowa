@@ -26,6 +26,28 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
+    /**
+     * Vercel Deployment Protection sits in front of preview deployments and
+     * redirects to vercel.com/login, so without this every test would assert
+     * against Vercel's login page instead of the app.
+     *
+     * Set VERCEL_AUTOMATION_BYPASS_SECRET (Vercel → Project → Settings →
+     * Deployment Protection → Protection Bypass for Automation) to send the
+     * bypass header on every request. The secret is read from the environment
+     * and never committed. Omitted entirely when unset, so local runs and
+     * unprotected deployments are unaffected.
+     */
+    ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+      ? {
+          extraHTTPHeaders: {
+            "x-vercel-protection-bypass":
+              process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+            // Sets a cookie on first response so client-side navigations and
+            // asset requests stay authorised too, not just the initial GET.
+            "x-vercel-set-bypass-cookie": "true",
+          },
+        }
+      : {}),
   },
   webServer: process.env.E2E_BASE_URL
     ? undefined
@@ -47,5 +69,18 @@ export default defineConfig({
       },
     },
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    // MW-V10-03: 320px is the narrowest viewport we support. It is a separate
+    // project rather than a resize inside a test, so every spec that runs here
+    // is checked at the width where cards clip and the fixed bottom nav is most
+    // likely to cover a primary action.
+    {
+      name: "mobile-320",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 320, height: 568 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
   ],
 });

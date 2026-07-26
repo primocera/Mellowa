@@ -46,8 +46,20 @@ the exact previous text, and new ledger rows carry the previous version id.
    corpus inputs with `AI_MOCK` off in a local run and compare the ledger rows
    (`prompt_version`, `latency_ms`, `actual_cost_usd`, `status`). Fixed
    settings: same model, temperature and max tokens for both sides.
-4. Fill in `docs/eval-worksheet.md` for tone/helpfulness samples before
-   release.
+4. Fill in `docs/eval-worksheet.md` before release — all seven dimensions, all
+   seven cases, including the 4-day sequence (the only place repetition can be
+   judged). Any score of 1, or a mean under 3.0 on any single dimension, blocks
+   the release. A version with no attached worksheet has not been evaluated,
+   whatever the test count says.
+5. Optionally run `scripts/eval-live.mjs` (MW-V10-04) for real-generation
+   evidence. It is opt-in, cost-capped, records the model id and UTC date, and
+   is **advisory**: it exits 0 always and cannot gate a release. No LLM is ever
+   used to judge safety — it drives `/api/ai/daily-plan`, so the deterministic
+   safety, allergen and fair-use gates all still apply.
+6. Record the plan-level provenance you expect to see: `daily_plans` now stores
+   `prompt_version`, `model_version` and `is_fallback` (migration `037`), so a
+   specific plan can be traced back to the version that produced it. A spike in
+   `is_fallback` for a new prompt version is a regression signal.
 
 ## Safety categories
 

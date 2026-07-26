@@ -5,6 +5,10 @@ import { Loader2, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { trackClient } from "@/lib/analytics/client";
 import clsx from "clsx";
+import {
+  REMINDER_CONSENT_VERSION,
+  REMINDER_TIMING_DISCLOSURE,
+} from "@/lib/email/reminder-planner";
 
 type Prefs = {
   show_macros: boolean;
@@ -36,8 +40,9 @@ type Prefs = {
   skip_today: boolean;
 };
 
-/** Version of the reminder consent copy shown before opting in (MW-S08). */
-const REMINDER_CONSENT_VERSION = "2026-07";
+// MW-V10-05: consent version and the timing disclosure come from the planner —
+// the module that actually enforces them. A second copy here is how the two
+// silently drifted apart before.
 
 const VARIETY_LEVEL = [
   { value: "keep_it_similar", label: "Keep it similar" },
@@ -598,6 +603,11 @@ export function PlanPreferencesForm({
               content. Quiet hours and your local time are respected; pause or
               turn it off any time.
             </p>
+            {/* MW-V10-05: the schedule is a preference, not a guarantee. Vercel
+                Hobby cron promises one daily run, not a to-the-minute
+                scheduler, so claiming a minute we cannot hit would be a small
+                dishonesty that undermines everything else we tell the user. */}
+            <p className="mt-1">{REMINDER_TIMING_DISCLOSURE}</p>
           </div>
           {prefs.reminders_opt_in && (
             <div className="mt-3 space-y-3">
@@ -605,6 +615,9 @@ export function PlanPreferencesForm({
                 <label className="mb-1 block text-sm font-medium text-[#1F2937]">
                   Preferred reminder time
                 </label>
+                <p className="mb-1 text-xs text-[#9CA3AF]">
+                  Never earlier than this; sometimes later in the day.
+                </p>
                 <input
                   type="time"
                   value={prefs.reminder_time}

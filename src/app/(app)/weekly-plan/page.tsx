@@ -7,7 +7,9 @@ import {
 } from "@/components/dailyflow/weekly-plan-view";
 import { WeeklyReflection } from "@/components/dailyflow/weekly-reflection";
 import { WeeklyRecapCard } from "@/components/dailyflow/weekly-recap";
+import { WeekPreviewCard } from "@/components/dailyflow/week-preview-card";
 import { summarizeWeek } from "@/lib/retention/recap";
+import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
 import type { WeeklyPlan } from "@/types/dailyflow";
 
 export const metadata: Metadata = { title: "Week at a glance — Mellowa" };
@@ -51,6 +53,15 @@ export default async function WeeklyPlanPage() {
     ]);
 
   const recap = summarizeWeek(weekPlans ?? [], weekFeedback ?? []);
+  // MW-V10-02: a trial shorter than a week ends before a real closeout exists.
+  // Show a clearly labelled example of what this page becomes — never
+  // fabricated history — so the carry-forward value is understandable inside
+  // the trial. Suppressed as soon as the user has a recorded week of their own.
+  const sub = await getUserSubscriptionStatus(user.id);
+  const shortTrialDays =
+    sub.status === "trialing" && sub.trialLengthDays && sub.trialLengthDays < 7
+      ? sub.trialLengthDays
+      : null;
   // Transparent no-data handling: nothing recorded means no summary card — the
   // carry-forward section already routes sparse weeks to preferences.
   const hasRecordedWeek = recap.plansCreated > 0 || recap.themes.length > 0;
@@ -67,6 +78,10 @@ export default async function WeeklyPlanPage() {
           </h2>
           <WeeklyRecapCard recap={recap} />
         </section>
+      )}
+
+      {!hasRecordedWeek && shortTrialDays !== null && (
+        <WeekPreviewCard trialDays={shortTrialDays} />
       )}
 
       <section aria-labelledby="carry-forward-heading" className="space-y-2">

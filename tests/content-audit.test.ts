@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { TERMS } from "@/lib/content/terminology";
 
 /**
  * Final content QA + claim audit gate (Content Elevation v6, Prompt 20).
@@ -31,14 +32,23 @@ const CUSTOMER_SURFACES = ["src/app", "src/components", "src/lib/email"].flatMap
 );
 
 const read = (f: string) => readFileSync(f, "utf8");
-const CANONICAL = "realistic plan for the day you actually have";
+// The promise line reads "A realistic wellbeing plan for the day you actually
+// have", so this tail is the part every surface must share verbatim.
+const CANONICAL_TAIL = "day you actually have";
 
 describe("content claim audit (CE-20 gate)", () => {
-  it("leads the funnel with the canonical promise (landing metadata + hero)", () => {
+  it("leads with the adaptive-day wedge and keeps the promise beside it", () => {
     const landing = read("src/app/page.tsx");
-    expect(landing).toContain(CANONICAL); // hero H1
-    // Same through-line in the tab title / share metadata.
-    expect(landing).toMatch(/title:\s*"Mellowa[^"]*realistic plan for the day you actually have/);
+    // MW-V10-01 moved the H1 to the differentiator, because "a realistic plan"
+    // alone does not separate Mellowa from any other wellbeing planner. The
+    // canonical promise stays adjacent and word-for-word — the through-line is
+    // still one promise, just no longer the headline.
+    expect(landing).toMatch(/reshape what&rsquo;s left/i);
+    expect(landing).toContain("{TERMS.promise}");
+    expect(TERMS.promise).toContain(CANONICAL_TAIL);
+    // Metadata must promise what the page now leads with, not the old hero.
+    expect(landing).toMatch(/title:\s*"Mellowa[^"]*Reshape what's left/);
+    expect(landing).toMatch(/description:[\s\S]{0,220}what's left/);
   });
 
   it("has no deprecated funnel phrasing anywhere in customer surfaces", () => {

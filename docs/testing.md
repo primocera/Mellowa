@@ -50,6 +50,44 @@ and delete its rows periodically (or via the in-app delete-account flow).
 If you later provision a dedicated test project, point `.env.local` at it and
 the same commands work unchanged — nothing here hard-codes production.
 
+### Daily-journey state matrix (MW-V10-03)
+
+`e2e/daily-journey.spec.ts` is the state matrix for Today → check-in → Now →
+Done/defer/adjust. It runs at desktop, 375px **and 320px** (the `mobile-320`
+Playwright project), and asserts the things a unit test cannot: one primary
+action per state, no horizontal overflow, the fixed bottom nav not covering a
+control, keyboard reachability, and honest copy in every failure state.
+
+Each state is produced by re-running the seed with `--state`. The plan and its
+completions are rebuilt on every run, so states never leak into each other:
+
+```sh
+node scripts/seed-test-user.mjs --state=plan-ready
+```
+
+| State | What it exercises |
+|---|---|
+| `no-plan` | The check-in entry state — one way forward, keyboard reachable |
+| `plan-ready` | One Now action; full plan reachable; double-tap idempotency |
+| `partly-done` | A completed item is skipped by Now but still visible in the plan |
+| `all-done` | Neutral "that's everything", no celebration, plan still readable |
+| `past-due` | Read-only history + exactly one billing recovery route |
+| `canceled` | Same, in the terminal state |
+| `ending` | Trial set not to renew — one notice, no competing trial countdown |
+| `bad-timezone` | Invalid stored IANA zone → repair prompt, not a wrong day |
+
+```sh
+$env:E2E_SUPABASE_TEST="1"
+$env:E2E_TEST_EMAIL="test@mellowa.local"
+$env:E2E_TEST_PASSWORD="Mellowa123!"
+npm run test:e2e:journey
+```
+
+The spec shells out to the seed script between describe blocks, so it needs
+`.env.local` present and a running app (`npm run start`). **It has never been
+executed** — see `docs/BUILD_STATE.md` §0: an unrun test proves nothing, and
+this suite is the one that would have caught the two defects MW-V10-03 fixed.
+
 ### Stripe billing cycle (manual runbook until a dedicated test env exists)
 
 1. `stripe listen --forward-to localhost:3000/api/stripe/webhook`

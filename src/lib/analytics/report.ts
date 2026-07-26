@@ -10,11 +10,18 @@ import {
   reconcile,
   detectAnomalies,
   usageScorecard,
+  trialExperimentComparison,
+  emailHealth,
+  costPerOutcome,
+  type EmailDeliveryRow,
   type EventRow,
   type SubRow,
   type CostRow,
   type UsageRow,
 } from "@/lib/analytics/metrics";
+import { loopDecisions, expansionVerdict } from "@/lib/analytics/loop-decisions";
+import { readBetaCapacity, type BetaCapacity } from "@/lib/beta/capacity";
+import { experimentConflicts, runningExperiments } from "@/lib/beta/experiments";
 
 /**
  * Server-side metrics report (Launch v6, Prompt 10). Fetches the rows once and
@@ -36,6 +43,25 @@ export interface MetricsReport {
   generation: ReturnType<typeof generationHealth>;
   reconciliation: ReturnType<typeof reconcile>[];
   anomalies: ReturnType<typeof detectAnomalies>;
+  /**
+   * MW-V10-02: trial-length arms side by side. Empty while no cohort has been
+   * assigned; small arms come back suppressed rather than as misleading zeros.
+   */
+  trialExperiment: ReturnType<typeof trialExperimentComparison>;
+  /**
+   * MW-V10-05: delivery backlog and dead letters. Categories and counts only —
+   * an operator can see that mail is broken without reading anyone's mail.
+   */
+  email: ReturnType<typeof emailHealth>;
+  /** MW-V10-06: the value loop with a decision per step, and the one question. */
+  loop: ReturnType<typeof loopDecisions>;
+  expansion: ReturnType<typeof expansionVerdict>;
+  /** MW-V10-06: cost per outcome. `null` means unknown, never zero. */
+  costPerOutcome: ReturnType<typeof costPerOutcome>;
+  /** MW-V10-06: beta intake state; null when it cannot be read. */
+  beta: BetaCapacity | null;
+  /** MW-V10-06: overlapping experiments make neither result attributable. */
+  experimentConflicts: ReturnType<typeof experimentConflicts>;
 }
 
 export async function buildMetricsReport(
@@ -48,7 +74,13 @@ export async function buildMetricsReport(
   const since = new Date(now - windowDays * day).toISOString();
   const priorSince = new Date(now - 2 * windowDays * day).toISOString();
 
-  const [{ data: eventRows }, { data: priorEventRows }, { data: subRows }, { data: costRows }] =
+  const [
+    { data: eventRows },
+    { data: priorEventRows },
+    { data: subRows },
+    { data: costRows },
+    { data: emailRows },
+  ] =
     await Promise.all([
       admin.from("app_events").select("event, user_id, anon_id, created_at").gte("created_at", since),
       admin
@@ -56,10 +88,20 @@ export async function buildMetricsReport(
         .select("event, user_id, anon_id, created_at")
         .gte("created_at", priorSince)
         .lt("created_at", since),
-      admin.from("subscriptions").select("user_id, status, plan_name, trial_used_at, cancel_at_period_end, created_at"),
+      admin
+        .from("subscriptions")
+        .select(
+          "user_id, status, plan_name, trial_used_at, cancel_at_period_end, created_at, trial_variant, trial_days"
+        ),
       admin
         .from("ai_usage_events")
         .select("user_id, status, estimated_cost_usd, actual_cost_usd, created_at")
+        .gte("created_at", since),
+      // Never select to_email / subject / html — delivery health must be
+      // observable without exposing message content or recipients.
+      admin
+        .from("email_deliveries")
+        .select("status, template, attempts, created_at, next_attempt_at")
         .gte("created_at", since),
     ]);
 
@@ -102,6 +144,11 @@ export async function buildMetricsReport(
     checkout_completed: countEvent(prior, "checkout_completed"),
   };
 
+  // MW-V10-06: decisions are derived from the SAME funnel steps the dashboard
+  // renders, so the numbers and the recommended action can never disagree.
+  const loop = loopDecisions(funnels.value_loop);
+  const beta = await readBetaCapacity(admin);
+
   return {
     generatedAt: new Date().toISOString(),
     windowDays,
@@ -126,6 +173,23 @@ export async function buildMetricsReport(
       reconcile(currentCounts.trial_started, paidTrials ?? 0, "trials_started_vs_subscriptions", 2),
     ],
     anomalies: detectAnomalies(currentCounts, baselineCounts),
+    // Cohort membership is read from the pinned variant, so this comparison is
+    // unaffected by the flag being turned off mid-experiment.
+    email: emailHealth((emailRows ?? []) as EmailDeliveryRow[]),
+    loop: loop,
+    expansion: expansionVerdict(loop, windowDays),
+    costPerOutcome: costPerOutcome(usageRows, {
+      samplesGenerated: currentCounts.sample_plan_generated,
+      trialsStarted: currentCounts.trial_started,
+      retainedPayers: countEvent(events, "subscription_renewed"),
+    }),
+    beta,
+    experimentConflicts: experimentConflicts(runningExperiments()),
+    trialExperiment: trialExperimentComparison(
+      subs,
+      events,
+      usageRows
+    ),
   };
 }
 
@@ -153,6 +217,38 @@ export function reportToCsv(report: MetricsReport): string {
   push("usage", "total_cost_usd", report.usage.totalCostUsd);
   push("generation", "fallback_rate", report.generation.fallbackRate);
   for (const r of report.reconciliation) push("reconcile", r.metric, r.reconciled ? "ok" : "MISMATCH");
+  push("email", "backlog", report.email.backlog);
+  push("email", "dead_letter", report.email.deadLetter);
+  push("email", "oldest_backlog_hours", report.email.oldestBacklogHours);
+  push("email", "delivery_rate", report.email.deliveryRate);
+  push("expansion", "can_expand", report.expansion.canExpand ? "yes" : "no");
+  push("cost_per", "sample_usd", report.costPerOutcome.perSampleUsd);
+  push("cost_per", "activated_trial_usd", report.costPerOutcome.perActivatedTrialUsd);
+  push("cost_per", "retained_payer_usd", report.costPerOutcome.perRetainedPayerUsd);
+  push("cost_per", "high_use_user_usd", report.costPerOutcome.perHighUseUserUsd);
+  for (const d of report.loop) {
+    // numerator/denominator/state per step, so the CSV carries the decision
+    // context and not just a bare count.
+    push(`loop_${d.event}`, "numerator", d.numerator);
+    push(`loop_${d.event}`, "denominator", d.denominator);
+    push(`loop_${d.event}`, "state", d.state);
+  }
+  for (const [template, n] of Object.entries(report.email.deadLetterByTemplate)) {
+    push("email_dead_letter", template, n);
+  }
+  // A suppressed arm exports empty cells, never a zero that reads as a result.
+  for (const v of report.trialExperiment) {
+    push(`trial_experiment_${v.variant}`, "trial_days", v.trialDays);
+    push(`trial_experiment_${v.variant}`, "cohort_size", v.cohortSize);
+    push(`trial_experiment_${v.variant}`, "returned_after_day1", v.returnedAfterDay1);
+    push(`trial_experiment_${v.variant}`, "repaired", v.repaired);
+    push(`trial_experiment_${v.variant}`, "weekly_reflection", v.weeklyReflection);
+    push(`trial_experiment_${v.variant}`, "converted", v.converted);
+    push(`trial_experiment_${v.variant}`, "canceled", v.canceled);
+    push(`trial_experiment_${v.variant}`, "conversion_rate", v.conversionRate);
+    push(`trial_experiment_${v.variant}`, "cost_usd", v.costUsd);
+    push(`trial_experiment_${v.variant}`, "suppressed", v.suppressed ? "yes" : "no");
+  }
   return lines.join("\n");
 }
 

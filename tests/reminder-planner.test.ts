@@ -4,6 +4,7 @@ import {
   inQuietHours,
   toMinutes,
   chunk,
+  REMINDER_CONSENT_VERSION,
   type ReminderProfile,
 } from "@/lib/email/reminder-planner";
 
@@ -17,6 +18,14 @@ function profile(overrides: Partial<ReminderProfile>): ReminderProfile {
     quiet_hours_end: null,
     timezone: "UTC",
     last_reminder_sent_date: null,
+    // MW-V10-05: consent, billing state and safety are now planner inputs. A
+    // fixture without them is not an eligible user — the planner fails closed
+    // on consent, which is the point. tests/reminder-reliability.test.ts covers
+    // each of those gates; these fixtures assert the scheduling rules on a user
+    // who has already passed them.
+    reminder_consent_version: REMINDER_CONSENT_VERSION,
+    subscription_status: "active",
+    safety_suppressed: false,
     ...overrides,
   };
 }

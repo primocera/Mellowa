@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal/legal-page";
 import { readLegalConfig } from "@/lib/legal/config";
 import { POLICY_VERSIONS } from "@/lib/consent/config";
+import {
+  publicTrialDays,
+  trialLengthLabel,
+} from "@/lib/stripe/trial-experiment";
 
 export const metadata: Metadata = {
   title: "Terms of Service — Mellowa",
@@ -11,6 +15,11 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   const legal = readLegalConfig();
+  // MW-V10-02: the trial length is named here only while it is the same for
+  // everyone. Once a cohort experiment is running the terms state that the
+  // exact length is disclosed at checkout — which it is, on every surface.
+  // The policy itself is unchanged either way.
+  const trialDays = publicTrialDays();
   return (
     <LegalPage
       title="Terms of Service"
@@ -45,10 +54,13 @@ export default function TermsPage() {
         <p>
           New accounts can create one free sample day plan without a payment
           method. Mellowa is otherwise offered as a paid subscription (monthly
-          or yearly) with a 3-day free trial that starts only when you choose a
-          plan and add a payment method at checkout. Your chosen plan begins
-          billing automatically when the trial ends unless you cancel
-          beforehand. You can cancel any time from your billing settings;
+          or yearly) with a free trial
+          {trialDays === null
+            ? " whose exact length and charge date are shown to you before checkout"
+            : ` of ${trialLengthLabel(trialDays)}`}{" "}
+          that starts only when you choose a plan and add a payment method at
+          checkout. Your chosen plan begins billing automatically when the trial
+          ends unless you cancel beforehand. You can cancel any time from your billing settings;
           cancellation stops future renewals.
         </p>
       </LegalSection>

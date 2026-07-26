@@ -6,7 +6,11 @@ import { PRICING } from "@/lib/stripe/plans";
 import { UpgradeButton } from "@/components/dailyflow/upgrade-button";
 import { ManageBilling } from "@/components/dailyflow/manage-billing";
 import { readLegalConfig } from "@/lib/legal/config";
-import { createClient } from "@/lib/supabase/server";
+import { trialDisclosureForViewer } from "@/lib/stripe/trial-disclosure";
+import { startTrialCta } from "@/lib/stripe/trial-experiment";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getStripe } from "@/lib/stripe/client";
+import { adoptSubscriptionForCustomer } from "@/lib/stripe/reconcile";
 
 export const metadata: Metadata = { title: "Billing — Mellowa" };
 
@@ -14,19 +18,57 @@ function formatDate(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString() : null;
 }
 
-export default async function BillingPage() {
+/**
+ * Returning from Stripe checkout, the webhook is usually already applied — but
+ * it can be delayed or dropped entirely. Without this, a user who just paid
+ * sees "no membership" and has no way to recover. Adopt straight from Stripe
+ * so access is correct on the first render; the webhook stays authoritative.
+ */
+async function syncAfterCheckout(userId: string) {
+  const admin = createAdminClient();
+  const { data: row } = await admin
+    .from("subscriptions")
+    .select("stripe_customer_id, stripe_subscription_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!row?.stripe_customer_id || row.stripe_subscription_id) return;
+  try {
+    await adoptSubscriptionForCustomer(
+      getStripe(),
+      admin,
+      userId,
+      row.stripe_customer_id
+    );
+  } catch (err) {
+    // Never block the page: reconcile retries daily and the user keeps read
+    // access meanwhile.
+    console.error("[billing] post-checkout sync failed", {
+      message: err instanceof Error ? err.message : "unknown",
+    });
+  }
+}
+
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
   const user = await requireUser();
+
+  if ((await searchParams).status === "success") {
+    await syncAfterCheckout(user.id);
+  }
+
   const sub = await getUserSubscriptionStatus(user.id);
 
-  // Server-derived trial eligibility (MW-08): one 3-day trial ever. The
-  // checkout route re-enforces this — the page only mirrors the server truth.
-  const supabase = await createClient();
-  const { data: trialRow } = await supabase
-    .from("subscriptions")
-    .select("trial_used_at")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  const trialEligible = !trialRow?.trial_used_at;
+  // Server-derived trial eligibility (MW-08): one trial ever. MW-V10-02: the
+  // length and charge date come from the same server resolution as pricing and
+  // checkout. The checkout route re-enforces both — the page mirrors it.
+  const {
+    trialEligible,
+    days: trialDays,
+    chargeDate,
+  } = await trialDisclosureForViewer();
 
   const isTrialing = sub.status === "trialing";
   const isActive = sub.status === "active";
@@ -115,7 +157,9 @@ export default async function BillingPage() {
                   Your account, planning baseline and one lifetime sample daily
                   plan stay free — no payment method needed for those.{" "}
                   {trialEligible
-                    ? "Start 3 days free to create new daily plans, shape the week and use reflections — personalized plans come with fair-use safeguards."
+                    ? `${startTrialCta(
+                        trialDays
+                      )} to create new daily plans, shape the week and use reflections — personalized plans come with fair-use safeguards.`
                     : "You've already used your one Premium trial, so a new subscription is charged from day one. Premium unlocks new daily plans, weekly structure and reflections, with fair-use safeguards."}
                 </p>
                 <div className="mt-4 space-y-2">
@@ -123,22 +167,26 @@ export default async function BillingPage() {
                     interval="monthly"
                     label={
                       trialEligible
-                        ? `Start 3 days free — ${PRICING.monthly.price}${PRICING.monthly.cadence}`
+                        ? `${startTrialCta(trialDays)} — ${PRICING.monthly.price}${PRICING.monthly.cadence}`
                         : `Subscribe — pay today — ${PRICING.monthly.price}${PRICING.monthly.cadence}`
                     }
                     amount={PRICING.monthly.price}
                     cadence={PRICING.monthly.cadence}
+                    trialEligible={trialEligible}
+                    trialChargeDate={chargeDate}
                     highlight
                   />
                   <UpgradeButton
                     interval="yearly"
                     label={
                       trialEligible
-                        ? `Start 3 days free — ${PRICING.yearly.price}${PRICING.yearly.cadence}`
+                        ? `${startTrialCta(trialDays)} — ${PRICING.yearly.price}${PRICING.yearly.cadence}`
                         : `Subscribe — pay today — ${PRICING.yearly.price}${PRICING.yearly.cadence}`
                     }
                     amount={PRICING.yearly.price}
                     cadence={PRICING.yearly.cadence}
+                    trialEligible={trialEligible}
+                    trialChargeDate={chargeDate}
                   />
                 </div>
                 <p className="mt-3 text-xs text-[#9CA3AF]">

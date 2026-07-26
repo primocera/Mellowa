@@ -11,10 +11,15 @@ export const TERMS = {
   promise: "A realistic wellbeing plan for the day you actually have.",
   /** Differentiation line. */
   difference: "No calorie targets. No streak pressure. No starting over.",
-  /** Free sample CTA + helper (funnel truth, Launch v6 Prompt 2). */
+  /**
+   * Free sample CTA + helper (funnel truth, Launch v6 Prompt 2).
+   * MW-V10-02: the helper no longer names a trial length. The length depends on
+   * the viewer's server-assigned cohort, so surfaces append
+   * `trialOfferSentence(days)` from lib/stripe/trial-experiment instead of
+   * hardcoding a number here.
+   */
   sampleCta: "Create my free sample plan",
-  sampleHelper:
-    "No card for the sample. Premium starts with a 3-day trial when you choose a plan.",
+  sampleHelper: "No card for the sample.",
   /** Hub display names (internal routes/fields unchanged). */
   hubs: {
     today: "Today",

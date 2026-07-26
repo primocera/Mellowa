@@ -16,6 +16,12 @@ import {
 } from "@/lib/email/billing-facts";
 import { trackEvent } from "@/lib/analytics";
 import type { AnalyticsProperties } from "@/lib/analytics/taxonomy";
+import {
+  experimentProperty,
+  isTrialVariant,
+  trialDaysFromDates,
+  type TrialVariant,
+} from "@/lib/stripe/trial-experiment";
 
 /**
  * Stripe webhook — keeps the subscriptions table in sync (Prompt 14).
@@ -129,6 +135,47 @@ export async function POST(request: Request) {
     return { surface: "billing" };
   }
 
+  /**
+   * MW-V10-02: the trial-length cohort for this subscription. Stripe metadata
+   * is untrusted input even on a signature-verified event, so the code is
+   * accepted only if it is in the app's allowlist; otherwise we fall back to
+   * the variant already pinned on the user's row.
+   */
+  async function variantForSubscription(
+    subscription: Stripe.Subscription,
+    customerId: string
+  ): Promise<TrialVariant | null> {
+    const fromMetadata = subscription.metadata?.trial_variant;
+    if (isTrialVariant(fromMetadata)) return fromMetadata;
+    return variantForCustomerId(customerId);
+  }
+
+  /** Cohort read back from the pinned row, for events with no subscription object. */
+  async function variantForCustomerId(
+    customerId: string
+  ): Promise<TrialVariant | null> {
+    const { data } = await admin
+      .from("subscriptions")
+      .select("trial_variant")
+      .eq("stripe_customer_id", customerId)
+      .maybeSingle();
+    return isTrialVariant(data?.trial_variant) ? data.trial_variant : null;
+  }
+
+  /** Interval + trial cohort, the two dimensions every billing event carries. */
+  async function billingProps(
+    subscription: Stripe.Subscription
+  ): Promise<AnalyticsProperties> {
+    const customerId =
+      typeof subscription.customer === "string"
+        ? subscription.customer
+        : subscription.customer.id;
+    return {
+      ...intervalOf(subscription),
+      ...experimentProperty(await variantForSubscription(subscription, customerId)),
+    };
+  }
+
   async function emailForCustomerId(customerId: string): Promise<string | null> {
     const { data } = await admin
       .from("subscriptions")
@@ -186,7 +233,7 @@ export async function POST(request: Request) {
     const { data: existing } = await admin
       .from("subscriptions")
       .select(
-        "trial_used_at, first_trial_subscription_id, current_period_end, last_stripe_event_created"
+        "trial_used_at, first_trial_subscription_id, current_period_end, last_stripe_event_created, trial_variant, trial_days"
       )
       .eq("user_id", targetUserId)
       .maybeSingle();
@@ -204,6 +251,24 @@ export async function POST(request: Request) {
     }
 
     const hasTrial = subscription.trial_start != null;
+
+    // MW-V10-02: record what Stripe actually granted. The webhook is the first
+    // point at which the real trial window is known, so the stored day count
+    // becomes Stripe's truth rather than what we asked for. It is only ever
+    // written when a trial exists — an existing pinned value is never cleared,
+    // because it is the number the user was already shown.
+    const metadataVariant = subscription.metadata?.trial_variant;
+    const pinnedVariant = isTrialVariant(metadataVariant)
+      ? metadataVariant
+      : isTrialVariant(existing?.trial_variant)
+        ? existing.trial_variant
+        : null;
+    const grantedTrialDays = hasTrial
+      ? trialDaysFromDates(
+          toIso(subscription.trial_start),
+          toIso(subscription.trial_end)
+        )
+      : null;
 
     const { error } = await admin.from("subscriptions").upsert(
       {
@@ -223,6 +288,8 @@ export async function POST(request: Request) {
         first_trial_subscription_id:
           existing?.first_trial_subscription_id ??
           (hasTrial ? subscription.id : null),
+        trial_variant: pinnedVariant,
+        trial_days: grantedTrialDays ?? existing?.trial_days ?? null,
       },
       { onConflict: "user_id" }
     );
@@ -247,7 +314,7 @@ export async function POST(request: Request) {
           );
           trackEvent("checkout_completed", {
             userId: uid,
-            properties: intervalOf(subscription),
+            properties: await billingProps(subscription),
           });
         }
         break;
@@ -262,12 +329,22 @@ export async function POST(request: Request) {
                 ? subscription.customer
                 : subscription.customer.id
             ),
-            properties: intervalOf(subscription),
+            properties: await billingProps(subscription),
           });
           const email = await emailForCustomer(subscription);
           if (email) {
+            // The email states the length Stripe actually granted, so a 7-day
+            // cohort never receives 3-day wording (or the reverse).
             const { subject, html } = trialStartedEmail(
-              factsFromSubscription(subscription, "trial_end")
+              factsFromSubscription(subscription, "trial_end"),
+              trialDaysFromDates(
+                subscription.trial_start
+                  ? new Date(subscription.trial_start * 1000).toISOString()
+                  : null,
+                subscription.trial_end
+                  ? new Date(subscription.trial_end * 1000).toISOString()
+                  : null
+              )
             );
             await deliverEmail({
               eventKey: `trial_started:${subscription.id}`,
@@ -293,7 +370,7 @@ export async function POST(request: Request) {
                 ? subscription.customer
                 : subscription.customer.id
             ),
-            properties: intervalOf(subscription),
+            properties: await billingProps(subscription),
           });
           const email = await emailForCustomer(subscription);
           if (email) {
@@ -326,7 +403,10 @@ export async function POST(request: Request) {
               ? subscription.customer
               : subscription.customer.id
           ),
-          properties: { ...intervalOf(subscription), churn_type: churnType },
+          properties: {
+            ...(await billingProps(subscription)),
+            churn_type: churnType,
+          },
         });
         break;
       }
@@ -397,10 +477,51 @@ export async function POST(request: Request) {
           } else if (invoice.billing_reason === "subscription_cycle") {
             trackEvent("subscription_renewed", {
               userId: uid,
-              properties: { surface: "billing", outcome: "success" },
+              properties: {
+                surface: "billing",
+                outcome: "success",
+                // Renewal is the outcome the trial-length experiment is judged
+                // on, so it carries the cohort like the trial events do.
+                ...experimentProperty(await variantForCustomerId(customerId)),
+              },
             });
           }
         }
+        break;
+      }
+      // A refund does not itself end a subscription — Stripe emits a separate
+      // subscription event when it does. Recording it keeps the owner-run
+      // refund step of the launch rehearsal observable in the same place as
+      // the rest of billing, instead of only in the Stripe dashboard.
+      case "charge.refunded": {
+        const charge = event.data.object;
+        const customerId =
+          typeof charge.customer === "string"
+            ? charge.customer
+            : charge.customer?.id;
+        if (customerId) {
+          trackEvent("payment_refunded", {
+            userId: await userIdForCustomerId(customerId),
+            // The refund itself succeeded either way; the taxonomy has no
+            // "partial" outcome and inventing one would break the contract.
+            // Amounts stay in Stripe, which is the source of truth for money.
+            properties: { surface: "billing", outcome: "success" },
+          });
+        }
+        break;
+      }
+      // A dispute is a trust and cash event that needs an owner, not an
+      // automated entitlement change: never revoke access from code here.
+      case "charge.dispute.created": {
+        const dispute = event.data.object;
+        const charge =
+          typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
+        console.warn("[stripe] dispute opened — owner action required", {
+          charge,
+        });
+        trackEvent("payment_disputed", {
+          properties: { surface: "billing", outcome: "failure" },
+        });
         break;
       }
       default:

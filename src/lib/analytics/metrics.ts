@@ -27,6 +27,9 @@ export interface SubRow {
   trial_used_at?: string | null;
   cancel_at_period_end?: boolean | null;
   created_at: string;
+  /** MW-V10-02: pinned trial-length cohort, when the row has one. */
+  trial_variant?: string | null;
+  trial_days?: number | null;
 }
 
 export interface CostRow {
@@ -323,6 +326,305 @@ export function detectAnomalies(
     if (dropPct >= dropThreshold) out.push({ metric, current: cur, baseline: base, dropPct });
   }
   return out;
+}
+
+// --- MW-V10-06: cost per outcome ---------------------------------------------
+
+/**
+ * What one unit of progress actually costs. `null` means **unknown**, and is
+ * returned whenever the denominator is zero or the cohort is too small to read.
+ *
+ * The distinction that matters: a cost of `0` means we spent nothing; `null`
+ * means we do not know. Rendering an unknown as zero is how a beta convinces
+ * itself the economics work, so the two are never collapsed.
+ */
+export interface CostPerOutcome {
+  /** AI spend ÷ samples generated. */
+  perSampleUsd: number | null;
+  /** AI spend ÷ trials started — the cost of getting one person to intent. */
+  perActivatedTrialUsd: number | null;
+  /** AI spend ÷ people who renewed — the only number that meets revenue. */
+  perRetainedPayerUsd: number | null;
+  /** Mean spend among users above the high-use threshold. */
+  perHighUseUserUsd: number | null;
+  /** Total AI spend in the window, for reference. */
+  totalCostUsd: number;
+  /**
+   * Every input we could not observe, named. An empty list means every figure
+   * above is derived from real ledger rows.
+   */
+  unknowns: string[];
+}
+
+export function costPerOutcome(
+  usage: UsageRow[],
+  counts: {
+    samplesGenerated: number;
+    trialsStarted: number;
+    retainedPayers: number;
+  },
+  highUseThreshold = 90
+): CostPerOutcome {
+  const unknowns: string[] = [];
+  let total = 0;
+  const perUser = new Map<string, { cost: number; generations: number }>();
+
+  for (const r of usage) {
+    if (r.status === "released") continue; // reservation, no provider call
+    const cost = rowCost(r);
+    total += cost;
+    if (r.user_id) {
+      const cur = perUser.get(r.user_id) ?? { cost: 0, generations: 0 };
+      cur.cost += cost;
+      cur.generations += 1;
+      perUser.set(r.user_id, cur);
+    }
+  }
+
+  // Provider fees, Stripe fees and infrastructure are not in this ledger. Say
+  // so rather than presenting an AI-only number as the cost of the business.
+  unknowns.push("Stripe fees and infrastructure are not in the AI ledger");
+
+  const div = (numerator: number, denominator: number, label: string): number | null => {
+    if (denominator <= 0) {
+      unknowns.push(`${label}: no ${label.split(" per ")[1] ?? "denominator"} in window`);
+      return null;
+    }
+    return round2(numerator / denominator);
+  };
+
+  const highUse = [...perUser.values()].filter(
+    (u) => u.generations >= highUseThreshold
+  );
+
+  return {
+    perSampleUsd: div(total, counts.samplesGenerated, "cost per sample"),
+    perActivatedTrialUsd: div(total, counts.trialsStarted, "cost per activated trial"),
+    perRetainedPayerUsd: div(total, counts.retainedPayers, "cost per retained payer"),
+    perHighUseUserUsd:
+      highUse.length === 0
+        ? null
+        : round2(highUse.reduce((a, u) => a + u.cost, 0) / highUse.length),
+    totalCostUsd: round2(total),
+    unknowns,
+  };
+}
+
+// --- MW-V10-05: email backlog and dead letters -------------------------------
+
+/**
+ * One `email_deliveries` row, reduced to what an operator may see. Deliberately
+ * has no `to_email`, `subject` or `html` field: the whole point of surfacing
+ * delivery health is that it can be done without reading anyone's mail.
+ */
+export interface EmailDeliveryRow {
+  status: string;
+  template: string;
+  attempts: number | null;
+  created_at: string;
+  next_attempt_at?: string | null;
+}
+
+export interface EmailHealth {
+  /** Count per status: sent / pending / failed_transient / failed_permanent / … */
+  byStatus: Record<string, number>;
+  /** Retryable work waiting for the outbox worker. */
+  backlog: number;
+  /** Given up on after MAX_ATTEMPTS — needs a human, not another retry. */
+  deadLetter: number;
+  /** Dead letters per template, so a single broken template is obvious. */
+  deadLetterByTemplate: Record<string, number>;
+  /** Age of the oldest unsent retryable row, in hours. Null when none. */
+  oldestBacklogHours: number | null;
+  /** Sent ÷ (sent + permanently failed). Null when nothing has been attempted. */
+  deliveryRate: number | null;
+}
+
+const RETRYABLE_STATUSES = new Set(["pending", "failed_transient", "not_configured"]);
+
+/**
+ * Delivery health from the ledger alone. No content, no recipients, no provider
+ * payloads — categories, counts and ages only.
+ */
+export function emailHealth(
+  rows: EmailDeliveryRow[],
+  now: Date = new Date()
+): EmailHealth {
+  const byStatus: Record<string, number> = {};
+  const deadLetterByTemplate: Record<string, number> = {};
+  let backlog = 0;
+  let deadLetter = 0;
+  let sent = 0;
+  let oldestBacklogMs: number | null = null;
+
+  for (const r of rows) {
+    byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
+    if (r.status === "sent") sent += 1;
+    if (r.status === "failed_permanent") {
+      deadLetter += 1;
+      deadLetterByTemplate[r.template] = (deadLetterByTemplate[r.template] ?? 0) + 1;
+    }
+    if (RETRYABLE_STATUSES.has(r.status)) {
+      backlog += 1;
+      const age = now.getTime() - ts(r.created_at);
+      if (Number.isFinite(age) && (oldestBacklogMs === null || age > oldestBacklogMs)) {
+        oldestBacklogMs = age;
+      }
+    }
+  }
+
+  const attempted = sent + deadLetter;
+  return {
+    byStatus,
+    backlog,
+    deadLetter,
+    deadLetterByTemplate,
+    oldestBacklogHours:
+      oldestBacklogMs === null ? null : round(oldestBacklogMs / 3_600_000),
+    // Not suppressed: these are message counts, not people, and an operator
+    // needs to see a broken provider on the first failure, not the fifth.
+    deliveryRate: attempted === 0 ? null : round(sent / attempted),
+  };
+}
+
+// --- MW-V10-02: trial-length experiment comparison ---------------------------
+
+/** A subscriptions row with the pinned cohort fields. */
+export interface TrialVariantSubRow {
+  user_id: string;
+  status: string | null;
+  trial_variant?: string | null;
+  trial_days?: number | null;
+  trial_used_at?: string | null;
+}
+
+export interface TrialVariantStats {
+  /** Allowlisted variant code (e.g. "control", "week_beta"). */
+  variant: string;
+  /** Trial length the cohort was granted, or null when rows disagree. */
+  trialDays: number | null;
+  /** Users assigned to this arm who actually started a trial. */
+  cohortSize: number;
+  /**
+   * Every figure below is null when the cohort is smaller than MIN_COHORT —
+   * that is the "no data yet" state an owner must be able to distinguish from
+   * a real zero. `suppressed` says which of the two it is.
+   */
+  suppressed: boolean;
+  /** Came back and checked in on a later day than their trial start. */
+  returnedAfterDay1: number | null;
+  /** Used the differentiating remaining-day repair at least once. */
+  repaired: number | null;
+  /** Reached a real week closeout (not the labelled preview). */
+  weeklyReflection: number | null;
+  /** Converted to paid, i.e. the trial was charged. */
+  converted: number | null;
+  canceled: number | null;
+  /** converted / cohortSize, rounded. */
+  conversionRate: number | null;
+  /** AI spend attributable to the cohort in the window, USD. */
+  costUsd: number | null;
+}
+
+/**
+ * Compare the trial-length arms on the outcomes the experiment exists to
+ * decide: did a longer trial let people reach the continuity loop (return,
+ * repair, week closeout) and did that convert — at what AI cost.
+ *
+ * Deliberate properties:
+ * - Cohort membership comes from the PINNED variant on the subscriptions row,
+ *   not from a re-derived assignment, so a flag change cannot retroactively
+ *   move users between arms and rewrite history.
+ * - Only users who actually started a trial count, so an abandoned checkout
+ *   never depresses one arm's conversion.
+ * - Every derived figure is suppressed below MIN_COHORT and the arm is flagged,
+ *   so a two-person cohort reads as "not enough data" rather than "0%".
+ */
+export function trialExperimentComparison(
+  subs: TrialVariantSubRow[],
+  events: EventRow[],
+  costs: UsageRow[] = []
+): TrialVariantStats[] {
+  const byVariant = new Map<string, TrialVariantSubRow[]>();
+  for (const s of subs) {
+    // No pinned variant = never assigned (pre-experiment rows). No trial start
+    // = never entered the experiment's population.
+    if (!s.trial_variant || !s.trial_used_at) continue;
+    const list = byVariant.get(s.trial_variant) ?? [];
+    list.push(s);
+    byVariant.set(s.trial_variant, list);
+  }
+
+  // Index events per user once, rather than per arm per metric.
+  const perUser = new Map<string, EventRow[]>();
+  for (const e of events) {
+    if (!e.user_id) continue;
+    const list = perUser.get(e.user_id) ?? [];
+    list.push(e);
+    perUser.set(e.user_id, list);
+  }
+
+  const costPerUser = new Map<string, number>();
+  for (const c of costs) {
+    if (!c.user_id || c.status === "released") continue;
+    costPerUser.set(c.user_id, (costPerUser.get(c.user_id) ?? 0) + rowCost(c));
+  }
+
+  const out: TrialVariantStats[] = [];
+  for (const [variant, rows] of byVariant) {
+    const cohortSize = rows.length;
+    const days = new Set(
+      rows.map((r) => r.trial_days).filter((d): d is number => typeof d === "number")
+    );
+
+    let returned = 0;
+    let repaired = 0;
+    let reflected = 0;
+    let converted = 0;
+    let canceled = 0;
+    let cost = 0;
+
+    for (const row of rows) {
+      const evts = perUser.get(row.user_id) ?? [];
+      const has = (event: string) => evts.some((e) => e.event === event);
+      const trialStart = row.trial_used_at ? ts(row.trial_used_at) : NaN;
+
+      if (
+        Number.isFinite(trialStart) &&
+        evts.some(
+          (e) =>
+            e.event === "checkin_completed" &&
+            ts(e.created_at) >= trialStart + 86_400_000
+        )
+      ) {
+        returned++;
+      }
+      if (has("plan_repair_completed")) repaired++;
+      if (has("weekly_reflection_completed")) reflected++;
+      // Either signal is a charge: the trial→active transition, or a renewal
+      // for a user whose conversion event fell outside the window.
+      if (has("trial_converted") || has("subscription_renewed")) converted++;
+      if (has("trial_canceled")) canceled++;
+      cost += costPerUser.get(row.user_id) ?? 0;
+    }
+
+    const small = cohortSize < MIN_COHORT;
+    out.push({
+      variant,
+      trialDays: days.size === 1 ? [...days][0] : null,
+      cohortSize,
+      suppressed: small,
+      returnedAfterDay1: suppress(returned, cohortSize),
+      repaired: suppress(repaired, cohortSize),
+      weeklyReflection: suppress(reflected, cohortSize),
+      converted: suppress(converted, cohortSize),
+      canceled: suppress(canceled, cohortSize),
+      conversionRate: suppress(round(converted / (cohortSize || 1)), cohortSize),
+      costUsd: suppress(round2(cost), cohortSize),
+    });
+  }
+
+  return out.sort((a, b) => a.variant.localeCompare(b.variant));
 }
 
 // --- helpers -----------------------------------------------------------------

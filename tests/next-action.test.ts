@@ -193,12 +193,19 @@ describe("MW-S01 Now view content contract", () => {
   });
 
   it("save failure keeps copy honest and retryable", () => {
-    expect(src).toMatch(/didn't save — your plan is unchanged/i);
+    // MW-V10-03: the message now states the resulting state explicitly, because
+    // "your plan is unchanged" was ambiguous about whether the tap took effect.
+    expect(src).toMatch(/it isn't marked done/i);
+    expect(src).toMatch(/it's still marked done/i);
+    expect(src).toMatch(/nothing else about your plan changed/i);
+    expect(src).toMatch(/Tap it again to retry/i);
   });
 
   it("MW-V9-03: offers a short undo right after Done on the Now card", () => {
     expect(src).toContain("Marked done.");
-    expect(src).toMatch(/setJustDone\(nowSelection\.action!\.key\)/);
+    // MW-V10-03: the confirmation is set from the server's confirmed response,
+    // not optimistically at click time.
+    expect(src).toContain('if (data.done && source === "now") setJustDone(key)');
     // Undo unmarks by toggling the same key back.
     expect(src).toMatch(/toggleDone\(justDone, "now"\)/);
   });

@@ -34,8 +34,17 @@ const ALL: Email[] = [
 
 describe("lifecycle emails (CE-17)", () => {
   it("uses the canonical, emoji-free transactional subjects", () => {
-    expect(trialStartedEmail().subject).toBe(
+    // MW-V10-02: the subject states the length Stripe actually granted, so a
+    // cohort never receives the other arm's number. With no length known the
+    // copy stays length-neutral rather than guessing one.
+    expect(trialStartedEmail({}, 3).subject).toBe(
       "Your 3-day Mellowa trial has started."
+    );
+    expect(trialStartedEmail({}, 7).subject).toBe(
+      "Your 7-day Mellowa trial has started."
+    );
+    expect(trialStartedEmail().subject).toBe(
+      "Your Mellowa trial has started."
     );
     expect(canceledEmail().subject).toBe("Your Mellowa plan is canceled");
     for (const e of ALL) expect(e.subject, e.subject).not.toMatch(EMOJI);

@@ -60,8 +60,36 @@ symptoms or emotional vulnerability.
 
 ## Weekly decision memo (template)
 
-Fill once per week; the decision is one of: **continue / iterate / pause /
-rollback / stop acquisition**. Vanity generation counts are not a decision input.
+Fill once per week. The decision is exactly one of five, and **Continue is a
+choice you have to make, not the default that happens when nobody decides**:
+
+| Outcome | Means | Typical trigger |
+|---|---|---|
+| **Continue** | Keep the current build and the current experiment running | Every loop step at or above hypothesis, no stop criterion open |
+| **Iterate** | Change one thing, in one area, and re-measure | One step below hypothesis with a clear product cause |
+| **Pause** | Keep the product running, stop the experiment | Two experiments in one area, or a result that is not attributable |
+| **Roll back** | Turn a surface off via its flag | The experiment made a guardrail worse (complaints, cost, undo rate) |
+| **Stop** | Close intake (`beta_settings.signups_open = false`) | Any hard stop criterion below is open |
+
+Vanity generation counts are not a decision input.
+
+**The dashboard answers the expansion question for you.** `/admin` shows an
+explicit *Expansion: OK / BLOCKED* verdict with its reason, derived from
+next-day return over the current window (MW-V10-06,
+`src/lib/analytics/loop-decisions.ts`). Two states are kept strictly apart
+there and must be kept apart here: **no data** (cohort under 5 — nothing to
+read) and **below hypothesis** (there is data, and it is worse than we hoped).
+Never report the first as if it were the second, and never report either as
+proof of anything at this cohort size.
+
+**Four-week rule, enforced in code:** no meaningful next-day return after four
+weeks **blocks expansion**. The verdict returns `canExpand: false` with that
+reason until both the window and the return hypothesis are met, so widening
+intake cannot happen by momentum.
+
+**Cancellation stays neutral.** It is never blocked, delayed or made
+conditional on answering anything; the exit interview is optional and asked
+after the cancellation has already gone through.
 
 ```
 Week N (dates)

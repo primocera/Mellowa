@@ -57,6 +57,7 @@ export interface DeliverDeps {
     html: string;
     text?: string;
     scheduledAt?: string;
+    unsubscribeUrl?: string | null;
   }): Promise<SendResult>;
 }
 
@@ -115,6 +116,8 @@ export async function deliverEmail(
     text?: string;
     /** Hand delivery timing to the provider (Resend scheduled send). */
     scheduledAt?: string;
+    /** Opt-out URL for reminder mail; omitted for billing/account mail. */
+    unsubscribeUrl?: string | null;
   },
   deps: DeliverDeps = defaultDeps()
 ): Promise<DeliverResult> {
@@ -142,6 +145,7 @@ export async function deliverEmail(
     html: args.html,
     text: args.text ?? htmlToText(args.html),
     scheduledAt: args.scheduledAt,
+    unsubscribeUrl: args.unsubscribeUrl ?? null,
   });
 
   if (result.sent) {

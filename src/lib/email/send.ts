@@ -25,6 +25,12 @@ export async function sendEmail(args: {
   text?: string;
   /** ISO instant for Resend scheduled sending (up to ~30 days ahead). */
   scheduledAt?: string;
+  /**
+   * Absolute opt-out URL for reminder mail. Sends RFC 8058 one-click
+   * unsubscribe headers so mail clients can offer a native opt-out button.
+   * Omitted for billing/account mail, which is not unsubscribable.
+   */
+  unsubscribeUrl?: string | null;
 }): Promise<SendResult> {
   const apiKey = serverEnv.resendApiKey;
   if (!apiKey) {
@@ -48,6 +54,14 @@ export async function sendEmail(args: {
         html: args.html,
         ...(args.text ? { text: args.text } : {}),
         ...(args.scheduledAt ? { scheduled_at: args.scheduledAt } : {}),
+        ...(args.unsubscribeUrl
+          ? {
+              headers: {
+                "List-Unsubscribe": `<${args.unsubscribeUrl}>`,
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+              },
+            }
+          : {}),
       }),
     });
     if (!res.ok) {

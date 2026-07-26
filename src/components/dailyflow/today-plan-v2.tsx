@@ -28,6 +28,7 @@ import { isLighterDay, pickCalmReset } from "@/lib/today/disclosure";
 import { nextAction, type NowItem } from "@/lib/today/next-action";
 import { deterministicDiff } from "@/lib/plan/repair";
 import { trackClient } from "@/lib/analytics/client";
+import { buttonClass } from "@/components/ui";
 import { useRouter } from "next/navigation";
 
 // MW-S07: honest entitlement copy per server decision. Trial eligibility is
@@ -204,6 +205,11 @@ export function TodayPlanV2({
     version: number | null;
   } | null>(null);
   const [repairAttemptKey, setRepairAttemptKey] = useState(newAttemptKey);
+  // MW-V10-03: this page is showing a plan the server has since moved past —
+  // another tab adjusted it, or a request was already claimed. The only correct
+  // action is to move FORWARD to the server's version, so the state carries the
+  // explanation and the reload, and never an option to overwrite the newer plan.
+  const [staleView, setStaleView] = useState<string | null>(null);
   const [doneItems, setDoneItems] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(completedKeys.map((k) => [k, true]))
   );
@@ -305,25 +311,53 @@ export function TodayPlanV2({
     ...(plan.habit_focus ? [{ key: "habit", label: `Habit — ${plan.habit_focus.habit}` }] : []),
   ];
 
-  // Optimistic toggle + persist to plan_completions. Reverts on failure and
-  // surfaces a retryable message so a flaky connection never loses the tap.
-  const toggleDone = (key: string, source: "now" | "plan" = "plan") => {
+  // MW-V10-03: completion is server-confirmed, and one item can have only one
+  // request in flight.
+  //
+  // Two failures this closes. First, a double tap used to fire two requests
+  // whose responses could land in either order, leaving the UI showing a state
+  // the database does not have. Second, the Now card set its "Marked done"
+  // confirmation immediately, so a failed save still told the user the item was
+  // done. Now the optimistic paint is reconciled against the server's own
+  // `{ item_key, done }` reply, and the confirmation only appears after it.
+  const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
+
+  const toggleDone = async (key: string, source: "now" | "plan" = "plan") => {
+    // A second tap while the first is in flight is a duplicate, not a toggle
+    // back — dropping it is what makes double-tap idempotent.
+    if (savingKeys.has(key)) return;
     const next = !doneItems[key];
+    setSavingKeys((s) => new Set(s).add(key));
     setDoneItems((d) => ({ ...d, [key]: next }));
-    fetch("/api/plan/complete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan_id: plan.id, item_key: key, done: next, source }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("save failed");
-      })
-      .catch(() => {
-        setDoneItems((d) => ({ ...d, [key]: !next }));
-        setMessage(
-          "That didn't save — your plan is unchanged. Tap it again to retry."
-        );
+    try {
+      const res = await fetch("/api/plan/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_id: plan.id, item_key: key, done: next, source }),
       });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || typeof data?.done !== "boolean") {
+        throw new Error("save failed");
+      }
+      // Trust the server's answer, not the guess we painted.
+      setDoneItems((d) => ({ ...d, [key]: data.done }));
+      if (data.done && source === "now") setJustDone(key);
+      else if (!data.done) setJustDone((j) => (j === key ? null : j));
+    } catch {
+      setDoneItems((d) => ({ ...d, [key]: !next }));
+      setJustDone((j) => (j === key ? null : j));
+      setMessage(
+        next
+          ? "That didn't save, so it isn't marked done — nothing else about your plan changed. Tap it again to retry."
+          : "That didn't save, so it's still marked done — nothing else about your plan changed. Tap it again to retry."
+      );
+    } finally {
+      setSavingKeys((s) => {
+        const n = new Set(s);
+        n.delete(key);
+        return n;
+      });
+    }
   };
 
   async function regenerateMeal(mealType: string, reason: string) {
@@ -412,6 +446,22 @@ export function TodayPlanV2({
       if (data.blocked) {
         setMessage(data.user_message);
         setRepairOpen(false);
+      } else if (res.status === 409) {
+        // MW-V10-03: the request was claimed by an earlier attempt (double tap,
+        // a retry, or a second tab). Never a duplicate generation and never a
+        // second charge against fair use — say what is happening and offer the
+        // reload that shows whichever plan actually committed.
+        setRepairOpen(false);
+        setStaleView(
+          "This adjustment is already being created — your tap didn't start a second one. Reload to see the result."
+        );
+      } else if (res.ok && data.deduplicated) {
+        // The same attempt key already succeeded; the newer plan is on the
+        // server, so reload rather than claiming a fresh adjustment.
+        setRepairOpen(false);
+        setStaleView(
+          "That adjustment had already gone through. Reload to see the plan you have now."
+        );
       } else if (res.ok && data.repair_summary) {
         setRepairResult({
           summary: data.repair_summary as string,
@@ -465,6 +515,15 @@ export function TodayPlanV2({
         setRepairResult(null);
         setMessage("There's no earlier version of this plan to restore.");
         router.refresh();
+      } else if (res.status === 409) {
+        // MW-V10-03: a newer adjustment exists — from another tab, or from this
+        // page left open too long. The newer plan is kept: undoing to the
+        // version THIS page remembers would silently discard work the user did
+        // somewhere else. Reload forward, never backward.
+        setRepairResult(null);
+        setStaleView(
+          "A newer adjustment was made since this page loaded, so nothing was undone — that newer plan is the one you have. Reload to see it."
+        );
       } else {
         setMessage(data.user_message ?? "Undo didn't go through — please try again.");
       }
@@ -510,6 +569,25 @@ export function TodayPlanV2({
         </div>
       )}
 
+      {/* MW-V10-03: stale view — the server has a newer plan than this page. */}
+      {staleView && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#EDE9FE] px-4 py-3 text-sm text-[#1F2937]"
+        >
+          <span>{staleView}</span>
+          <button
+            onClick={() => {
+              setStaleView(null);
+              router.refresh();
+            }}
+            className="inline-flex min-h-[44px] shrink-0 items-center rounded-xl border border-[#7C9A92]/40 px-4 text-xs font-medium text-[#6D8C7D] transition hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2"
+          >
+            Reload today
+          </button>
+        </div>
+      )}
+
       {/* MW-V9-03: brief undo for the item just marked Done from the Now card. */}
       {justDone && (
         <div
@@ -523,7 +601,7 @@ export function TodayPlanV2({
               toggleDone(justDone, "now");
               setJustDone(null);
             }}
-            className="shrink-0 font-medium underline underline-offset-2 hover:text-[#14532D]"
+            className="inline-flex min-h-[44px] shrink-0 items-center px-2 font-medium underline underline-offset-2 hover:text-[#14532D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#166534] focus-visible:ring-offset-2"
           >
             Undo
           </button>
@@ -552,24 +630,29 @@ export function TodayPlanV2({
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
-              onClick={() => {
-                toggleDone(nowSelection.action!.key, "now");
-                setJustDone(nowSelection.action!.key);
-              }}
-              className="rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6D8C7D]"
+              // MW-V10-03: no local success claim — toggleDone sets the
+              // confirmation only once the server has stored the completion.
+              onClick={() => toggleDone(nowSelection.action!.key, "now")}
+              disabled={savingKeys.has(nowSelection.action.key)}
+              aria-busy={savingKeys.has(nowSelection.action.key)}
+              className={buttonClass("primary")}
             >
+              {savingKeys.has(nowSelection.action.key) && (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              )}
               Done
             </button>
             <button
               onClick={() => setDeferOpen((v) => !v)}
+              disabled={savingKeys.has(nowSelection.action.key)}
               aria-expanded={deferOpen}
-              className="rounded-xl border border-[#E5E1DA] px-4 py-2 text-sm text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937]"
+              className={buttonClass("secondary")}
             >
               Not now
             </button>
             <button
               onClick={() => setShowFull((v) => !v)}
-              className="rounded-xl px-3 py-2 text-sm text-[#7C9A92] underline underline-offset-2 hover:text-[#6D8C7D]"
+              className={buttonClass("quiet", "text-[#7C9A92] underline underline-offset-2 hover:text-[#6D8C7D]")}
             >
               {showFull ? "Hide full plan" : "View full plan"}
             </button>
@@ -587,7 +670,9 @@ export function TodayPlanV2({
                 <button
                   key={code}
                   onClick={() => deferNow(nowSelection.action!, code)}
-                  className="rounded-full border border-[#E5E1DA] px-3 py-1.5 text-xs text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937]"
+                  // MW-V10-07: 44px minimum. These sat at ~30px on the most
+                  // frequently tapped screen in the product.
+                  className="inline-flex min-h-[44px] items-center rounded-full border border-[#E5E1DA] px-4 text-xs text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2"
                 >
                   {label}
                 </button>
@@ -990,7 +1075,7 @@ export function TodayPlanV2({
                 onClick={() => setRepairReason(code)}
                 aria-pressed={repairReason === code}
                 className={clsx(
-                  "rounded-full border px-3 py-1.5 text-xs transition",
+                  "inline-flex min-h-[44px] items-center rounded-full border px-4 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2",
                   repairReason === code
                     ? "border-[#7C9A92] bg-[#7C9A92]/10 text-[#1F2937]"
                     : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"
@@ -1033,7 +1118,10 @@ export function TodayPlanV2({
                       }
                       aria-pressed={isKept}
                       className={clsx(
-                        "rounded-full border px-2.5 py-0.5 text-xs transition",
+                        // MW-V10-07: this "Keep this" toggle was ~20px tall —
+                        // the smallest interactive target in the app, on the
+                        // control that decides what a repair may overwrite.
+                        "inline-flex min-h-[44px] shrink-0 items-center rounded-full border px-3 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2",
                         isKept
                           ? "border-[#7C9A92] bg-[#7C9A92]/10 text-[#1F2937]"
                           : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"

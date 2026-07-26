@@ -6,6 +6,7 @@ import { generateDailyPlanV2 } from "@/lib/ai/generate-daily-plan-v2";
 import type { UsageSink } from "@/lib/ai/generate-json";
 import { finalizeAiUsage, releaseReservation, type AiUsage } from "@/lib/ai/usage";
 import { promptVersionId } from "@/prompts/versions";
+import { serverEnv } from "@/lib/env";
 import { resolvePlanMode, planModeInstruction } from "@/lib/ai/plan-mode";
 import {
   findPlanAllergenViolations,
@@ -449,6 +450,13 @@ export async function POST(request: Request) {
       habit_focus: plan.one_small_habit ?? null,
       encouragement: plan.encouragement,
       safety_note: plan.safety_note,
+      // MW-V10-04: provenance travels with the plan, not only with the usage
+      // ledger, so the user can be told when they are looking at the curated
+      // backup and an eval can reproduce a specific plan. Version ids only —
+      // never prompt text.
+      prompt_version: PROMPT_VERSION,
+      model_version: serverEnv.aiModel,
+      is_fallback: usedFallback,
     })
     .select()
     .single();

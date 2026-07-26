@@ -43,8 +43,22 @@ export interface ReconcileReport {
   unknownPrices: string[];
   /** Webhook events failed or stuck in processing for over an hour. */
   stuckWebhookEvents: { eventId: string; type: string; status: string }[];
+  /**
+   * Users who paid but whose local row never received the subscription id —
+   * a webhook that never landed. Adopting the Stripe subscription restores
+   * their access; each entry means entitlement was withheld until now.
+   */
+  adoptedSubscriptions: { userId: string; subscriptionId: string; status: string }[];
   ok: boolean;
 }
+
+/** Stripe statuses that represent a subscription the user should have access to. */
+const LIVE_STATUSES = new Set([
+  "trialing",
+  "active",
+  "past_due",
+  "unpaid",
+]);
 
 const toIso = (unix: number | null | undefined) =>
   unix ? new Date(unix * 1000).toISOString() : null;
@@ -117,6 +131,77 @@ export function findDuplicateCustomers(
 }
 
 /**
+ * Recover a paid user whose `checkout.session.completed` webhook never landed.
+ *
+ * The checkout route writes a `subscriptions` row with `status = 'incomplete'`
+ * and a NULL `stripe_subscription_id`; only the webhook fills the id in. If
+ * that webhook is dropped, the row keeps `incomplete` — which grants read but
+ * NOT generate — so the user has paid and has no access, and the daily
+ * reconcile (which only walks rows that already have a subscription id) never
+ * looks at them. This closes that hole by asking Stripe directly what the
+ * customer actually has.
+ *
+ * Returns the adopted subscription, or null when Stripe shows nothing live
+ * (a genuinely abandoned checkout, which needs no repair).
+ */
+export async function adoptSubscriptionForCustomer(
+  stripe: Stripe,
+  admin: SupabaseClient,
+  userId: string,
+  customerId: string
+): Promise<{ subscriptionId: string; status: string } | null> {
+  const list = await stripe.subscriptions.list({
+    customer: customerId,
+    status: "all",
+    limit: 10,
+  });
+  // Prefer a subscription that currently grants or owes access; otherwise the
+  // most recent one, so a just-canceled state is still reflected truthfully.
+  const remote =
+    list.data.find((s) => LIVE_STATUSES.has(s.status)) ?? list.data[0];
+  if (!remote) return null;
+
+  const item = remote.items.data[0];
+  const planName = planNameForPrice(item?.price.id);
+  if (planName === null) {
+    // Unknown price is a configuration error — never guess a plan.
+    throw new Error(
+      `reconcile: unknown Stripe price ${item?.price.id ?? "<missing>"} on subscription ${remote.id}`
+    );
+  }
+
+  const hasTrial = remote.trial_start != null;
+  const { data: existing } = await admin
+    .from("subscriptions")
+    .select("trial_used_at, first_trial_subscription_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const { error } = await admin.from("subscriptions").upsert(
+    {
+      user_id: userId,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: remote.id,
+      plan_name: planName,
+      status: remote.status,
+      current_period_end: toIso(item?.current_period_end),
+      trial_start: toIso(remote.trial_start),
+      trial_end: toIso(remote.trial_end),
+      cancel_at_period_end: remote.cancel_at_period_end ?? false,
+      // Preserve the one-trial-per-person lock exactly as the webhook does.
+      trial_used_at:
+        existing?.trial_used_at ?? (hasTrial ? toIso(remote.trial_start) : null),
+      first_trial_subscription_id:
+        existing?.first_trial_subscription_id ?? (hasTrial ? remote.id : null),
+    },
+    { onConflict: "user_id" }
+  );
+  if (error) throw new Error(`reconcile: adopt failed: ${error.message}`);
+
+  return { subscriptionId: remote.id, status: remote.status };
+}
+
+/**
  * Fetch each local subscription from Stripe, fix local drift from Stripe's
  * state, and collect exceptions. Small-scale by design (per-subscription
  * retrieve; fine well past 1k subscribers on a daily cadence).
@@ -132,8 +217,45 @@ export async function reconcileBilling(
     duplicateCustomers: [],
     unknownPrices: [],
     stuckWebhookEvents: [],
+    adoptedSubscriptions: [],
     ok: true,
   };
+
+  // Paid-but-no-access sweep: rows that have a Stripe customer but no
+  // subscription id. These are invisible to the drift walk below, so they must
+  // be repaired from Stripe first or the user stays locked out indefinitely.
+  const { data: orphanRows } = await admin
+    .from("subscriptions")
+    .select("user_id, stripe_customer_id")
+    .is("stripe_subscription_id", null)
+    .not("stripe_customer_id", "is", null);
+
+  for (const orphan of orphanRows ?? []) {
+    const customerId = orphan.stripe_customer_id as string;
+    const userId = orphan.user_id as string;
+    try {
+      const adopted = await adoptSubscriptionForCustomer(
+        stripe,
+        admin,
+        userId,
+        customerId
+      );
+      if (adopted) {
+        report.adoptedSubscriptions.push({
+          userId,
+          subscriptionId: adopted.subscriptionId,
+          status: adopted.status,
+        });
+      }
+      // No subscription at Stripe = abandoned checkout. Nothing to repair.
+    } catch (err) {
+      report.unresolvable.push({
+        userId,
+        subscriptionId: `customer:${customerId}`,
+        error: err instanceof Error ? err.message : "unknown",
+      });
+    }
+  }
 
   const { data: rows, error } = await admin
     .from("subscriptions")
@@ -205,10 +327,13 @@ export async function reconcileBilling(
     status: e.status as string,
   }));
 
+  // An adoption means a webhook was dropped and someone was locked out of what
+  // they paid for. The row is fixed, but the delivery gap still needs an owner.
   report.ok =
     report.unresolvable.length === 0 &&
     report.duplicateCustomers.length === 0 &&
     report.unknownPrices.length === 0 &&
-    report.stuckWebhookEvents.length === 0;
+    report.stuckWebhookEvents.length === 0 &&
+    report.adoptedSubscriptions.length === 0;
   return report;
 }
