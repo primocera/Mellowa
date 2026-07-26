@@ -5,23 +5,39 @@ what is actually open." It exists because prompt packs v8, v9 and v10 re-asked
 for work that was already shipped. If you are scoping a new pack from the public
 repo, read this file first — not the individual `launch-go-no-go-*.md` history.
 
-**Last verified:** 2026-07-26 on branch `v10` through MW-V10-08 (baseline
-`90f5482` = `main`). Automated suite: **900 tests / 81 files green**, lint clean
-(0 errors), typecheck clean, production build clean, 39 public Playwright
-journeys green across desktop / 375px / 320px. The 33-test authenticated state
-matrix added in MW-V10-03 has now been **RUN AND IS GREEN** (2026-07-26): 87
-executions across desktop / 375px / 320px against the deployed v10 preview on
-real Vercel infrastructure, with migrations `036`–`039` applied to live Supabase.
+**The active release truth is `docs/release/manifest.v11.json`**, with
+`docs/launch-go-no-go-v11.md` as its human form. A test fails the build if the
+two disagree. This file is the built-vs-proven map; it does not carry the
+verdict, and where it and the manifest differ the manifest is right.
+
+**Last verified:** 2026-07-26 on branch `v11` at baseline
+`169c706` (= `main`; confirmed as the actual HEAD). Automated suite:
+**900 tests / 81 files green**, lint clean (0 errors), typecheck clean,
+production build clean, **51 public Playwright journeys green** across desktop /
+375px / 320px. Raw logs for every one of those are in
+`docs/release/evidence/v11/`.
+
+**Authenticated browser evidence — read this precisely.** The 33-test state
+matrix from MW-V10-03 was executed on 2026-07-26 against the deployed v10
+preview (87 executions, green, migrations `036`–`039` applied). That run is
+real, and it is history: it happened at the v10 evidence commit, and three
+commits have landed since, one of which rewrote the landing header. So at the
+current baseline the authenticated matrix is **not run** — not because the
+earlier result was wrong, but because evidence from one commit does not certify
+another. MW-V11-04 owns the rerun. This is the single sentence the v10 documents
+managed to say two contradictory ways.
 
 **v10 progress:** MW-V10-00 ✅ · MW-V10-01 ✅ (copy reduction fell short of
 target — see `launch-go-no-go-v10.md`) · MW-V10-02 ✅ (infrastructure only; the
-experiment is **not running**) · MW-V10-03 ✅ (state matrix written but
-**unrun**) · MW-V10-04 ✅ · MW-V10-05 ✅ (live rehearsal still unrun —
-worksheet in `docs/ops-cron.md`) · MW-V10-06 ✅ · MW-V10-07 ✅ · MW-V10-08 ✅.
+experiment is **not running**) · MW-V10-03 ✅ · MW-V10-04 ✅ · MW-V10-05 ✅
+(live rehearsal still unrun — worksheet in `docs/ops-cron.md`) · MW-V10-06 ✅ ·
+MW-V10-07 ✅ · MW-V10-08 ✅.
 
-**v10 is complete.** RC frozen at `e817aa4f4bdc3f0a9eeed0d30e3210aa2c1d968f`;
-public-paid verdict is **NO-GO** with four owner-run items listed in
-`launch-go-no-go-v10.md` §6. Nothing in the code changes that verdict.
+**v10 is complete.** Its RC was frozen at
+`e817aa4f4bdc3f0a9eeed0d30e3210aa2c1d968f` and its scorecard is superseded.
+The current public-paid verdict is **NO-GO**, with the open blockers listed in
+`docs/launch-go-no-go-v11.md` §4 — **three owner-run**, three engineering.
+Nothing in the code changes the owner-run three.
 
 **Status vocabulary** (used strictly, same as the go/no-go docs):
 *tested* = automated in-repo · *configured* = infrastructure set but not
@@ -81,21 +97,25 @@ this as a map for verification, subject to the warning above.
 
 ## 2. Genuinely open — this is what a new pack should target
 
-Verified absent or partial in the code as of `90f5482`.
+Verified absent or partial in the code as of `169c706`. The canonical, id'd list
+is §4 of `docs/launch-go-no-go-v11.md`; this table is the narrative version and
+must not contradict it.
 
 | # | Gap | Evidence it is open | Owner |
 |---|---|---|---|
 | 1 | **One real transaction end to end** (charge → cancel → reactivate → portal → refund) | No recorded evidence; `launch-go-no-go-v9.md` §4 blank | Owner (not Claude — live Stripe) |
-| ~~2~~ | ~~Authenticated seeded E2E never run~~ | **CLOSED 2026-07-26.** Run against the deployed v10 preview: 87 executions green. The first run found four defects — all in the tests and the seed fixture, none in the product — including a fixture whose meal cards used the wrong field names, so Today was crashing into the error boundary and the matrix was asserting against a broken page. | — |
+| 2 | **Authenticated seeded E2E not run at the current baseline** (`P1-AUTH-E2E-AT-HEAD`) | It *was* run on 2026-07-26 against the deployed v10 preview — 87 executions green, and that first run found four defects, all in the tests and the seed fixture rather than the product, including a fixture whose meal cards used the wrong field names, so Today was crashing into the error boundary and the matrix was asserting against a broken page. That evidence belongs to the commit it ran at. Three commits have landed since, so it must be re-run here. | Eng |
 | 3 | **Reminder / cron / email live rehearsal** | Planner is *tested*, never *rehearsed live*. MW-V10-05 wrote the step-by-step worksheet (end of `docs/ops-cron.md`) and found two conflicts the tests could not see: `past_due`/`canceled` users were being nudged into a paywall, and users with a recent crisis signal were still receiving activity nudges. | Owner |
 | 4 | **Key rotation + backup/rollback drill** | No runbook evidence recorded | Owner |
-| 5 | `/api/health/ready` validates only migrations `020`/`021` | Reads `generation_requests` + `email_deliveries`; does not verify the `034`/`035` RPC overloads the app actually calls | Eng |
+| ~~5~~ | ~~`/api/health/ready` validates only migrations `020`/`021`~~ | **Closed in MW-V10-00.** The probe now exercises the RPC overloads the app actually calls (`claim_ai_generation` 7-arg, `undo_plan_repair` 3-arg), passing a malformed uuid so coercion fails before the body runs — it can never consume a generation or mutate a plan | — |
 | ~~6~~ | ~~Trial-length experiment infrastructure absent~~ | **Closed in MW-V10-02.** Server-owned allowlisted assignment pinned at checkout (`src/lib/stripe/trial-experiment.ts`, migration `036`); `TRIAL_DAYS` and `PRICING.trialDays` deleted so no surface can hardcode a length again. Default behaviour unchanged: 3-day control until the owner enables a cohort. | — |
 | ~~7~~ | ~~Beta invite cap + stop-acquisition switch absent~~ | **Closed in MW-V10-06.** Database trigger on `auth.users` (migration `039`) — a form check would not have been a cap, because signup calls Supabase from the browser. Closing intake deletes nothing; unconfigured fails open. | — |
-| 8 | Refund / dispute webhook events unhandled | `charge.refunded` and `charge.dispute.created` are not in the webhook switch | Eng |
-| 9 | Ceiling-denial counting not instrumented | Admin scorecard shows 0 denials by construction | Eng (P2) |
-| 10 | Public Lighthouse/perf never measured at an RC | No CI perf gate by project rule | Owner (P2) |
-| 11 | No in-app reminder opt-out confirmation surface | Unsubscribe works from email (fixed in v10); Settings does not yet reflect "off because you unsubscribed" | Eng (P2) |
+| ~~8~~ | ~~Refund / dispute webhook events unhandled~~ | **Closed in MW-V10-00.** Both `charge.refunded` and `charge.dispute.created` are in the webhook switch. A dispute is logged for an owner and never triggers an automated entitlement change. | — |
+| 9 | Ceiling-denial counting not instrumented (`P2-DENIAL-COUNTING`) | Admin scorecard shows 0 denials by construction | Eng (P2) |
+| 10 | Public Lighthouse/perf never measured at an RC | Still unmeasured at `169c706`. No score is claimed anywhere. MW-V11-05 owns it. | Eng |
+| 11 | No in-app reminder opt-out confirmation surface (`P2-REMINDER-OPTOUT-SURFACE`) | Unsubscribe works from email (fixed in v10); Settings does not yet reflect "off because you unsubscribed" | Eng (P2) |
+| 12 | Header accessibility is exempted rather than proven (`P1-HEADER`) | `e2e/public.spec.ts` returns `null` for any control inside `<header>`, so the 44px rule never sees them | Eng |
+| 13 | Public commercial copy is ungrammatical (`P1-COMMERCIAL-COPY`) | The hero renders `you actually have.Tell Mellowa` with no space (a JSX text boundary); `trialOfferSentence(3)` returns "a 3 days trial" and `startTrialCta(3)` returns "Start 3 days free" | Eng |
 
 ## 3. Areas re-scoped repeatedly — verify behaviour, don't re-commission copy
 
@@ -140,8 +160,18 @@ address the first.
 - Adult general wellbeing only — never diagnosis, therapy, crisis counseling,
   eating-disorder recovery, restrictive dieting or disease/pregnancy nutrition.
 
-## 5. Current verdict (carried from `launch-go-no-go-v9.md`)
+## 5. Current verdict
 
-- Automated code gate: **GO** (618 tests green on `v10`).
-- Capped private beta (≤50 invites, no card for the sample): **GO**.
-- Public paid launch: **NO-GO** — blocked on gaps #1–#4, all owner-run.
+**Not carried here.** The verdict lives in one place —
+`docs/release/manifest.v11.json`, rendered for humans in
+`docs/launch-go-no-go-v11.md` §6. Copying it into a second document is how the
+v10 set ended up disagreeing with itself, so this section deliberately does not
+restate it beyond the one line that matters:
+
+- **Public paid launch: NO-GO.** One P0 and five P1 blockers are open — three
+  owner-run (live transaction, reminder/cron/email rehearsal, key rotation and
+  restore drill), three engineering (authenticated E2E at head, header
+  accessibility, commercial copy).
+
+Run `npm run release-manifest` to validate the manifest and the documents
+against each other.

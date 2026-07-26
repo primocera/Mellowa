@@ -1,0 +1,21 @@
+
+> dailyflow-ai@0.1.0 lint
+> eslint
+
+
+C:\Users\primo\dailyflowai\src\app\api\ai\journal-reflection\route.ts
+   5:39  warning  'UsageSink' is defined but never used                     @typescript-eslint/no-unused-vars
+  11:10  warning  'finalizeAiUsage' is defined but never used               @typescript-eslint/no-unused-vars
+  11:27  warning  'sumUsage' is defined but never used                      @typescript-eslint/no-unused-vars
+  13:10  warning  'checkJournalReflectionOutput' is defined but never used  @typescript-eslint/no-unused-vars
+  13:40  warning  'correctiveInstruction' is defined but never used         @typescript-eslint/no-unused-vars
+  15:7   warning  'PROMPT_VERSION' is assigned a value but never used       @typescript-eslint/no-unused-vars
+
+C:\Users\primo\dailyflowai\src\lib\flags.ts
+  8:7  warning  'KNOWN_FLAGS' is assigned a value but only used as a type  @typescript-eslint/no-unused-vars
+
+C:\Users\primo\dailyflowai\tests\safety-matrix.test.ts
+  11:33  warning  '_row' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 8 problems (0 errors, 8 warnings)
+

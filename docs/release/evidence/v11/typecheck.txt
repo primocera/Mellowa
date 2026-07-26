@@ -1,0 +1,8 @@
+# command: npm run typecheck
+# sha: 169c706683a821054351f45a5916f667ea93557c
+# utc: 2026-07-26T19:05:35Z
+
+> dailyflow-ai@0.1.0 typecheck
+> tsc --noEmit
+
+# exit: 0

@@ -1,0 +1,96 @@
+# command: npm run test:e2e:public
+# slice: MW-V11-03 (landing proof + copy reduction)
+# base sha: 169c706683a821054351f45a5916f667ea93557c plus uncommitted v11 work
+# utc: 2026-07-26T21:16:54Z
+
+> dailyflow-ai@0.1.0 test:e2e:public
+> playwright test e2e/public.spec.ts
+
+[WebServer] [legal] outstanding before paid launch: [
+[WebServer]   'LEGAL_ENTITY_NAME is not set',
+[WebServer]   'LEGAL_REGISTERED_ADDRESS is not set',
+[WebServer]   'LEGAL_GOVERNING_LAW is not set',
+[WebServer]   'SUPPORT_EMAIL is not set (hardcoded fallback in use)',
+[WebServer]   'NEXT_PUBLIC_APP_URL is a temporary domain: http://localhost:3000'
+[WebServer] ]
+
+Running 75 tests using 1 worker
+
+  ✓   1 [mobile] › e2e\public.spec.ts:9:5 › home page renders with safety boundary and legal links (1.0s)
+  ✓   2 [mobile] › e2e\public.spec.ts:18:5 › no horizontal overflow on mobile (656ms)
+  ✓   3 [mobile] › e2e\public.spec.ts:26:5 › pricing shows exact prices and payment disclosure near CTA (1.1s)
+  ✓   4 [mobile] › e2e\public.spec.ts:52:5 › anonymous trial disclosure never claims an unassigned length (1.6s)
+  ✓   5 [mobile] › e2e\public.spec.ts:85:5 › public routes are usable without a pointer and without horizontal scroll (1.8s)
+  ✓   6 [mobile] › e2e\public.spec.ts:108:5 › every interactive control on the public pages is at least 44px tall (2.0s)
+  ✓   7 [mobile] › e2e\public.spec.ts:170:5 › every header target meets 44px at every supported width (4.0s)
+  ✓   8 [mobile] › e2e\public.spec.ts:198:5 › the header stays on one row and never overflows (2.1s)
+  ✓   9 [mobile] › e2e\public.spec.ts:236:5 › the header survives 200% zoom without wrapping or clipping (1.1s)
+  ✓  10 [mobile] › e2e\public.spec.ts:256:5 › pricing, sign-in and sample access stay reachable at 320px (833ms)
+  ✓  11 [mobile] › e2e\public.spec.ts:276:5 › the header disclosure is operable by keyboard and closes predictably (1.1s)
+  ✓  12 [mobile] › e2e\public.spec.ts:306:5 › the header exposes literal accessible names at every width (1.5s)
+  ✓  13 [mobile] › e2e\public.spec.ts:346:5 › the adaptation proof renders truthfully and fits a phone (782ms)
+  ✓  14 [mobile] › e2e\public.spec.ts:383:5 › focus is visible on the primary signup control (1.1s)
+  ✓  15 [mobile] › e2e\public.spec.ts:395:5 › signup requires 18+ and policy consent (not pre-checked) (1.2s)
+  ✓  16 [mobile] › e2e\public.spec.ts:412:5 › login offers forgot-password recovery (1.8s)
+  ✓  17 [mobile] › e2e\public.spec.ts:417:5 › privacy policy lists processors and retention (1.3s)
+  ✓  18 [mobile] › e2e\public.spec.ts:425:5 › legal pages have no placeholder lorem or broken headings (1.2s)
+  ✓  19 [mobile] › e2e\public.spec.ts:433:5 › keyboard navigation reaches the primary signup CTA (1.3s)
+  ✓  20 [mobile] › e2e\public.spec.ts:440:5 › verify-email page shows next step, resend and change-email (954ms)
+  ✓  21 [mobile] › e2e\public.spec.ts:448:5 › auth callback rejects a missing code and a malicious next URL (843ms)
+  ✓  22 [mobile] › e2e\public.spec.ts:455:5 › hero leads with the free-sample funnel, not a trial promise (581ms)
+  ✓  23 [mobile] › e2e\public.spec.ts:470:5 › public commercial copy is grammatical and spaced in the browser (1.1s)
+  ✓  24 [mobile] › e2e\public.spec.ts:495:5 › the hero states the sample terms once, not twice (719ms)
+  ✓  25 [mobile] › e2e\public.spec.ts:506:5 › signup and login pages carry the elevated account copy (854ms)
+  ✓  26 [desktop] › e2e\public.spec.ts:9:5 › home page renders with safety boundary and legal links (1.3s)
+  ✓  27 [desktop] › e2e\public.spec.ts:18:5 › no horizontal overflow on mobile (954ms)
+  ✓  28 [desktop] › e2e\public.spec.ts:26:5 › pricing shows exact prices and payment disclosure near CTA (1.1s)
+  ✓  29 [desktop] › e2e\public.spec.ts:52:5 › anonymous trial disclosure never claims an unassigned length (1.2s)
+  ✓  30 [desktop] › e2e\public.spec.ts:85:5 › public routes are usable without a pointer and without horizontal scroll (1.6s)
+  ✓  31 [desktop] › e2e\public.spec.ts:108:5 › every interactive control on the public pages is at least 44px tall (2.5s)
+  ✓  32 [desktop] › e2e\public.spec.ts:170:5 › every header target meets 44px at every supported width (2.5s)
+  ✓  33 [desktop] › e2e\public.spec.ts:198:5 › the header stays on one row and never overflows (1.4s)
+  ✓  34 [desktop] › e2e\public.spec.ts:236:5 › the header survives 200% zoom without wrapping or clipping (683ms)
+  ✓  35 [desktop] › e2e\public.spec.ts:256:5 › pricing, sign-in and sample access stay reachable at 320px (849ms)
+  ✓  36 [desktop] › e2e\public.spec.ts:276:5 › the header disclosure is operable by keyboard and closes predictably (1.4s)
+  ✓  37 [desktop] › e2e\public.spec.ts:306:5 › the header exposes literal accessible names at every width (1.4s)
+  ✓  38 [desktop] › e2e\public.spec.ts:346:5 › the adaptation proof renders truthfully and fits a phone (968ms)
+  ✓  39 [desktop] › e2e\public.spec.ts:383:5 › focus is visible on the primary signup control (1.1s)
+  ✓  40 [desktop] › e2e\public.spec.ts:395:5 › signup requires 18+ and policy consent (not pre-checked) (1.5s)
+  ✓  41 [desktop] › e2e\public.spec.ts:412:5 › login offers forgot-password recovery (1.1s)
+  ✓  42 [desktop] › e2e\public.spec.ts:417:5 › privacy policy lists processors and retention (843ms)
+  ✓  43 [desktop] › e2e\public.spec.ts:425:5 › legal pages have no placeholder lorem or broken headings (1.2s)
+  ✓  44 [desktop] › e2e\public.spec.ts:433:5 › keyboard navigation reaches the primary signup CTA (1.7s)
+  ✓  45 [desktop] › e2e\public.spec.ts:440:5 › verify-email page shows next step, resend and change-email (1.0s)
+  ✓  46 [desktop] › e2e\public.spec.ts:448:5 › auth callback rejects a missing code and a malicious next URL (884ms)
+  ✓  47 [desktop] › e2e\public.spec.ts:455:5 › hero leads with the free-sample funnel, not a trial promise (792ms)
+  ✓  48 [desktop] › e2e\public.spec.ts:470:5 › public commercial copy is grammatical and spaced in the browser (1.6s)
+  ✓  49 [desktop] › e2e\public.spec.ts:495:5 › the hero states the sample terms once, not twice (1.3s)
+  ✓  50 [desktop] › e2e\public.spec.ts:506:5 › signup and login pages carry the elevated account copy (1.5s)
+  ✓  51 [mobile-320] › e2e\public.spec.ts:9:5 › home page renders with safety boundary and legal links (1.1s)
+  ✓  52 [mobile-320] › e2e\public.spec.ts:18:5 › no horizontal overflow on mobile (651ms)
+  ✓  53 [mobile-320] › e2e\public.spec.ts:26:5 › pricing shows exact prices and payment disclosure near CTA (695ms)
+  ✓  54 [mobile-320] › e2e\public.spec.ts:52:5 › anonymous trial disclosure never claims an unassigned length (1.2s)
+  ✓  55 [mobile-320] › e2e\public.spec.ts:85:5 › public routes are usable without a pointer and without horizontal scroll (1.4s)
+  ✓  56 [mobile-320] › e2e\public.spec.ts:108:5 › every interactive control on the public pages is at least 44px tall (1.7s)
+  ✓  57 [mobile-320] › e2e\public.spec.ts:170:5 › every header target meets 44px at every supported width (4.5s)
+  ✓  58 [mobile-320] › e2e\public.spec.ts:198:5 › the header stays on one row and never overflows (1.9s)
+  ✓  59 [mobile-320] › e2e\public.spec.ts:236:5 › the header survives 200% zoom without wrapping or clipping (530ms)
+  ✓  60 [mobile-320] › e2e\public.spec.ts:256:5 › pricing, sign-in and sample access stay reachable at 320px (703ms)
+  ✓  61 [mobile-320] › e2e\public.spec.ts:276:5 › the header disclosure is operable by keyboard and closes predictably (978ms)
+  ✓  62 [mobile-320] › e2e\public.spec.ts:306:5 › the header exposes literal accessible names at every width (1.2s)
+  ✓  63 [mobile-320] › e2e\public.spec.ts:346:5 › the adaptation proof renders truthfully and fits a phone (541ms)
+  ✓  64 [mobile-320] › e2e\public.spec.ts:383:5 › focus is visible on the primary signup control (654ms)
+  ✓  65 [mobile-320] › e2e\public.spec.ts:395:5 › signup requires 18+ and policy consent (not pre-checked) (964ms)
+  ✓  66 [mobile-320] › e2e\public.spec.ts:412:5 › login offers forgot-password recovery (534ms)
+  ✓  67 [mobile-320] › e2e\public.spec.ts:417:5 › privacy policy lists processors and retention (585ms)
+  ✓  68 [mobile-320] › e2e\public.spec.ts:425:5 › legal pages have no placeholder lorem or broken headings (708ms)
+  ✓  69 [mobile-320] › e2e\public.spec.ts:433:5 › keyboard navigation reaches the primary signup CTA (995ms)
+  ✓  70 [mobile-320] › e2e\public.spec.ts:440:5 › verify-email page shows next step, resend and change-email (958ms)
+  ✓  71 [mobile-320] › e2e\public.spec.ts:448:5 › auth callback rejects a missing code and a malicious next URL (723ms)
+  ✓  72 [mobile-320] › e2e\public.spec.ts:455:5 › hero leads with the free-sample funnel, not a trial promise (1.9s)
+  ✓  73 [mobile-320] › e2e\public.spec.ts:470:5 › public commercial copy is grammatical and spaced in the browser (960ms)
+  ✓  74 [mobile-320] › e2e\public.spec.ts:495:5 › the hero states the sample terms once, not twice (656ms)
+  ✓  75 [mobile-320] › e2e\public.spec.ts:506:5 › signup and login pages carry the elevated account copy (1.5s)
+
+  75 passed (2.3m)
+# exit: 0

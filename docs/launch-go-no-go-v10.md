@@ -1,5 +1,17 @@
 # Launch go/no-go scorecard — v10 (MW-V10-00 …)
 
+> **SUPERSEDED by [`launch-go-no-go-v11.md`](launch-go-no-go-v11.md) on
+> 2026-07-26. History — do not edit, do not cite as current.**
+>
+> This document is kept verbatim because it is the record of what was measured
+> at the v10 candidate, and rewriting it to agree with a later head would
+> destroy the only evidence of what was true then. Two things in it are known to
+> be internally inconsistent, and both are repaired in v11 rather than here:
+> §1 lists `npm run test:e2e:journey` as "not run" one row above a row
+> reporting the same command green, and §6 says "four owner-run items" and then
+> lists three. Where this file and the v11 manifest disagree, the manifest is
+> current and this file is history.
+
 **Status: FROZEN (MW-V10-08).** This is the release-candidate verdict for v10.
 Nothing below is a plan; every line is either a measured result, an explicitly
 unrun check, or an owner action with an owner and a date.

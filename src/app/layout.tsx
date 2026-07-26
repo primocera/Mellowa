@@ -1,17 +1,27 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SITE_URL } from "@/lib/seo/site";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+/*
+ * MW-V11-05: both webfonts were removed, because measurement showed nothing
+ * rendered them.
+ *
+ * Geist and Geist_Mono were loaded here and exposed as `--font-geist-sans` /
+ * `--font-geist-mono`, which `globals.css` mapped to Tailwind's `--font-sans`
+ * and `--font-mono`. But no component uses `font-sans`, only one word in the
+ * account-deletion confirmation uses `font-mono`, and `globals.css` sets
+ * `body { font-family: Arial, Helvetica, sans-serif }` — which wins. So the
+ * product has been rendering in Arial the whole time while downloading 52,996
+ * bytes of fonts it never painted, on every page, on the critical path.
+ *
+ * Deleting them is strictly a subtraction: nothing on screen changes, because
+ * nothing on screen was using them. What changes is 21% of the landing page's
+ * transferred bytes and two render-blocking requests.
+ *
+ * NOT done here, deliberately: actually adopting Geist. That would change the
+ * typeface of every screen in the product, which is a design decision and not a
+ * launch-hardening one. It is recorded for the owner instead.
+ */
 
 const TITLE = "Mellowa — A simple daily plan for food, energy, mood and habits";
 const DESCRIPTION =
@@ -69,7 +79,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <body className="min-h-full flex flex-col bg-[#FAF7F2] text-[#1F2937]">
         {children}

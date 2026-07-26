@@ -1,0 +1,24 @@
+
+> dailyflow-ai@0.1.0 perf
+> playwright test --project=perf
+
+[WebServer] [legal] outstanding before paid launch: [
+[WebServer]   'LEGAL_ENTITY_NAME is not set',
+[WebServer]   'LEGAL_REGISTERED_ADDRESS is not set',
+[WebServer]   'LEGAL_GOVERNING_LAW is not set',
+[WebServer]   'SUPPORT_EMAIL is not set (hardcoded fallback in use)',
+[WebServer]   'NEXT_PUBLIC_APP_URL is a temporary domain: http://localhost:3000'
+[WebServer] ]
+
+Running 4 tests using 1 worker
+
+PERF / {"route":"/","ttfbMs":7,"fcpMs":708,"lcpMs":708,"lcpElement":"h1.mt-3","cls":0,"longTasks":2,"longTaskMsTotal":157,"transfer":{"total":192732,"script":159992,"style":7306,"font":0,"image":0},"requestCount":21}
+  ✓  1 [perf] › e2e\perf.spec.ts:214:7 › vitals: / (5.2s)
+PERF /pricing {"route":"/pricing","ttfbMs":16,"fcpMs":576,"lcpMs":576,"lcpElement":"h1.mt-6","cls":0,"longTasks":2,"longTaskMsTotal":138,"transfer":{"total":190676,"script":166120,"style":7306,"font":0,"image":0},"requestCount":18}
+  ✓  2 [perf] › e2e\perf.spec.ts:214:7 › vitals: /pricing (4.5s)
+PERF /signup {"route":"/signup","ttfbMs":75,"fcpMs":600,"lcpMs":600,"lcpElement":"p.mt-1","cls":0,"longTasks":1,"longTaskMsTotal":62,"transfer":{"total":265619,"script":239438,"style":7306,"font":0,"image":0},"requestCount":26}
+  ✓  3 [perf] › e2e\perf.spec.ts:214:7 › vitals: /signup (4.7s)
+PERF interaction probe (not INP): 7ms
+  ✓  4 [perf] › e2e\perf.spec.ts:242:5 › interaction probe: opening the header menu (1.9s)
+
+  4 passed (23.7s)

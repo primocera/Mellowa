@@ -207,14 +207,42 @@ export function trialLengthLabel(days: number | null): string {
   return days === null ? "a free trial" : `${days} ${days === 1 ? "day" : "days"}`;
 }
 
-/** Attributive form, e.g. "3-day" in "your 3-day trial". Null when unknown. */
+/**
+ * Attributive form, e.g. "3-day" in "your 3-day trial". Null when unknown.
+ *
+ * The distinction between this and `trialLengthLabel` is the whole reason both
+ * exist, and getting it wrong is what shipped "a 3 days trial" to the live
+ * landing page: the noun form ("3 days") takes no article and never modifies a
+ * following noun, while the adjective form ("3-day") always does. Any sentence
+ * of the shape "a … trial" needs this one.
+ */
 export function trialLengthAdjective(days: number | null): string | null {
   return days === null ? null : `${days}-day`;
 }
 
-/** e.g. "Start 3 days free" / "Start your free trial" (length unknown). */
+/**
+ * The indefinite article for a day count, chosen by how the number is *said*:
+ * "a 3-day trial", but "an 8-day trial" and "an 11-day trial". Only 3 and 7 are
+ * allowlisted today, so this is defensive — but a helper whose entire job is
+ * grammar should not be the thing that breaks when a variant is added.
+ */
+function articleFor(days: number): "a" | "an" {
+  const spoken = String(days);
+  if (spoken.startsWith("8")) return "an";
+  // 11 and 18 are "eleven"/"eighteen" — consonant onset, so "a".
+  return "a";
+}
+
+/** e.g. "a 3-day trial" / "an 8-day trial". Null when the length is unknown. */
+export function trialNounPhrase(days: number | null): string | null {
+  return days === null ? null : `${articleFor(days)} ${days}-day trial`;
+}
+
+/** e.g. "Start free 3-day trial" / "Start your free trial" (length unknown). */
 export function startTrialCta(days: number | null): string {
-  return days === null ? "Start your free trial" : `Start ${trialLengthLabel(days)} free`;
+  return days === null
+    ? "Start your free trial"
+    : `Start free ${trialLengthAdjective(days)} trial`;
 }
 
 /** e.g. "3 days free, then €9.99 each month". */
@@ -232,7 +260,7 @@ export function trialThenPriceLine(
 export function trialOfferSentence(days: number | null): string {
   return days === null
     ? "Premium starts with a free trial when you choose a plan; the exact length and charge date are shown before checkout."
-    : `Premium starts with a ${trialLengthLabel(days)} trial when you choose a plan.`;
+    : `Premium starts with ${trialNounPhrase(days)} when you choose a plan.`;
 }
 
 /**

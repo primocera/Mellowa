@@ -1,0 +1,100 @@
+
+> dailyflow-ai@0.1.0 build
+> next build
+
+▲ Next.js 16.2.10 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 66s
+  Running TypeScript ...
+  Finished TypeScript in 27.2s ...
+  Collecting page data using 3 workers ...
+⚠ Using edge runtime on a page currently disables static generation for that page
+  Generating static pages using 3 workers (0/70) ...
+  Generating static pages using 3 workers (17/70) 
+  Generating static pages using 3 workers (34/70) 
+  Generating static pages using 3 workers (52/70) 
+✓ Generating static pages using 3 workers (70/70) in 1633ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /admin
+├ ƒ /admin/export
+├ ƒ /admin/users
+├ ƒ /api/account/delete
+├ ƒ /api/account/export
+├ ƒ /api/admin/stats
+├ ƒ /api/admin/user-actions
+├ ƒ /api/ai/daily-plan
+├ ƒ /api/ai/habit-plan
+├ ƒ /api/ai/journal-reflection
+├ ƒ /api/ai/low-energy-day
+├ ƒ /api/ai/meal-rhythm
+├ ƒ /api/ai/plan-repair
+├ ƒ /api/ai/regenerate-section
+├ ƒ /api/ai/safety-check
+├ ƒ /api/ai/weekly-plan
+├ ƒ /api/consent
+├ ƒ /api/cron/billing-reconcile
+├ ƒ /api/cron/daily-reminders
+├ ƒ /api/cron/email-outbox
+├ ƒ /api/cron/retention
+├ ƒ /api/cron/trial-reminders
+├ ƒ /api/email/unsubscribe
+├ ƒ /api/email/welcome
+├ ƒ /api/events
+├ ƒ /api/health
+├ ƒ /api/health/ready
+├ ƒ /api/meals/favourite
+├ ƒ /api/plan/complete
+├ ƒ /api/plan/feedback
+├ ƒ /api/presets
+├ ƒ /api/shopping/build
+├ ƒ /api/stripe/cancel
+├ ƒ /api/stripe/checkout
+├ ƒ /api/stripe/portal
+├ ƒ /api/stripe/webhook
+├ ƒ /api/week/reflection
+├ ƒ /auth/callback
+├ ƒ /billing
+├ ƒ /check-in
+├ ƒ /dashboard
+├ ƒ /favourites
+├ ○ /forgot-password
+├ ƒ /habits
+├ ƒ /help
+├ ƒ /journal
+├ ƒ /library
+├ ƒ /login
+├ ○ /manifest.webmanifest
+├ ƒ /meal-rhythm
+├ ƒ /movement
+├ ƒ /onboarding
+├ ƒ /opengraph-image
+├ ƒ /plan
+├ ƒ /pricing
+├ ○ /privacy
+├ ƒ /progress
+├ ○ /refund
+├ ○ /reset-password
+├ ○ /robots.txt
+├ ƒ /settings
+├ ƒ /signup
+├ ○ /sitemap.xml
+├ ƒ /stress-reset
+├ ○ /terms
+├ ƒ /today
+├ ƒ /twitter-image
+├ ƒ /verify-email
+├ ƒ /weekly-plan
+└ ƒ /you
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

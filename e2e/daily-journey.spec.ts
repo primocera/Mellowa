@@ -1,5 +1,18 @@
 import { test, expect, type Page } from "@playwright/test";
-import { execFileSync } from "node:child_process";
+import {
+  E2E_CONFIGURED,
+  NOT_CONFIGURED_REASON,
+  annotateRetry,
+  assertIdentity,
+  assertNoBackgroundFailures,
+  assertNoHorizontalOverflow,
+  assertSeededState,
+  installFailureGuards,
+  login,
+  seed,
+  type PageFailures,
+  type SeedState,
+} from "./support/harness";
 
 /**
  * MW-V10-03: the authenticated daily-journey state matrix.
@@ -17,60 +30,45 @@ import { execFileSync } from "node:child_process";
  * journeys.spec.ts, and the same reason it has never yet been executed.
  */
 
-const configured =
-  process.env.E2E_SUPABASE_TEST === "1" &&
-  !!process.env.E2E_TEST_EMAIL &&
-  !!process.env.E2E_TEST_PASSWORD;
+test.skip(!E2E_CONFIGURED, NOT_CONFIGURED_REASON);
 
-test.skip(
-  !configured,
-  "seeded env not configured (E2E_SUPABASE_TEST, E2E_TEST_EMAIL, E2E_TEST_PASSWORD)"
-);
+/**
+ * MW-V11-04: every state in this matrix now runs behind failure guards. A
+ * state assertion that passes while the page threw, logged a React error or
+ * received a 500 is not evidence the state works — that is precisely how the
+ * first execution of this suite came to be asserting against an error boundary.
+ */
+let failures: PageFailures;
 
-type SeedState =
-  | "no-plan"
-  | "plan-ready"
-  | "partly-done"
-  | "all-done"
-  | "past-due"
-  | "canceled"
-  | "ending"
-  | "bad-timezone";
+test.beforeEach(({ page }) => {
+  failures = installFailureGuards(page);
+});
 
-function seed(state: SeedState) {
-  execFileSync("node", ["scripts/seed-test-user.mjs", `--state=${state}`], {
-    stdio: "pipe",
-  });
-}
-
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.fill('input[type="email"]', process.env.E2E_TEST_EMAIL!);
-  await page.fill('input[type="password"]', process.env.E2E_TEST_PASSWORD!);
-  await page.getByRole("button", { name: /log in/i }).click();
-  await page.waitForURL(/\/(today|dashboard|onboarding)/, { timeout: 30_000 });
-
-  // The consent checkpoint gates every authenticated surface for an
-  // un-consented account. Clear it once so the state assertions below are
-  // testing Today, not the checkpoint.
-  const checkpoint = page.getByText(/a quick confirmation/i);
-  if (await checkpoint.isVisible().catch(() => false)) {
-    for (const box of await page.locator('input[type="checkbox"]').all()) {
-      await box.check();
-    }
-    await page.getByRole("button", { name: /confirm and continue/i }).click();
-    await expect(checkpoint).toBeHidden();
+test.afterEach(({}, testInfo) => {
+  annotateRetry(testInfo);
+  if (testInfo.status === testInfo.expectedStatus) {
+    assertNoBackgroundFailures(failures);
   }
-}
+});
 
-/** No element may push the document wider than the viewport. */
-async function assertNoHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(
-    () =>
-      document.documentElement.scrollWidth >
-      document.documentElement.clientWidth + 1
-  );
-  expect(overflow, "page scrolls horizontally").toBe(false);
+/**
+ * Log in, open Today, and prove both that we are on Today and that the seeded
+ * state actually applied — before a single assertion about the state runs.
+ *
+ * The failure this prevents: the seed silently produces the wrong state (or no
+ * state at all), the page renders something plausible, and the test's real
+ * assertions pass for a reason that has nothing to do with what it claims to
+ * check. A missing fixture must fail loudly, not skip and not quietly pass.
+ */
+async function arriveAtToday(
+  page: Page,
+  state: SeedState,
+  signature: RegExp
+): Promise<void> {
+  await login(page);
+  await page.goto("/today");
+  await assertIdentity(page, { route: /\/today/ });
+  await assertSeededState(page, state, signature);
 }
 
 /**
@@ -103,7 +101,8 @@ test.describe("no plan yet", () => {
   test("offers exactly one way forward, reachable by keyboard", async ({ page }) => {
     await login(page);
     await page.goto("/today");
-    await expect(page.getByText(/no plan yet/i)).toBeVisible();
+    await assertIdentity(page, { route: /\/today/ });
+    await assertSeededState(page, "no-plan", /no plan yet/i);
 
     const checkIn = page.getByRole("link", { name: /check in for today/i });
     await expect(checkIn).toBeVisible();
@@ -129,8 +128,9 @@ test.describe("plan ready", () => {
   test("shows one Now action; the full plan stays reachable", async ({ page }) => {
     await login(page);
     await page.goto("/today");
+    await assertIdentity(page, { route: /\/today/ });
+    await assertSeededState(page, "plan-ready", /now · one next step/i);
 
-    await expect(page.getByText(/now · one next step/i)).toBeVisible();
     // Exactly one primary action on the Now card.
     await expect(page.getByRole("button", { name: /^Done$/ })).toHaveCount(1);
     // The full plan is never hidden — only collapsed behind a labelled control.
@@ -146,8 +146,7 @@ test.describe("plan ready", () => {
   test("a double tap on Done completes once and reads as done once", async ({
     page,
   }) => {
-    await login(page);
-    await page.goto("/today");
+    await arriveAtToday(page, "plan-ready", /now · one next step/i);
 
     const done = page.getByRole("button", { name: /^Done$/ }).first();
     // Two taps as fast as the browser allows. The second must be dropped, not
@@ -171,8 +170,7 @@ test.describe("plan ready", () => {
   test("Undo reverses the completion and says nothing about success", async ({
     page,
   }) => {
-    await login(page);
-    await page.goto("/today");
+    await arriveAtToday(page, "plan-ready", /now · one next step/i);
     await page.getByRole("button", { name: /^Done$/ }).first().click();
     await page.getByRole("button", { name: /^Undo$/ }).click();
     await expect(page.getByText(/^Marked done\.$/)).toHaveCount(0);
@@ -181,8 +179,7 @@ test.describe("plan ready", () => {
   test("no celebration, streak or adherence language anywhere on Today", async ({
     page,
   }) => {
-    await login(page);
-    await page.goto("/today");
+    await arriveAtToday(page, "plan-ready", /now · one next step/i);
     await page.getByRole("button", { name: /view full plan/i }).click();
     const body = (await page.locator("main").innerText()).toLowerCase();
     for (const banned of [
@@ -207,8 +204,7 @@ test.describe("partly done", () => {
   test("skips the completed item without hiding it from the full plan", async ({
     page,
   }) => {
-    await login(page);
-    await page.goto("/today");
+    await arriveAtToday(page, "partly-done", /now · one next step/i);
     // The Now card must not offer an item that is already recorded as done.
     const nowTitle = await page.locator("main h2").first().innerText();
     expect(nowTitle.toLowerCase()).not.toContain("oats with fruit");
@@ -226,11 +222,11 @@ test.describe("all done", () => {
   test("states there is nothing left, neutrally, with the plan still open", async ({
     page,
   }) => {
-    await login(page);
-    await page.goto("/today");
-    await expect(
-      page.getByText(/that's everything from today's plan/i)
-    ).toBeVisible();
+    await arriveAtToday(
+      page,
+      "all-done",
+      /that's everything from today's plan/i
+    );
     // No primary action to press, and nothing framed as an achievement.
     await expect(page.getByRole("button", { name: /^Done$/ })).toHaveCount(0);
     const body = (await page.locator("main").innerText()).toLowerCase();
@@ -247,8 +243,7 @@ test.describe("payment needs attention", () => {
   test("says history is readable and gives one route to billing", async ({
     page,
   }) => {
-    await login(page);
-    await page.goto("/today");
+    await arriveAtToday(page, "past-due", /stays readable/i);
 
     const banner = page.getByRole("status").filter({ hasText: /readable/i }).first();
     await expect(banner).toBeVisible();
@@ -274,8 +269,7 @@ test.describe("subscription ended", () => {
   test("keeps history readable and offers plans without pressure", async ({
     page,
   }) => {
-    await login(page);
-    await page.goto("/today");
+    await arriveAtToday(page, "canceled", /stays readable/i);
     const banner = page.getByRole("status").filter({ hasText: /readable/i }).first();
     await expect(banner).toBeVisible();
     await expect(banner.getByRole("link")).toHaveAttribute("href", "/billing");
@@ -287,8 +281,7 @@ test.describe("trial set not to renew", () => {
   test.beforeEach(() => seed("ending"));
 
   test("shows one notice, not a trial countdown as well", async ({ page }) => {
-    await login(page);
-    await page.goto("/today");
+    await arriveAtToday(page, "ending", /set not to renew/i);
     // The trial banner stands down so the two never contradict each other.
     await expect(page.getByText(/trial is active/i)).toHaveCount(0);
     await expect(page.getByText(/set not to renew/i)).toBeVisible();
@@ -299,9 +292,7 @@ test.describe("invalid stored timezone", () => {
   test.beforeEach(() => seed("bad-timezone"));
 
   test("offers timezone repair instead of a wrong day", async ({ page }) => {
-    await login(page);
-    await page.goto("/today");
-    await expect(page.getByText(/time zone|timezone/i).first()).toBeVisible();
+    await arriveAtToday(page, "bad-timezone", /time zone|timezone/i);
     await assertNoHorizontalOverflow(page);
   });
 });

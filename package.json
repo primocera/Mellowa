@@ -14,7 +14,9 @@
     "seed:test-user": "node scripts/seed-test-user.mjs",
     "test:e2e:journey": "playwright test e2e/daily-journey.spec.ts",
     "eval": "vitest run tests/eval-suite.test.ts tests/eval-golden.test.ts tests/prompt-versions.test.ts",
-    "release-check": "node scripts/release-check.mjs"
+    "release-check": "node scripts/release-check.mjs",
+    "release-manifest": "vitest run tests/release-manifest.test.ts",
+    "perf": "playwright test --project=perf"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",

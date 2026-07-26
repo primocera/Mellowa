@@ -1,0 +1,13 @@
+# command: npx vitest run
+# sha: 169c706683a821054351f45a5916f667ea93557c
+# utc: 2026-07-26T19:05:41Z
+
+ RUN  v4.1.10 C:/Users/primo/dailyflowai
+
+
+ Test Files  81 passed (81)
+      Tests  900 passed (900)
+   Start at  21:05:44
+   Duration  13.24s (transform 1.63s, setup 0ms, import 7.90s, tests 1.99s, environment 15ms)
+
+# exit: 0

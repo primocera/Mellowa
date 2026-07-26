@@ -1,0 +1,32 @@
+
+> dailyflow-ai@0.1.0 release-check
+> node scripts/release-check.mjs
+
+Release check — environment presence (values never printed)
+
+  MISSING  NEXT_PUBLIC_APP_URL
+  MISSING  NEXT_PUBLIC_SUPABASE_URL
+  MISSING  NEXT_PUBLIC_SUPABASE_ANON_KEY
+  MISSING  SUPABASE_SERVICE_ROLE_KEY
+  MISSING  AI_PROVIDER_API_KEY
+  MISSING  STRIPE_SECRET_KEY
+  MISSING  STRIPE_WEBHOOK_SECRET
+  MISSING  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  MISSING  STRIPE_PRICE_PRO_MONTHLY
+  MISSING  STRIPE_PRICE_PRO_YEARLY
+  MISSING  CRON_SECRET
+  MISSING  ADMIN_STATS_SECRET
+  MISSING  RESEND_API_KEY
+  MISSING  EMAIL_FROM
+
+Paid-launch identity (LAUNCH_MODE=paid requires all of these)
+  WARN     LEGAL_ENTITY_NAME
+  WARN     LEGAL_REGISTERED_ADDRESS
+  WARN     LEGAL_GOVERNING_LAW
+  WARN     SUPPORT_EMAIL
+
+Value sanity (no values shown)
+
+(Set APP_URL to also run live health checks.)
+
+Result: 14 failing, 4 warnings. NOT ready.

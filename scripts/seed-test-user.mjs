@@ -14,6 +14,8 @@
 //   canceled      subscription ended → read-only + recovery route
 //   ending        trialing but set not to renew → the info recovery notice
 //   bad-timezone  an invalid stored IANA zone → the timezone repair prompt
+//   trial-eligible  no subscription row at all → checkout may offer a trial
+//   trial-used      trial spent, subscription ended → pay-today copy only
 //
 // Every state is written for the SAME synthetic user, so switching states never
 // leaves rows from a previous state behind: the plan and its completions are
@@ -58,6 +60,13 @@ const VALID_STATES = [
   "canceled",
   "ending",
   "bad-timezone",
+  // MW-V11-04: the two billing states no fixture could produce. Every state
+  // above writes a `subscriptions` row with status `trialing` or later, so a
+  // trial-eligible user and a prior-trial user were both unreachable — and the
+  // two journeys.spec.ts tests that need them skipped on every run since they
+  // were written. A skip reads as a decision, so nothing ever reported it.
+  "trial-eligible",
+  "trial-used",
 ];
 const STATE =
   process.argv.find((a) => a.startsWith("--state="))?.split("=")[1] ??
@@ -159,19 +168,50 @@ const subState = SUBSCRIPTION_STATES[STATE] ?? {
   status: "trialing",
   cancel_at_period_end: false,
 };
-const { error: subErr } = await admin.from("subscriptions").upsert(
-  {
-    user_id: userId,
-    plan_name: "pro_monthly",
-    status: subState.status,
-    trial_start: new Date().toISOString(),
-    trial_end: trialEnd,
-    current_period_end: trialEnd,
-    cancel_at_period_end: subState.cancel_at_period_end,
-  },
-  { onConflict: "user_id" }
-);
-if (subErr) console.error("subscriptions:", subErr.message);
+
+if (STATE === "trial-eligible") {
+  // No subscription row at all: this is a signed-up user who has never paid and
+  // has never started a trial, so checkout must offer one. `trialEligible` in
+  // the checkout route is `!sub?.trial_used_at`, and the pricing page shows the
+  // trial CTA only in this state.
+  const { error: delErr } = await admin
+    .from("subscriptions")
+    .delete()
+    .eq("user_id", userId);
+  if (delErr) console.error("subscriptions delete:", delErr.message);
+} else if (STATE === "trial-used") {
+  // The one lifetime trial is spent and the subscription has ended. This is the
+  // state that must show pay-today copy and no cancel-by date — the exact
+  // combination the billing page got wrong before MW-V10-02.
+  const { error: usedErr } = await admin.from("subscriptions").upsert(
+    {
+      user_id: userId,
+      plan_name: "pro_monthly",
+      status: "canceled",
+      trial_start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      trial_end: new Date(Date.now() - 27 * 24 * 60 * 60 * 1000).toISOString(),
+      current_period_end: new Date(Date.now() - 27 * 24 * 60 * 60 * 1000).toISOString(),
+      cancel_at_period_end: false,
+      trial_used_at: new Date(Date.now() - 27 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    { onConflict: "user_id" }
+  );
+  if (usedErr) console.error("subscriptions:", usedErr.message);
+} else {
+  const { error: subErr } = await admin.from("subscriptions").upsert(
+    {
+      user_id: userId,
+      plan_name: "pro_monthly",
+      status: subState.status,
+      trial_start: new Date().toISOString(),
+      trial_end: trialEnd,
+      current_period_end: trialEnd,
+      cancel_at_period_end: subState.cancel_at_period_end,
+    },
+    { onConflict: "user_id" }
+  );
+  if (subErr) console.error("subscriptions:", subErr.message);
+}
 
 // 4. Today's plan. Rebuilt every run so switching states leaves nothing behind.
 const localDate = new Intl.DateTimeFormat("en-CA", {

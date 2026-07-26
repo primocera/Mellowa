@@ -19,7 +19,17 @@ export const TERMS = {
    * hardcoding a number here.
    */
   sampleCta: "Create my free sample plan",
-  sampleHelper: "No card for the sample.",
+  /**
+   * The above-the-fold sample disclosure, stated exactly once.
+   *
+   * MW-V11-01: the hero previously rendered this line and then immediately
+   * repeated the same fact in different words ("An account is required; no card
+   * is requested for the sample"), which reads as an unfinished page. Both
+   * facts a visitor needs before clicking — an account, and no card — are here
+   * in one sentence, so no adjacent component has to restate either.
+   */
+  sampleHelper:
+    "An account is required for the free sample, and no payment card is requested for it.",
   /** Hub display names (internal routes/fields unchanged). */
   hubs: {
     today: "Today",
@@ -35,6 +45,28 @@ export const TERMS = {
     easiest: "Easiest version",
   },
 } as const;
+
+/**
+ * Join sentences with exactly one space, as a single string.
+ *
+ * Why this exists rather than writing `{a} {b}` in JSX: the live hero rendered
+ * "…the day you actually have.Tell Mellowa…" with no space at all. JSX strips
+ * the whitespace between an expression and an adjacent text node when that text
+ * node spans lines, so the space disappeared the moment the paragraph was
+ * wrapped — invisible in the source, wrong in the browser, and impossible to
+ * catch by reading the JSX.
+ *
+ * Composing the sentence in JavaScript makes it one text node, so the spacing
+ * survives reformatting, prettier, translation and any future re-wrap. Empty
+ * and whitespace-only parts are dropped, so an unknown-length disclosure that
+ * returns nothing cannot leave a double space behind.
+ */
+export function joinSentences(...parts: (string | null | undefined)[]): string {
+  return parts
+    .map((part) => part?.trim() ?? "")
+    .filter((part) => part !== "")
+    .join(" ");
+}
 
 /**
  * Phrases that must never appear in customer-facing copy (see
