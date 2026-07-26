@@ -189,46 +189,104 @@ await admin.from("daily_plans").delete().eq("user_id", userId);
 
 // Deliberately plain, non-sensitive fixture content: no allergen-relevant
 // ingredients, no mood or journal text, nothing that reads as real user data.
+//
+// The shape MUST match MealCardSchema in src/schemas/ai-output-v2.ts exactly.
+// The first version of this fixture used `steps` and plain-string ingredients,
+// so TodayPlanV2 called `preparation_steps.map()` on undefined and Today threw
+// into the error boundary — the state matrix was testing a crash instead of the
+// feature. Only running the suite revealed it.
+function meal(overrides) {
+  return {
+    meal_type: "breakfast",
+    title: "Oats with fruit",
+    short_description: "Made the night before.",
+    prep_time_minutes: 5,
+    cook_time_minutes: 0,
+    total_time_minutes: 5,
+    difficulty: "easy",
+    budget_level: "low",
+    servings: 1,
+    ingredients: [
+      { name: "oats", amount: "50 g", optional: false },
+      { name: "milk of choice", amount: "150 ml", optional: false },
+      { name: "fruit", amount: "1 handful", optional: false },
+    ],
+    preparation_steps: [
+      "Combine the oats and milk the night before.",
+      "Add the fruit in the morning.",
+    ],
+    approximate_macros: { calories: 350, protein_g: 12, carbs_g: 55, fat_g: 8 },
+    why_it_fits_today: "Nothing to cook and nothing to decide.",
+    low_energy_swap: "Eat it cold, straight from the fridge.",
+    grocery_items: ["oats", "fruit"],
+    safety_note: "Macros are approximate and not medical nutrition advice.",
+    ...overrides,
+  };
+}
+
 const FIXTURE_PLAN = {
   plan_date: localDate,
   plan_mode: "balanced",
   plan_intensity: "normal",
   plan_summary: {
     main_focus: "A steady day with room to breathe",
+    energy_match: "Built for a mid-energy day.",
     short_note: "Three anchors and one pause.",
   },
   meal_cards: [
-    {
-      meal_type: "breakfast",
-      title: "Oats with fruit",
-      short_description: "Made the night before.",
-      total_time_minutes: 5,
-      difficulty: "easy",
-      ingredients: ["oats", "milk of choice", "fruit"],
-      steps: ["Combine the night before.", "Add fruit in the morning."],
-      approximate_macros: { calories: 350, protein_g: 12, carbs_g: 55, fat_g: 8 },
-    },
-    {
+    meal({}),
+    meal({
       meal_type: "lunch",
       title: "Grain bowl",
       short_description: "Uses last night's leftovers.",
+      prep_time_minutes: 10,
+      cook_time_minutes: 0,
       total_time_minutes: 10,
-      difficulty: "easy",
-      ingredients: ["cooked grains", "greens", "leftover protein"],
-      steps: ["Combine in a bowl."],
+      ingredients: [
+        { name: "cooked grains", amount: "1 cup", optional: false },
+        { name: "greens", amount: "1 handful", optional: false },
+        { name: "leftover protein", amount: "1 portion", optional: false },
+      ],
+      preparation_steps: ["Combine everything in a bowl.", "Season and eat."],
       approximate_macros: { calories: 480, protein_g: 24, carbs_g: 58, fat_g: 14 },
-    },
+      low_energy_swap: "Skip the greens.",
+    }),
   ],
-  hydration_plan_v2: { goal: "A glass with each meal", timing: ["morning", "midday"] },
-  movement_plan: { title: "A 10-minute walk", duration_minutes: 10, steps: ["Outside if you can."] },
+  hydration_plan_v2: {
+    goal: "About 6 glasses through the day",
+    timing: ["One with each meal", "One mid-afternoon"],
+  },
+  movement_plan: {
+    title: "A 10-minute walk",
+    movement_type: "walk",
+    duration_minutes: 10,
+    intensity: "gentle",
+    best_time: "After lunch",
+    equipment_needed: "None",
+    steps: ["Step outside.", "Walk at an easy pace for ten minutes."],
+    modifications: ["Walk indoors if the weather is bad."],
+    low_energy_version: "Stand by an open window for two minutes.",
+    caution_note: "Skip any movement that causes pain.",
+  },
   breathing_exercise: {
     name: "Three slow breaths",
     duration_minutes: 2,
-    steps: ["In through the nose.", "Out slowly."],
+    when_to_use: "Any point in the day",
+    steps: ["In through the nose for four.", "Out slowly for six."],
+    gentle_note: "Stop if you feel dizzy or uncomfortable.",
   },
-  evening_routine: { steps: ["Lights low.", "Screens down."] },
-  habit_focus: { habit: "Fill the water bottle", minimum_version: "Just fill it." },
+  evening_routine: {
+    time: "21:30",
+    steps: ["Lights low.", "Screens down."],
+    simple_version: "Just dim the lights.",
+  },
+  habit_focus: {
+    habit: "Fill the water bottle",
+    minimum_version: "Just fill it.",
+    tracking_question: "Did you fill it?",
+  },
   encouragement: "One step at a time is enough.",
+  safety_note: "This plan is general wellbeing support, not medical advice.",
 };
 
 // Keys the app uses for completions, in the same shape as lib/today/next-action.
