@@ -5,9 +5,12 @@ what is actually open." It exists because prompt packs v8, v9 and v10 re-asked
 for work that was already shipped. If you are scoping a new pack from the public
 repo, read this file first — not the individual `launch-go-no-go-*.md` history.
 
-**Last verified:** 2026-07-26 on branch `v10`, MW-V10-00 slice (baseline
-`90f5482` = `main`). Automated suite: **618 tests / 74 files green**, lint clean
+**Last verified:** 2026-07-26 on branch `v10` through MW-V10-01 (baseline
+`90f5482` = `main`). Automated suite: **621 tests / 74 files green**, lint clean
 (0 errors), typecheck clean, production build clean.
+
+**v10 progress:** MW-V10-00 ✅ · MW-V10-01 ✅ (copy reduction fell short of
+target — see `launch-go-no-go-v10.md`) · MW-V10-02 … 08 not started.
 
 **Status vocabulary** (used strictly, same as the go/no-go docs):
 *tested* = automated in-repo · *configured* = infrastructure set but not
@@ -89,9 +92,10 @@ These are implemented and contract-tested. A pack should still **exercise them**
 (that is how the three §0 defects surfaced), but should ask for *verification and
 the specific gap*, not another ground-up rewrite:
 
-- **Landing page copy** — rewritten in v6, v7, v8 and v9 (MW-V9-08). It is
-  `src/app/page.tsx`, 561 lines, with `landing-conversion.test.ts` pinning the
-  claims. A fourth rewrite needs a measured reason, not a new adjective.
+- **Landing page copy** — rewritten in v6, v7, v8, v9 (MW-V9-08) and again in
+  v10 (MW-V10-01). `src/app/page.tsx`, with `landing-conversion.test.ts` and
+  `content-audit.test.ts` pinning the claims. A sixth rewrite needs measured
+  evidence that the current wedge underperforms, not a new adjective.
 - **Mobile polish / accessibility** — shared UI primitives and PWA assets landed
   in MW-V9-09; `accessibility.test.ts` covers the contracts. What is genuinely
   missing is *measurement* (LCP/CLS/INP at an RC), not more components.

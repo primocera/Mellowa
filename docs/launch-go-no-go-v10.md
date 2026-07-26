@@ -82,6 +82,20 @@ Also in this slice:
   overlap-then-revoke procedure that makes every step reversible, and a restore
   drill whose measured wall-clock time is the real RTO.
 
+### MW-V10-01 — adaptive-day positioning
+
+The landing now leads with the differentiator ("When your day changes, reshape
+what's left — without starting over") and shows the full loop above the fold,
+including the two beats that are the actual wedge: completed items stay, and
+Undo is free. The concrete sample day moved up to sit directly after the hero.
+
+Copy is down ~11% (about 1640 → 1465 visible words) by removing duplicated
+truth — the "how it works" cards restated the new hero loop. **This is short of
+the 20-25% the prompt targets.** Closing the gap would require cutting safety
+boundaries, sample/trial disclosure or pricing detail, which the same prompt
+forbids, so it is recorded as a shortfall rather than taken from copy that
+protects users. Metadata and JSON-LD were rewritten to match the new promise.
+
 ## 3. Live rehearsal — owner must execute (evidence required)
 
 None of these can be proven from this environment. Claude Code must not mutate
