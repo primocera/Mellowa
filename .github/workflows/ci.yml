@@ -64,10 +64,25 @@ jobs:
         run: |
           if [ -n "${{ secrets.E2E_TEST_USER_EMAIL }}" ] && [ -n "${{ secrets.E2E_SUPABASE_URL }}" ]; then
             echo "seeded=true" >> "$GITHUB_OUTPUT"
+            echo "status=ran" >> "$GITHUB_OUTPUT"
           else
             echo "seeded=false" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Authenticated E2E skipped::No seeded test-user environment configured. This job is NOT green for a release candidate — see docs/PRODUCT_ELEVATION_V9.md."
+            echo "status=SKIPPED (not green)" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Authenticated E2E skipped::No seeded test-user environment configured. This job is NOT green for a release candidate — see docs/BUILD_STATE.md."
           fi
+          # MW-V10-00: make the skip legible in the run summary rather than
+          # only in an annotation nobody re-reads at sign-off time.
+          {
+            echo "### Authenticated E2E"
+            if [ "${{ secrets.E2E_TEST_USER_EMAIL }}" = "" ]; then
+              echo "**SKIPPED — no seeded test-user environment.**"
+              echo "This job reporting success does NOT mean the authenticated"
+              echo "journeys passed. A release candidate must treat this as a"
+              echo "non-green, blocking gate."
+            else
+              echo "Ran against the seeded environment."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
       - if: steps.env.outputs.seeded == 'true'
         run: npm ci
       - if: steps.env.outputs.seeded == 'true'
@@ -80,3 +95,14 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           npm run test:e2e
+
+      # The release-candidate gate. On an ordinary push a missing seeded env is
+      # tolerated so day-to-day CI stays usable; when the owner sets the
+      # RC_GATE repository variable to 1 for a release candidate, an unrun
+      # authenticated suite fails the run instead of passing quietly. Without
+      # this, "all checks green" on an RC means only that nothing was checked.
+      - name: Release-candidate gate
+        if: steps.env.outputs.seeded != 'true' && vars.RC_GATE == '1'
+        run: |
+          echo "::error title=RC gate::Authenticated E2E did not run, so this commit cannot be a release candidate. Configure the seeded test-user secrets or clear RC_GATE."
+          exit 1

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireBearerSecret } from "@/lib/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  classifyRpcProbe,
   releaseVersion,
   summarizeReadiness,
   type ComponentStatus,
@@ -24,6 +25,10 @@ export async function GET(request: Request) {
     database: "fail",
     migration_020: "fail",
     migration_021: "fail",
+    // The two v9 RPC overloads the app calls on every generation and every
+    // repair Undo. Table presence does not imply the right argument list.
+    rpc_claim_ai_generation_v035: "fail",
+    rpc_undo_plan_repair_v034: "fail",
     email_config: process.env.RESEND_API_KEY ? "ok" : "not_configured",
     stripe_config:
       process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET
@@ -52,6 +57,27 @@ export async function GET(request: Request) {
       .select("next_attempt_at", { head: true, count: "exact" })
       .limit(1);
     components.migration_021 = outboxError ? "fail" : "ok";
+
+    // Probe the exact overloads with a malformed uuid: argument coercion fails
+    // before the body runs, so this proves the signature without side effects.
+    const BAD_UUID = "not-a-uuid";
+    const { error: claimError } = await admin.rpc("claim_ai_generation", {
+      p_user_id: BAD_UUID,
+      p_route: "readiness_probe",
+      p_per_hour: 0,
+      p_per_day: 0,
+      p_per_month: 0,
+      p_est_cost: 0,
+      p_global_daily_ceiling: 0,
+    });
+    components.rpc_claim_ai_generation_v035 = classifyRpcProbe(claimError);
+
+    const { error: undoError } = await admin.rpc("undo_plan_repair", {
+      p_user_id: BAD_UUID,
+      p_plan_id: BAD_UUID,
+      p_expected_version: -1,
+    });
+    components.rpc_undo_plan_repair_v034 = classifyRpcProbe(undoError);
   } catch {
     // createAdminClient throws without service-role config.
     components.database = "fail";

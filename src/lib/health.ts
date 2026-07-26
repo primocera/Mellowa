@@ -22,6 +22,34 @@ export function summarizeReadiness(
   return { ok, components };
 }
 
+/**
+ * Classify the result of probing an RPC overload (MW-V10-00).
+ *
+ * The probe deliberately passes a malformed uuid, which lets us tell the two
+ * outcomes apart without ever running the function body — so readiness can
+ * never consume a generation, write usage or mutate a plan:
+ *
+ *   - PGRST202 "function not found in schema cache" → the overload the app
+ *     calls does not exist on this database. The migration was not applied,
+ *     or was applied with a different argument list. Fail.
+ *   - anything else (typically 22P02 invalid input syntax for uuid) → the
+ *     signature resolved and argument coercion ran. The overload exists.
+ *
+ * A missing overload is exactly the failure that would surface as a runtime
+ * 500 on the first real generation after a deploy, which is far too late.
+ */
+export function classifyRpcProbe(
+  error: { code?: string; message?: string } | null
+): ComponentStatus {
+  if (!error) return "ok"; // Executed cleanly — the overload is certainly there.
+  const code = error.code ?? "";
+  const message = error.message ?? "";
+  if (code === "PGRST202" || /could not find the function/i.test(message)) {
+    return "fail";
+  }
+  return "ok";
+}
+
 /** Safe release identifier for health output (never a secret). */
 export function releaseVersion(
   env: Record<string, string | undefined> = process.env

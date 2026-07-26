@@ -403,6 +403,41 @@ export async function POST(request: Request) {
         }
         break;
       }
+      // A refund does not itself end a subscription — Stripe emits a separate
+      // subscription event when it does. Recording it keeps the owner-run
+      // refund step of the launch rehearsal observable in the same place as
+      // the rest of billing, instead of only in the Stripe dashboard.
+      case "charge.refunded": {
+        const charge = event.data.object;
+        const customerId =
+          typeof charge.customer === "string"
+            ? charge.customer
+            : charge.customer?.id;
+        if (customerId) {
+          trackEvent("payment_refunded", {
+            userId: await userIdForCustomerId(customerId),
+            // The refund itself succeeded either way; the taxonomy has no
+            // "partial" outcome and inventing one would break the contract.
+            // Amounts stay in Stripe, which is the source of truth for money.
+            properties: { surface: "billing", outcome: "success" },
+          });
+        }
+        break;
+      }
+      // A dispute is a trust and cash event that needs an owner, not an
+      // automated entitlement change: never revoke access from code here.
+      case "charge.dispute.created": {
+        const dispute = event.data.object;
+        const charge =
+          typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
+        console.warn("[stripe] dispute opened — owner action required", {
+          charge,
+        });
+        trackEvent("payment_disputed", {
+          properties: { surface: "billing", outcome: "failure" },
+        });
+        break;
+      }
       default:
         // Unhandled event types are fine — acknowledge them.
         break;

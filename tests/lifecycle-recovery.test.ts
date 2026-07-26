@@ -7,6 +7,7 @@ process.env.NEXT_PUBLIC_APP_URL ??= "https://mellowa.app";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { adoptSubscriptionForCustomer } from "@/lib/stripe/reconcile";
+import { classifyRpcProbe } from "@/lib/health";
 import {
   isUnsubscribeCategory,
   unsubscribeToken,
@@ -216,5 +217,37 @@ describe("email confirmation", () => {
   it("sends recovery links to the password form, not into the app", () => {
     expect(callback).toMatch(/recovery/);
     expect(callback).toContain("/reset-password");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. Readiness proves the RPC overloads the app actually calls
+// ---------------------------------------------------------------------------
+
+describe("readiness RPC probes", () => {
+  it("treats a missing function as a failure", () => {
+    // PostgREST reports an absent overload as PGRST202. That is precisely the
+    // deploy-time state that would otherwise surface as a 500 on a user's
+    // first generation.
+    expect(classifyRpcProbe({ code: "PGRST202" })).toBe("fail");
+    expect(
+      classifyRpcProbe({ message: "Could not find the function public.foo" })
+    ).toBe("fail");
+  });
+
+  it("treats an argument-coercion error as proof the overload exists", () => {
+    // 22P02 means the signature resolved and Postgres got as far as parsing
+    // the uuid — the body never ran, so the probe has no side effects.
+    expect(classifyRpcProbe({ code: "22P02" })).toBe("ok");
+    expect(classifyRpcProbe(null)).toBe("ok");
+  });
+
+  it("readiness checks both v9 overloads by name", () => {
+    const route = readFileSync("src/app/api/health/ready/route.ts", "utf8");
+    expect(route).toContain("claim_ai_generation");
+    expect(route).toContain("undo_plan_repair");
+    // Seven-argument fair-use overload, not the older five-argument one.
+    expect(route).toContain("p_global_daily_ceiling");
+    expect(route).toContain("p_expected_version");
   });
 });
