@@ -1,12 +1,18 @@
 # Launch go/no-go scorecard — v10 (MW-V10-00 …)
 
-**Status: IN PROGRESS.** This document is opened by MW-V10-00 and frozen by
-MW-V10-08. Until that freeze it records the running state of the v10 branch and
-must not be read as a release verdict.
+**Status: FROZEN (MW-V10-08).** This is the release-candidate verdict for v10.
+Nothing below is a plan; every line is either a measured result, an explicitly
+unrun check, or an owner action with an owner and a date.
 
 **Branch:** `v10`. **Baseline:** `90f54823a08fd0b5c3a8b7145e089beee44c21c7`
-(= `main` at the start of v10; no drift). **RC SHA:** _not yet frozen — set by
-MW-V10-08._
+(= `main` at the start of v10; no drift).
+**RC SHA:** `e817aa4f4bdc3f0a9eeed0d30e3210aa2c1d968f`
+
+The RC is the last functional commit (MW-V10-07). MW-V10-08 adds **no product
+code** — only `tests/rc-gate.test.ts`, which verifies the claims this document
+makes, plus this freeze. That is why the RC SHA is not the branch tip: freezing
+the gate's own commit would mean the verdict described code the gate had not
+been run against.
 
 Supersedes `launch-go-no-go-v9.md`, which stays as history. The current
 built-vs-proven picture lives in `docs/BUILD_STATE.md`.
@@ -407,19 +413,93 @@ unset, `FLAG_TRIAL_LENGTH_EXPERIMENT=0` (pinned trials complete exactly as
 disclosed — no subscription is touched), plus per-surface UI reverts. Every v9/v10 migration is additive, so no
 migration reversal is required to roll back any behaviour.
 
+## 5b. Pinned contract versions at the RC
+
+Anything below that changes makes this a different release candidate. Verified
+against the code by `tests/rc-gate.test.ts`, not copied by hand.
+
+| Contract | Pinned value |
+|---|---|
+| Daily-plan prompt | `daily-plan-v2@1` (sha256 in `src/prompts/versions.ts`) |
+| Other prompts | `daily-plan@1`, `weekly-plan@1`, `habit-plan@1`, `low-energy-day@1`, `meal-rhythm@1`, `journal@1`, `safety@1` |
+| Model | `AI_PROVIDER_MODEL`, default `claude-haiku-4-5-20251001`; per-route policy in `src/lib/ai/model-policy.ts` |
+| Analytics taxonomy | analytics v1 — closed event enum, closed property keys |
+| Migrations | `001`–`039`. v10 adds `036` (trial experiment), `037` (plan provenance), `038` (cron leases), `039` (beta capacity) — all additive |
+| Reminder consent | `2026-07` |
+| Trial variants | `control` = 3 days, `week_beta` = 7 days — experiment **inactive** |
+| Kill-switch flags (default ON) | `weekly_plan`, `journal_reflection`, `meal_regeneration`, `reminders`, `fallback_plan`, `plan_repair`, `weekly_reflection`, `monthly_fair_use` |
+| Opt-in flags (default OFF) | `FLAG_EMPHASIZE_YEARLY`, `FLAG_TRIAL_LENGTH_EXPERIMENT` |
+
+**Migration rollback dry run.** Every migration in the repository was scanned for
+`drop table`, `drop column`, `truncate`, top-level `delete from` and destructive
+type changes — **none present**. The only `delete from` statements sit inside
+`undo_plan_repair`, where consuming the snapshot row *is* the Undo. Every v10
+migration is re-runnable (`if not exists` / `create or replace` / `on conflict`).
+A rollback is therefore a flag change or a code revert; no migration reversal is
+required. Live presence is confirmed only through `/api/health/ready` — Claude
+Code never touches the live database.
+
 ## 6. Verdict
 
-- **Automated code gate:** ✅ GO — lint, typecheck, 873 tests, the 81-test eval
-  gate, build and the 48 public Playwright journeys green on `v10`. **Not** part
-  of this GO: the 33-test authenticated state matrix (never executed) and the
-  optional live provider eval (skipped by design, and advisory even when run).
-- **Capped private beta (≤50 invites, no card for the sample):** ✅ GO, on the
-  same terms as v9.
-- **Public paid launch: NO-GO.** P0 #1 is open and owner-run. P1 #2–#4 are open.
-  This is honest and expected: a code-complete branch is not a proven paid
-  product, and the three defects found in MW-V10-00 are direct evidence that a
-  large green unit suite does not establish that user-facing paths work.
+### Measured at the RC
 
-_Signed (automated evidence only): Claude Code, on `v10`. Public-paid sign-off
-remains with the owner after §3 evidence is recorded. Frozen RC verdict is set
-by MW-V10-08._
+Every command below was run at `e817aa4`. Nothing here is inferred.
+
+| Command | Result |
+|---|---|
+| `npm run lint` | ✅ 0 errors, 8 warnings (pre-existing, untouched files) |
+| `npm run typecheck` | ✅ clean |
+| `npx vitest run` | ✅ **900 passed / 81 files** |
+| `npm run eval` | ✅ 81 passed (safety + golden fit/variety gates) |
+| Safety suites (`safety`, `safety-matrix`, `adversarial-matrix`, `severe-allergy`, `output-guards`, `crisis-resources`) | ✅ 73 passed |
+| Privacy suites (`privacy-registry`, `analytics-contract`, `consent`) | ✅ 26 passed |
+| `npm run build` | ✅ clean |
+| `npm run test:e2e:public` | ✅ 48 passed × desktop / 375px / 320px |
+| `git diff --check` | ✅ clean |
+| `npm run release-check` (local, no secrets) | ✅ **fails closed as designed** — 14 missing, 4 warnings, "NOT ready", and **no value printed**. Owner must re-run with production env pulled. |
+| `npm run test:e2e` + `npm run test:e2e:journey` | ⛔ **NOT RUN** — no seeded environment. 66 authenticated tests exist and have never executed. |
+| `scripts/eval-live.mjs` | ⏭ SKIPPED by design (opt-in, advisory, cannot gate a release) |
+| Lighthouse / Web Vitals | ⛔ **NOT MEASURED.** No score is claimed anywhere. |
+
+### Verdict
+
+- **Automated code gate:** ✅ GO at `e817aa4` — lint, typecheck, 900 tests, the
+  81-test eval gate, build and the 48 public browser journeys green. **Not** part
+  of this GO: the 66 authenticated tests (never executed), the live provider eval
+  (skipped by design) and any performance number (never measured).
+- **Capped private beta (≤50 invites, no card for the sample):** ✅ GO — and as
+  of MW-V10-06 the cap is *enforced* by a database trigger rather than
+  documented, so "≤50" is a fact instead of an intention. Requires migration
+  `039` applied.
+- **Public paid launch: NO-GO.**
+
+  P0 #1 (live transaction) and P1 #2–#4 (authenticated E2E, reminder/email
+  rehearsal, key-rotation drill) are open, and every one is owner-run. Under the
+  rule that no GO may be marked with an open transaction, safety, allergen,
+  privacy, billing or authenticated-E2E P0/P1, this verdict cannot be anything
+  else.
+
+  This is the expected outcome, not a failure of the work — and the record shows
+  why the rule exists. **Every slice in v10 found a defect in code the suite
+  reported green:** a consent version nobody read, a `trialEligible` flag never
+  passed to the component, `past_due` users nudged into a paywall, a stale plan
+  labelled as today's, and an E2E assertion matching a string the app has never
+  rendered. A 900-test suite caught none of them. Live and authenticated evidence
+  is a precondition, not a formality.
+
+### What would change this verdict
+
+Nothing in the code. Four owner-run items, ordered by risk removed per hour:
+
+| # | Action | Why it comes first | Effort |
+|---|---|---|---|
+| 1 | Seed the E2E environment (`npm run seed:test-user` + 3 env vars) and run both authenticated suites | Unblocks 66 tests that have never run; MW-V10-03 proved this gate currently does nothing | ~5 min + one run |
+| 2 | Apply migrations `036`–`039` to live Supabase; confirm via `/api/health/ready` | Four v10 mechanisms (trial pinning, provenance, cron leases, beta cap) enforce nothing until applied | ~10 min |
+| 3 | One real low-value transaction end to end (charge → cancel → reactivate → portal → refund) | The only P0 | ~30 min |
+| 4 | Reminder/cron/email rehearsal using the worksheet at the end of `docs/ops-cron.md` | Delivery is not *observed* until a message lands in a real inbox | ~45 min |
+
+Record each result in §3. When all four carry evidence and no stop criterion is
+open, the public-paid verdict may be revisited — by a human.
+
+_Signed (automated evidence only): Claude Code, at RC `e817aa4` on `v10`.
+Public-paid sign-off remains with the owner and is not granted here._
