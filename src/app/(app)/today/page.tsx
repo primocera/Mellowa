@@ -6,6 +6,7 @@ import { TodayPlanV2 } from "@/components/dailyflow/today-plan-v2";
 import { LowEnergyDayCard } from "@/components/dailyflow/low-energy-day-card";
 import { isValidTimeZone, localDateFor } from "@/lib/dates/local-day";
 import { TimezoneRepair } from "@/components/dailyflow/timezone-repair";
+import { planProvenanceSummary } from "@/lib/plan/provenance";
 
 export const metadata: Metadata = { title: "Today — Mellowa" };
 
@@ -26,6 +27,43 @@ function WeekLink() {
     >
       Review your week
     </Link>
+  );
+}
+
+/**
+ * MW-V10-04: how this plan was made, in plain language. A curated backup day is
+ * stated as one — unlabelled, it would read as a plan built for this person.
+ * Version ids only; the system prompt is never exposed.
+ */
+function PlanProvenance(props: {
+  promptVersion?: string | null;
+  modelVersion?: string | null;
+  isFallback?: boolean | null;
+}) {
+  const summary = planProvenanceSummary(props);
+
+  // A backup day is stated up front, not folded away — it is the one case where
+  // the user needs to know before they read the plan.
+  if (summary.fallback) {
+    return (
+      <p className="rounded-2xl bg-[#FEF3C7] px-4 py-3 text-xs text-[#1F2937]">
+        {summary.headline}
+      </p>
+    );
+  }
+
+  return (
+    <details className="px-2 text-xs text-[#9CA3AF]">
+      <summary className="cursor-pointer list-none underline underline-offset-2">
+        How this plan was made
+      </summary>
+      <p className="mt-1.5">
+        {summary.headline}
+        {summary.detail && (
+          <span className="ml-1">({summary.detail})</span>
+        )}
+      </p>
+    </details>
   );
 }
 
@@ -122,6 +160,11 @@ export default async function TodayPage() {
         plan={plan}
         showMacros={showMacros}
         completedKeys={completedKeys}
+      />
+      <PlanProvenance
+        promptVersion={plan.prompt_version}
+        modelVersion={plan.model_version}
+        isFallback={plan.is_fallback}
       />
       <WeekLink />
     </div>

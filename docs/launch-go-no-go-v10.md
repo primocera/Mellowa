@@ -24,14 +24,15 @@ Nothing below claims production behaviour was verified from tests or mocks.
 |---|---|---|
 | Lint | `npm run lint` | ✅ 0 errors (8 pre-existing warnings, untouched files) |
 | Type safety | `npm run typecheck` | ✅ clean |
-| Unit/contract/safety suite | `npx vitest run` | ✅ **719 passed / 76 files** |
+| Unit/contract/safety suite | `npx vitest run` | ✅ **772 passed / 77 files** |
 | Adversarial red-team matrix | `npx vitest run tests/adversarial-matrix.test.ts` | ✅ within the suite |
-| Safety + eval gate | `npm run eval` | ✅ within the suite |
+| Safety + eval gate | `npm run eval` | ✅ 81 passed — now includes the MW-V10-04 golden fit/variety gates |
 | Production build | `npm run build` | ✅ clean |
 | Public browser journeys | `npm run test:e2e:public` | ✅ 39 passed across desktop / 375px / **320px** |
 | **Daily-journey state matrix** | `npm run test:e2e:journey` | ⛔ **not run — no seeded env.** 33 tests exist; unrun tests are not evidence. |
 | **Authenticated browser journeys** | `npm run test:e2e` | ⛔ **not run — no seeded env. Non-green for RC.** |
 | Env/readiness presence | `npm run release-check` | ⚠ run with production env pulled |
+| Optional live provider eval | `scripts/eval-live.mjs` | ⏭ **SKIPPED by design** — opt-in, advisory, cannot gate a release |
 
 The authenticated row is now enforced, not merely annotated: setting the
 `RC_GATE` repository variable to `1` makes CI **fail** when the seeded
@@ -191,6 +192,48 @@ happens when it *doesn't* work, and any browser evidence at all.
 No migration, no flag, no analytics event. Rollback is a revert of the two
 components; nothing was written to the database by this slice.
 
+### MW-V10-04 — plan usefulness and safety golden evaluation
+
+The eval gate could prove a plan was safe, in-schema and on-tone. It could not
+prove the plan was *usable*, and it could not see a week at all.
+
+- **Fit is now a hard eval gate** (`src/lib/evals/fit.ts`): a meal that exceeds
+  the cooking time the user stated, a "minimum" day that quietly asks for two
+  hours, a plan that invents a partner/kids/gym/medication the input never
+  mentioned, generic filler in a slot that must be specific ("Eat healthy" as a
+  meal title), and a low-energy day with no smaller versions. A `low_energy_swap`
+  explicitly does **not** excuse an over-budget primary suggestion.
+- **Repetition is detectable for the first time** (`src/lib/evals/repetition.ts`).
+  No previous check could see it, because every check looked at one plan in
+  isolation — four identical days passed everything. Declared favourites and
+  leftovers are excluded (that reuse is the product working), and the recurring
+  habit is never reported. A rename with identical ingredients is caught.
+- **The fixture is now built per case.** A single generic fixture asserted
+  against every case only proved the fit gate was asleep; `safeFixturePlanFor`
+  builds the plan a competent generation *should* have produced, so a failure
+  means a validator is wrong rather than the fixture being mismatched.
+- **Repair preservation is asserted, not assumed** — every completed/kept key
+  across five done/kept combinations must be protected and out of replaceable
+  scope.
+- **Provenance** (migration `037`, additive): `prompt_version`, `model_version`
+  and `is_fallback` travel with the plan. The curated backup day is now
+  **labelled to the user** — unlabelled it read as a plan built for them. The
+  summary shows version ids only; a prose "version" is rejected by a slug check,
+  so prompt text cannot reach the client.
+- **Human rubric rewritten** (`docs/eval-worksheet.md`): seven dimensions with
+  1/3/5 anchors so two reviewers land within a point, a required comment column,
+  and explicit blocking rules (any 1 blocks; a mean under 3.0 on any single
+  dimension blocks; improve one dimension at a time).
+- **Optional live eval** (`scripts/eval-live.mjs`): opt-in, cost-capped, records
+  model + UTC date, prints `SKIPPED` when unconfigured, exits 0 always, and goes
+  through `/api/ai/daily-plan` rather than the provider — so it cannot bypass the
+  safety classifier, the allergen gate or the fair-use claim. **No LLM judges
+  safety anywhere.** Verified by running it: both skip paths exit 0.
+
+Fit findings are reported under their own codes, so a fit failure is never
+mistaken for — or able to mask — a safety failure. A test asserts both are
+reported together for a plan that is unsafe *and* unusable.
+
 ## 3. Live rehearsal — owner must execute (evidence required)
 
 None of these can be proven from this environment. Claude Code must not mutate
@@ -248,9 +291,10 @@ migration reversal is required to roll back any behaviour.
 
 ## 6. Verdict
 
-- **Automated code gate:** ✅ GO — lint, typecheck, 719 tests, build and the
-  39 public Playwright journeys green on `v10`. The 33-test authenticated state
-  matrix is **not** part of this GO: it has never been executed.
+- **Automated code gate:** ✅ GO — lint, typecheck, 772 tests, the 81-test eval
+  gate, build and the 39 public Playwright journeys green on `v10`. **Not** part
+  of this GO: the 33-test authenticated state matrix (never executed) and the
+  optional live provider eval (skipped by design, and advisory even when run).
 - **Capped private beta (≤50 invites, no card for the sample):** ✅ GO, on the
   same terms as v9.
 - **Public paid launch: NO-GO.** P0 #1 is open and owner-run. P1 #2–#4 are open.

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { EVAL_INPUT_CASES, safeFixturePlan, unsafeFixturePlan } from "@/lib/evals/corpus";
+import {
+  EVAL_INPUT_CASES,
+  safeFixturePlan,
+  safeFixturePlanFor,
+  unsafeFixturePlan,
+} from "@/lib/evals/corpus";
 import { evaluateInputSafety, evaluatePlanOutput, summarize } from "@/lib/evals/validators";
 
 /**
@@ -33,8 +38,11 @@ describe("input safety gate", () => {
 
 describe("output validators", () => {
   it("passes a well-formed plan for every non-blocked case", () => {
-    const results = EVAL_INPUT_CASES.filter((c) => !c.expectPreBlocked && c.forbiddenTerms.length === 0).map((c) =>
-      evaluatePlanOutput(safeFixturePlan(), c)
+    // MW-V10-04: the fixture is now built FOR each case. A single generic plan
+    // cannot pass every case — a 25-minute meal is wrong for a 15-minute day —
+    // and asserting otherwise would only prove the fit gate is asleep.
+    const results = EVAL_INPUT_CASES.filter((c) => !c.expectPreBlocked).map((c) =>
+      evaluatePlanOutput(safeFixturePlanFor(c), c)
     );
     const report = summarize(results);
     expect(report.criticalFailures, JSON.stringify(report.criticalFailures)).toEqual([]);
