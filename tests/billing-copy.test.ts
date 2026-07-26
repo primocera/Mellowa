@@ -12,6 +12,7 @@ const banner = readFileSync(
   "src/components/dailyflow/trial-banner.tsx",
   "utf8"
 );
+const disclosure = readFileSync("src/lib/stripe/trial-disclosure.ts", "utf8");
 
 describe("billing commercial truth (MW-08)", () => {
   it("states the exact free value (baseline + one lifetime sample, no card)", () => {
@@ -20,7 +21,11 @@ describe("billing commercial truth (MW-08)", () => {
   });
 
   it("branches on server-derived trial eligibility — no second trial implied", () => {
-    expect(billing).toContain("trial_used_at");
+    // MW-V10-02: eligibility, trial LENGTH and charge date all come from one
+    // server resolution shared with pricing and checkout, so the page no longer
+    // queries trial_used_at itself.
+    expect(billing).toContain("trialDisclosureForViewer");
+    expect(disclosure).toContain("trial_used_at");
     expect(billing).toContain("trialEligible");
     expect(billing).toMatch(/already used your one Premium trial/i);
     expect(billing).toMatch(/pay today/i);

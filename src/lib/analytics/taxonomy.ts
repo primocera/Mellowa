@@ -91,6 +91,10 @@ export const EVENT_NAMES = [
   // destination was opened — destination + entitlement category only, never
   // check-in or plan content.
   "primary_nav_viewed",
+  // v10 (MW-V10-02): the labelled Week-closeout example shown to a trial
+  // shorter than a week was rendered. Client claim, surface only — it exists to
+  // tell whether the short arm's users ever see the carry-forward explanation.
+  "trial_week_preview_viewed",
   // v9 (MW-V9-02): the daily check-in was opened/started. Client claim, surface
   // only — never any energy/stress/mood value or note. Completion truth stays
   // server-side via checkin_completed.

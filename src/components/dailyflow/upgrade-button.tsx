@@ -3,13 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { TRIAL_DAYS } from "@/lib/stripe/plans";
 import { trackClient } from "@/lib/analytics/client";
 
-/** Human-readable local date, e.g. "18 July 2026". */
-function formatChargeDate(daysFromNow: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + daysFromNow);
+/**
+ * Render a server-supplied calendar date (YYYY-MM-DD) in the reader's locale.
+ * MW-V10-02: the client no longer derives the charge date from a hardcoded
+ * trial length — the date is whatever the checkout route computed for this
+ * user's assigned variant, so the two can never disagree.
+ */
+function formatChargeDate(isoDate: string): string {
+  const d = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return isoDate;
   return d.toLocaleDateString(undefined, {
     day: "numeric",
     month: "long",
@@ -23,6 +27,7 @@ export function UpgradeButton({
   amount,
   cadence,
   trialEligible,
+  trialChargeDate,
   highlight = false,
 }: {
   interval: "monthly" | "yearly";
@@ -33,6 +38,13 @@ export function UpgradeButton({
   cadence: string;
   /** Server-derived: false when the user already consumed their one trial. */
   trialEligible?: boolean;
+  /**
+   * Server-computed charge date (YYYY-MM-DD) for this user's assigned trial
+   * length. `null` when the length isn't knowable yet (anonymous visitor while
+   * a cohort experiment is running) — the copy then promises the exact date at
+   * checkout instead of naming one.
+   */
+  trialChargeDate?: string | null;
   highlight?: boolean;
 }) {
   const router = useRouter();
@@ -40,9 +52,12 @@ export function UpgradeButton({
   const [error, setError] = useState<string | null>(null);
   // Once we know eligibility + the checkout url, show a confirmation card
   // stating the exact amount and charge date before we redirect to Stripe.
-  const [confirm, setConfirm] = useState<{ url: string; trial: boolean } | null>(
-    null
-  );
+  // Every value in it comes from the checkout response.
+  const [confirm, setConfirm] = useState<{
+    url: string;
+    trial: boolean;
+    chargeDate: string;
+  } | null>(null);
 
   useEffect(() => {
     // MW-S09: the Premium value proposition was rendered (highlighted plan
@@ -68,8 +83,12 @@ export function UpgradeButton({
         setError("You already have an active subscription.");
       } else if (data.error === "email_unverified") {
         setError("Please confirm your email address first, then try again.");
-      } else if (data.url) {
-        setConfirm({ url: data.url, trial: !!data.trial });
+      } else if (data.url && typeof data.chargeDate === "string") {
+        setConfirm({
+          url: data.url,
+          trial: !!data.trial,
+          chargeDate: data.chargeDate,
+        });
       } else {
         setError("Couldn't start checkout — please try again.");
       }
@@ -90,13 +109,16 @@ export function UpgradeButton({
           <p className="text-[#1F2937]">
             Payment method required. You&apos;ll be charged{" "}
             <strong>{amount}</strong>
-            {cadence} on <strong>{formatChargeDate(TRIAL_DAYS)}</strong> unless
-            you cancel before then. Your subscription renews automatically.
+            {cadence} on <strong>{formatChargeDate(confirm.chargeDate)}</strong>{" "}
+            unless you cancel before then. Your subscription renews
+            automatically.
           </p>
         ) : (
           <p className="text-[#1F2937]">
             You&apos;ll be charged <strong>{amount}</strong>
-            {cadence} <strong>today ({formatChargeDate(0)})</strong>, then each{" "}
+            {cadence}{" "}
+            <strong>today ({formatChargeDate(confirm.chargeDate)})</strong>, then
+            each{" "}
             {interval === "monthly" ? "month" : "year"}.
           </p>
         )}
@@ -126,9 +148,18 @@ export function UpgradeButton({
       </button>
       {trialEligible !== false && (
         <p className="mt-2 text-xs text-[#6B7280]">
-          Payment method required. Cancel before{" "}
-          {formatChargeDate(TRIAL_DAYS)} to avoid the {amount}
-          {cadence} charge.
+          {trialChargeDate ? (
+            <>
+              Payment method required. Cancel before{" "}
+              {formatChargeDate(trialChargeDate)} to avoid the {amount}
+              {cadence} charge.
+            </>
+          ) : (
+            <>
+              Payment method required. Your exact trial length and charge date
+              are shown before checkout.
+            </>
+          )}
         </p>
       )}
       {error && <p className="mt-2 text-xs text-[#991B1B]">{error}</p>}

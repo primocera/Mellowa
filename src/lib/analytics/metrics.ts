@@ -27,6 +27,9 @@ export interface SubRow {
   trial_used_at?: string | null;
   cancel_at_period_end?: boolean | null;
   created_at: string;
+  /** MW-V10-02: pinned trial-length cohort, when the row has one. */
+  trial_variant?: string | null;
+  trial_days?: number | null;
 }
 
 export interface CostRow {
@@ -323,6 +326,146 @@ export function detectAnomalies(
     if (dropPct >= dropThreshold) out.push({ metric, current: cur, baseline: base, dropPct });
   }
   return out;
+}
+
+// --- MW-V10-02: trial-length experiment comparison ---------------------------
+
+/** A subscriptions row with the pinned cohort fields. */
+export interface TrialVariantSubRow {
+  user_id: string;
+  status: string | null;
+  trial_variant?: string | null;
+  trial_days?: number | null;
+  trial_used_at?: string | null;
+}
+
+export interface TrialVariantStats {
+  /** Allowlisted variant code (e.g. "control", "week_beta"). */
+  variant: string;
+  /** Trial length the cohort was granted, or null when rows disagree. */
+  trialDays: number | null;
+  /** Users assigned to this arm who actually started a trial. */
+  cohortSize: number;
+  /**
+   * Every figure below is null when the cohort is smaller than MIN_COHORT —
+   * that is the "no data yet" state an owner must be able to distinguish from
+   * a real zero. `suppressed` says which of the two it is.
+   */
+  suppressed: boolean;
+  /** Came back and checked in on a later day than their trial start. */
+  returnedAfterDay1: number | null;
+  /** Used the differentiating remaining-day repair at least once. */
+  repaired: number | null;
+  /** Reached a real week closeout (not the labelled preview). */
+  weeklyReflection: number | null;
+  /** Converted to paid, i.e. the trial was charged. */
+  converted: number | null;
+  canceled: number | null;
+  /** converted / cohortSize, rounded. */
+  conversionRate: number | null;
+  /** AI spend attributable to the cohort in the window, USD. */
+  costUsd: number | null;
+}
+
+/**
+ * Compare the trial-length arms on the outcomes the experiment exists to
+ * decide: did a longer trial let people reach the continuity loop (return,
+ * repair, week closeout) and did that convert — at what AI cost.
+ *
+ * Deliberate properties:
+ * - Cohort membership comes from the PINNED variant on the subscriptions row,
+ *   not from a re-derived assignment, so a flag change cannot retroactively
+ *   move users between arms and rewrite history.
+ * - Only users who actually started a trial count, so an abandoned checkout
+ *   never depresses one arm's conversion.
+ * - Every derived figure is suppressed below MIN_COHORT and the arm is flagged,
+ *   so a two-person cohort reads as "not enough data" rather than "0%".
+ */
+export function trialExperimentComparison(
+  subs: TrialVariantSubRow[],
+  events: EventRow[],
+  costs: UsageRow[] = []
+): TrialVariantStats[] {
+  const byVariant = new Map<string, TrialVariantSubRow[]>();
+  for (const s of subs) {
+    // No pinned variant = never assigned (pre-experiment rows). No trial start
+    // = never entered the experiment's population.
+    if (!s.trial_variant || !s.trial_used_at) continue;
+    const list = byVariant.get(s.trial_variant) ?? [];
+    list.push(s);
+    byVariant.set(s.trial_variant, list);
+  }
+
+  // Index events per user once, rather than per arm per metric.
+  const perUser = new Map<string, EventRow[]>();
+  for (const e of events) {
+    if (!e.user_id) continue;
+    const list = perUser.get(e.user_id) ?? [];
+    list.push(e);
+    perUser.set(e.user_id, list);
+  }
+
+  const costPerUser = new Map<string, number>();
+  for (const c of costs) {
+    if (!c.user_id || c.status === "released") continue;
+    costPerUser.set(c.user_id, (costPerUser.get(c.user_id) ?? 0) + rowCost(c));
+  }
+
+  const out: TrialVariantStats[] = [];
+  for (const [variant, rows] of byVariant) {
+    const cohortSize = rows.length;
+    const days = new Set(
+      rows.map((r) => r.trial_days).filter((d): d is number => typeof d === "number")
+    );
+
+    let returned = 0;
+    let repaired = 0;
+    let reflected = 0;
+    let converted = 0;
+    let canceled = 0;
+    let cost = 0;
+
+    for (const row of rows) {
+      const evts = perUser.get(row.user_id) ?? [];
+      const has = (event: string) => evts.some((e) => e.event === event);
+      const trialStart = row.trial_used_at ? ts(row.trial_used_at) : NaN;
+
+      if (
+        Number.isFinite(trialStart) &&
+        evts.some(
+          (e) =>
+            e.event === "checkin_completed" &&
+            ts(e.created_at) >= trialStart + 86_400_000
+        )
+      ) {
+        returned++;
+      }
+      if (has("plan_repair_completed")) repaired++;
+      if (has("weekly_reflection_completed")) reflected++;
+      // Either signal is a charge: the trial→active transition, or a renewal
+      // for a user whose conversion event fell outside the window.
+      if (has("trial_converted") || has("subscription_renewed")) converted++;
+      if (has("trial_canceled")) canceled++;
+      cost += costPerUser.get(row.user_id) ?? 0;
+    }
+
+    const small = cohortSize < MIN_COHORT;
+    out.push({
+      variant,
+      trialDays: days.size === 1 ? [...days][0] : null,
+      cohortSize,
+      suppressed: small,
+      returnedAfterDay1: suppress(returned, cohortSize),
+      repaired: suppress(repaired, cohortSize),
+      weeklyReflection: suppress(reflected, cohortSize),
+      converted: suppress(converted, cohortSize),
+      canceled: suppress(canceled, cohortSize),
+      conversionRate: suppress(round(converted / (cohortSize || 1)), cohortSize),
+      costUsd: suppress(round2(cost), cohortSize),
+    });
+  }
+
+  return out.sort((a, b) => a.variant.localeCompare(b.variant));
 }
 
 // --- helpers -----------------------------------------------------------------

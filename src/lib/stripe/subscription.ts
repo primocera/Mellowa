@@ -8,6 +8,7 @@ import {
   type PlanTier,
   type PremiumFeature,
 } from "./plans";
+import { trialDaysFromDates } from "./trial-experiment";
 
 export type SubscriptionStatus =
   | "none"
@@ -22,6 +23,12 @@ export interface UserSubscriptionStatus {
   plan: PlanTier;
   status: SubscriptionStatus;
   trialEndsAt: string | null;
+  /**
+   * MW-V10-02: total length of THIS user's trial in days, derived from the
+   * Stripe trial window on their row. Null when no trial window is stored —
+   * copy then stays length-neutral instead of assuming the control length.
+   */
+  trialLengthDays: number | null;
   currentPeriodEnd: string | null;
   isPremium: boolean;
   daysLeftInTrial: number | null;
@@ -42,7 +49,9 @@ export async function getUserSubscriptionStatus(
   const supabase = await createClient();
   const { data } = await supabase
     .from("subscriptions")
-    .select("status, trial_end, current_period_end, cancel_at_period_end, plan_name")
+    .select(
+      "status, trial_start, trial_end, current_period_end, cancel_at_period_end, plan_name, trial_days"
+    )
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -63,6 +72,11 @@ export async function getUserSubscriptionStatus(
     plan: isPremium ? "premium" : "sample",
     status,
     trialEndsAt,
+    // Prefer the real Stripe window; fall back to the length pinned at
+    // checkout for the brief period before the first webhook lands.
+    trialLengthDays:
+      trialDaysFromDates(data?.trial_start ?? null, trialEndsAt) ??
+      (typeof data?.trial_days === "number" ? data.trial_days : null),
     currentPeriodEnd: data?.current_period_end ?? null,
     isPremium,
     daysLeftInTrial,

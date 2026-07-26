@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal/legal-page";
 import { readLegalConfig } from "@/lib/legal/config";
+import {
+  publicTrialDays,
+  trialLengthLabel,
+} from "@/lib/stripe/trial-experiment";
 
 export const metadata: Metadata = {
   title: "Refund & Cancellation Policy — Mellowa",
@@ -10,6 +14,9 @@ export const metadata: Metadata = {
 
 export default function RefundPage() {
   const legal = readLegalConfig();
+  // MW-V10-02: see terms/page.tsx — the length is named only while it is the
+  // same for everyone. The refund policy itself does not change.
+  const trialDays = publicTrialDays();
   return (
     <LegalPage title="Refund & Cancellation Policy" lastUpdated="July 2026">
       <p>
@@ -17,12 +24,21 @@ export default function RefundPage() {
         trial, cancellations and refunds work.
       </p>
 
-      <LegalSection heading="Free sample and 3-day trial">
+      <LegalSection
+        heading={
+          trialDays === null
+            ? "Free sample and free trial"
+            : `Free sample and ${trialLengthLabel(trialDays)} trial`
+        }
+      >
         <p>
           One free sample day plan is available without a payment method. Every
-          new subscription then starts with a 3-day free trial when you choose a
-          plan at checkout. You will not be charged during the trial. If you
-          cancel before the trial ends, you pay nothing.
+          new subscription then starts with a free trial
+          {trialDays === null
+            ? " whose exact length and charge date are shown before checkout"
+            : ` of ${trialLengthLabel(trialDays)}`}{" "}
+          when you choose a plan at checkout. You will not be charged during the
+          trial. If you cancel before the trial ends, you pay nothing.
         </p>
       </LegalSection>
 

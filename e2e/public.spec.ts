@@ -32,6 +32,51 @@ test("pricing shows exact prices and payment disclosure near CTA", async ({ page
   await expect(page.locator("body")).not.toContainText(/unlimited personalized/i);
 });
 
+/**
+ * MW-V10-02: an anonymous visitor is not assigned a cohort, so no public page
+ * may claim a trial length checkout would not honour. What is asserted is what
+ * holds in every configuration:
+ *
+ * - Pricing is internally consistent — one length across headline, CTA and
+ *   footnote, plus a concrete cancel-by date — or it names no length at all and
+ *   promises the exact figures before checkout.
+ * - No public page ever shows an unassigned visitor the 7-day arm's length.
+ * - "Free week" appears nowhere; it would only be true for a real 7-day grant.
+ *
+ * Cross-page equality with /terms and /refund is deliberately NOT asserted:
+ * those are statically prerendered, so their wording is fixed by the build that
+ * produced them. On Vercel that is safe — an env change reaches only a new
+ * deployment, which re-renders them — but injecting the flag into an already
+ * built server would legitimately leave them on the build's wording.
+ */
+test("anonymous trial disclosure never claims an unassigned length", async ({
+  page,
+}) => {
+  await page.goto("/pricing");
+  const pricingBody = (await page.locator("body").innerText()).toLowerCase();
+  const named = pricingBody.match(/(\d+) days? free/);
+
+  if (named) {
+    for (const m of pricingBody.matchAll(/(\d+) days? free/g)) {
+      expect(m[1]).toBe(named[1]);
+    }
+    await expect(page.getByText(/cancel before/i).first()).toBeVisible();
+  } else {
+    // Length unknown: the page must promise it before checkout, not guess.
+    await expect(
+      page.getByText(/shown before checkout|exact trial length/i).first()
+    ).toBeVisible();
+  }
+
+  for (const path of ["/pricing", "/terms", "/refund", "/"]) {
+    await page.goto(path);
+    const body = (await page.locator("body").innerText()).toLowerCase();
+    expect(body, `${path} implies a week-long trial`).not.toMatch(
+      /free week|week free|7 days|7-day/
+    );
+  }
+});
+
 test("signup requires 18+ and policy consent (not pre-checked)", async ({ page }) => {
   await page.goto("/signup");
   const checkboxes = page.locator('input[type="checkbox"]');

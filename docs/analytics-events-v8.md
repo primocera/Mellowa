@@ -60,6 +60,14 @@ prohibited properties, and the product question it answers.
 | checkin_started | daily check-in opened (MW-V9-02) | client | surface | Do people who open the check-in finish it? |
 | payment_refunded | Stripe `charge.refunded` (MW-V10-00) | server | surface, outcome | Did the owner-run refund rehearsal actually settle? |
 | payment_disputed | Stripe `charge.dispute.created` (MW-V10-00) | server | surface, outcome | Are disputes appearing — a trust signal needing an owner, never an automated access change? |
+| trial_week_preview_viewed | labelled week-closeout example rendered for a trial shorter than a week (MW-V10-02) | client | surface | Do short-trial users ever see how carry-forward works? |
+
+**Trial-length cohort (MW-V10-02).** `checkout_completed`, `trial_started`,
+`trial_converted`, `trial_canceled` and `subscription_renewed` carry
+`experiment: trial_days:<variant>` — an allowlisted variant code and nothing
+else. Cohort comparison on `/admin` is computed from the pinned
+`subscriptions.trial_variant`, not from these events, so it survives the flag
+being turned off. Stop rules: `docs/experiments/trial-length.md`.
 
 Legacy (v6) events, unchanged: landing_cta_clicked, signup_started,
 signup_completed, email_verified, onboarding_started, onboarding_completed,

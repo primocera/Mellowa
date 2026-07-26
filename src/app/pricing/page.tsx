@@ -3,32 +3,18 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { PRICING } from "@/lib/stripe/plans";
 import { UpgradeButton } from "@/components/dailyflow/upgrade-button";
-import { createClient } from "@/lib/supabase/server";
 import { isYearlyEmphasisEnabled } from "@/lib/flags";
+import { trialDisclosureForViewer } from "@/lib/stripe/trial-disclosure";
+import {
+  startTrialCta,
+  trialLengthLabel,
+  trialThenPriceLine,
+} from "@/lib/stripe/trial-experiment";
 
 export const metadata: Metadata = {
   title: "Pricing — Mellowa",
   alternates: { canonical: "/pricing" },
 };
-
-/**
- * A user who already consumed their one trial must see "Pay today" copy, not
- * trial copy (Prompt 3). Anonymous visitors see trial copy; the checkout
- * route re-checks eligibility server-side either way.
- */
-async function isTrialEligible(): Promise<boolean> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return true;
-  const { data } = await supabase
-    .from("subscriptions")
-    .select("trial_used_at")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  return !data?.trial_used_at;
-}
 
 function FeatureList({ features }: { features: readonly string[] }) {
   return (
@@ -44,7 +30,12 @@ function FeatureList({ features }: { features: readonly string[] }) {
 }
 
 export default async function PricingPage() {
-  const trialEligible = await isTrialEligible();
+  // A user who already consumed their one trial must see "Pay today" copy, not
+  // trial copy (Prompt 3). MW-V10-02: the trial LENGTH and charge date come
+  // from the same server resolution, so a cohort never sees the other arm's
+  // number. The checkout route re-checks both server-side either way.
+  const { trialEligible, days: trialDays, chargeDate } =
+    await trialDisclosureForViewer();
   // MW-V9-08: by default (flag OFF) Monthly is presented first and carries the
   // visual emphasis; we don't aggressively steer to Yearly until retention and
   // unit economics justify it. FLAG_EMPHASIZE_YEARLY=1 flips the emphasis.
@@ -58,7 +49,9 @@ export default async function PricingPage() {
           </Link>
           <h1 className="mt-6 text-3xl font-semibold tracking-tight text-[#1F2937]">
             {trialEligible
-              ? "Try the full Mellowa rhythm for 3 days."
+              ? trialDays === null
+                ? "Try the full Mellowa rhythm."
+                : `Try the full Mellowa rhythm for ${trialLengthLabel(trialDays)}.`
               : "Choose the plan that fits now."}
           </h1>
           <p className="mt-2 text-[#6B7280]">
@@ -86,17 +79,20 @@ export default async function PricingPage() {
             </p>
             <p className="mt-1 text-sm text-[#7C9A92]">
               {trialEligible
-                ? `3 days free, then ${PRICING.monthly.price} each month`
+                ? trialThenPriceLine(trialDays, PRICING.monthly.price, "month")
                 : "Billed monthly, starting today"}
             </p>
             <FeatureList features={PRICING.monthly.features} />
             <div className="mt-6">
               <UpgradeButton
                 interval="monthly"
-                label={trialEligible ? "Start 3 days free" : "Subscribe — pay today"}
+                label={
+                  trialEligible ? startTrialCta(trialDays) : "Subscribe — pay today"
+                }
                 amount={PRICING.monthly.price}
                 cadence={PRICING.monthly.cadence}
                 trialEligible={trialEligible}
+                trialChargeDate={chargeDate}
                 highlight={!emphasizeYearly}
               />
             </div>
@@ -124,7 +120,11 @@ export default async function PricingPage() {
             </p>
             <p className="mt-1 text-sm text-[#7C9A92]">
               {trialEligible
-                ? "About €5.00/month • 3 days free, then billed yearly"
+                ? `About €5.00/month • ${trialThenPriceLine(
+                    trialDays,
+                    PRICING.yearly.price,
+                    "year"
+                  )}`
                 : "About €5.00/month • Billed yearly, starting today"}
             </p>
             <p className="mt-1 text-xs text-[#6B7280]">
@@ -134,10 +134,13 @@ export default async function PricingPage() {
             <div className="mt-6">
               <UpgradeButton
                 interval="yearly"
-                label={trialEligible ? "Start 3 days free" : "Subscribe — pay today"}
+                label={
+                  trialEligible ? startTrialCta(trialDays) : "Subscribe — pay today"
+                }
                 amount={PRICING.yearly.price}
                 cadence={PRICING.yearly.cadence}
                 trialEligible={trialEligible}
+                trialChargeDate={chargeDate}
                 highlight={emphasizeYearly}
               />
             </div>

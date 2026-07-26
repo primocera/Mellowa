@@ -8,8 +8,6 @@ export type PremiumFeature =
   | "journal_reflection"
   | "progress_insight";
 
-export const TRIAL_DAYS = 3;
-
 export const PLAN_LIMITS = {
   // Not subscribed: a single sample daily plan to preview the product.
   sample: {
@@ -111,12 +109,17 @@ export const PREMIUM_FEATURES: readonly string[] = [
   "Progress insights",
 ];
 
+/**
+ * MW-V10-02: PRICING deliberately carries no trial length. The length is
+ * per-user (server-assigned, then pinned at checkout), so every surface reads it
+ * from lib/stripe/trial-experiment instead. A constant here would be the easiest
+ * way to show a 7-day cohort 3-day copy.
+ */
 export const PRICING = {
   monthly: {
     name: "Mellowa Monthly",
     price: "€9.99",
     cadence: "/month",
-    trialDays: TRIAL_DAYS,
     priceEnvVar: "STRIPE_PRICE_PRO_MONTHLY",
     features: PREMIUM_FEATURES,
   },
@@ -124,7 +127,6 @@ export const PRICING = {
     name: "Mellowa Yearly",
     price: "€59.99",
     cadence: "/year",
-    trialDays: TRIAL_DAYS,
     priceEnvVar: "STRIPE_PRICE_PRO_YEARLY",
     note: "Save 50% compared to monthly",
     features: PREMIUM_FEATURES,

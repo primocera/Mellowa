@@ -31,7 +31,10 @@ export function LowEnergyDayCard() {
         setMessage(data.user_message);
       } else if (res.status === 402) {
         setMessage(
-          "Make-today-lighter mode is part of Mellowa Premium. Start 3 days free on the Pricing page to unlock it."
+          // MW-V10-02: no trial length here — this is a client component with
+          // no access to the viewer's assigned cohort, and Pricing shows the
+          // exact length and charge date for that user.
+          "Make-today-lighter mode is part of Mellowa Premium. Start your free trial on the Pricing page to unlock it."
         );
       } else if (res.ok && data.plan) {
         setPlan(data.plan);

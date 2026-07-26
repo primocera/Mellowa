@@ -10,6 +10,7 @@ import {
   reconcile,
   detectAnomalies,
   usageScorecard,
+  trialExperimentComparison,
   type EventRow,
   type SubRow,
   type CostRow,
@@ -36,6 +37,11 @@ export interface MetricsReport {
   generation: ReturnType<typeof generationHealth>;
   reconciliation: ReturnType<typeof reconcile>[];
   anomalies: ReturnType<typeof detectAnomalies>;
+  /**
+   * MW-V10-02: trial-length arms side by side. Empty while no cohort has been
+   * assigned; small arms come back suppressed rather than as misleading zeros.
+   */
+  trialExperiment: ReturnType<typeof trialExperimentComparison>;
 }
 
 export async function buildMetricsReport(
@@ -56,7 +62,11 @@ export async function buildMetricsReport(
         .select("event, user_id, anon_id, created_at")
         .gte("created_at", priorSince)
         .lt("created_at", since),
-      admin.from("subscriptions").select("user_id, status, plan_name, trial_used_at, cancel_at_period_end, created_at"),
+      admin
+        .from("subscriptions")
+        .select(
+          "user_id, status, plan_name, trial_used_at, cancel_at_period_end, created_at, trial_variant, trial_days"
+        ),
       admin
         .from("ai_usage_events")
         .select("user_id, status, estimated_cost_usd, actual_cost_usd, created_at")
@@ -126,6 +136,13 @@ export async function buildMetricsReport(
       reconcile(currentCounts.trial_started, paidTrials ?? 0, "trials_started_vs_subscriptions", 2),
     ],
     anomalies: detectAnomalies(currentCounts, baselineCounts),
+    // Cohort membership is read from the pinned variant, so this comparison is
+    // unaffected by the flag being turned off mid-experiment.
+    trialExperiment: trialExperimentComparison(
+      subs,
+      events,
+      usageRows
+    ),
   };
 }
 
@@ -153,6 +170,19 @@ export function reportToCsv(report: MetricsReport): string {
   push("usage", "total_cost_usd", report.usage.totalCostUsd);
   push("generation", "fallback_rate", report.generation.fallbackRate);
   for (const r of report.reconciliation) push("reconcile", r.metric, r.reconciled ? "ok" : "MISMATCH");
+  // A suppressed arm exports empty cells, never a zero that reads as a result.
+  for (const v of report.trialExperiment) {
+    push(`trial_experiment_${v.variant}`, "trial_days", v.trialDays);
+    push(`trial_experiment_${v.variant}`, "cohort_size", v.cohortSize);
+    push(`trial_experiment_${v.variant}`, "returned_after_day1", v.returnedAfterDay1);
+    push(`trial_experiment_${v.variant}`, "repaired", v.repaired);
+    push(`trial_experiment_${v.variant}`, "weekly_reflection", v.weeklyReflection);
+    push(`trial_experiment_${v.variant}`, "converted", v.converted);
+    push(`trial_experiment_${v.variant}`, "canceled", v.canceled);
+    push(`trial_experiment_${v.variant}`, "conversion_rate", v.conversionRate);
+    push(`trial_experiment_${v.variant}`, "cost_usd", v.costUsd);
+    push(`trial_experiment_${v.variant}`, "suppressed", v.suppressed ? "yes" : "no");
+  }
   return lines.join("\n");
 }
 

@@ -110,6 +110,50 @@ export default async function AdminPage({
         </p>
       </Section>
 
+      <Section title="Trial-length experiment (MW-V10-02)">
+        {r.trialExperiment.length === 0 ? (
+          <p style={{ color: "#6B7280", fontSize: 14 }}>
+            No cohort assigned yet — every trial is the 3-day control. Enable
+            with FLAG_TRIAL_LENGTH_EXPERIMENT; stop rules in
+            docs/experiments/trial-length.md.
+          </p>
+        ) : (
+          <>
+            {r.trialExperiment.map((v) => (
+              <div key={v.variant} style={{ marginBottom: 10 }}>
+                <Row
+                  label={`${v.variant} · ${v.trialDays ?? "—"}-day · n=${v.cohortSize}`}
+                  value={v.suppressed ? "not enough data" : pct(v.conversionRate)}
+                />
+                <div style={{ paddingLeft: 12 }}>
+                  <Row
+                    label="Returned after day 1"
+                    value={String(v.returnedAfterDay1 ?? "—")}
+                  />
+                  <Row label="Adjusted a day" value={String(v.repaired ?? "—")} />
+                  <Row
+                    label="Reached a real week closeout"
+                    value={String(v.weeklyReflection ?? "—")}
+                  />
+                  <Row label="Charged" value={String(v.converted ?? "—")} />
+                  <Row label="Canceled" value={String(v.canceled ?? "—")} />
+                  <Row
+                    label="AI cost (window)"
+                    value={v.costUsd === null ? "—" : `$${v.costUsd.toFixed(2)}`}
+                  />
+                </div>
+              </div>
+            ))}
+            <p style={{ color: "#9CA3AF", fontSize: 12, marginTop: 6 }}>
+              Cohorts come from the trial length pinned at checkout, so turning
+              the flag off does not move anyone between arms. “not enough data”
+              means the arm is under 5 people — not a zero result. Stop rules:
+              docs/experiments/trial-length.md.
+            </p>
+          </>
+        )}
+      </Section>
+
       <Section title="Reconciliation (events vs system-of-record)">
         {r.reconciliation.map((rec) => (
           <Row

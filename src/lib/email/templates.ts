@@ -1,5 +1,9 @@
 import { serverEnv } from "@/lib/env";
 import { readLegalConfig } from "@/lib/legal/config";
+import {
+  trialLengthAdjective,
+  trialLengthLabel,
+} from "@/lib/stripe/trial-experiment";
 
 /**
  * Lifecycle email templates (Content Elevation v6, Prompt 17).
@@ -109,7 +113,17 @@ export function sampleReadyEmail(): Email {
   };
 }
 
-export function trialStartedEmail(facts: BillingFacts = {}): Email {
+/**
+ * MW-V10-02: `trialDays` is the length Stripe actually granted, so a cohort on
+ * a different trial length never receives the other arm's number. When it is
+ * unknown the copy stays length-neutral instead of guessing.
+ */
+export function trialStartedEmail(
+  facts: BillingFacts = {},
+  trialDays: number | null = null
+): Email {
+  const length = trialDays === null ? null : trialLengthLabel(trialDays);
+  const adjective = trialLengthAdjective(trialDays);
   const body = hasExact(facts)
     ? p(
         `Your ${facts.plan} trial is active. You'll be charged ${facts.price} on ${facts.date} unless you cancel before then.`
@@ -118,12 +132,16 @@ export function trialStartedEmail(facts: BillingFacts = {}): Email {
         "Your Mellowa trial is active. You'll be charged when the trial ends unless you cancel before then. Your exact price and date are on the billing page."
       );
   return {
-    subject: "Your 3-day Mellowa trial has started.",
+    subject: adjective
+      ? `Your ${adjective} Mellowa trial has started.`
+      : "Your Mellowa trial has started.",
     html: shell(
       `${body}
        <p style="margin:24px 0;">${button("Open Mellowa", `${appUrl()}/today`)}</p>
        <p style="margin:0;">${secondaryLink("Manage billing", `${appUrl()}/billing`)}</p>`,
-      "Full access for 3 days. Cancel anytime before it renews."
+      length
+        ? `Full access for ${length}. Cancel anytime before it renews.`
+        : "Full access for the whole trial. Cancel anytime before it renews."
     ),
   };
 }

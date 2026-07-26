@@ -4,6 +4,11 @@ import { Check } from "lucide-react";
 import { readLegalConfig } from "@/lib/legal/config";
 import { PRICING } from "@/lib/stripe/plans";
 import { TERMS } from "@/lib/content/terminology";
+import {
+  publicTrialDays,
+  trialOfferSentence,
+  trialThenPriceLine,
+} from "@/lib/stripe/trial-experiment";
 import { TrackedCta } from "@/components/dailyflow/tracked-cta";
 import { SITE_URL } from "@/lib/seo/site";
 
@@ -125,6 +130,10 @@ const FAQ = [
 
 export default function LandingPage() {
   const legal = readLegalConfig();
+  // MW-V10-02: the landing page has no user, so it names the trial length only
+  // while no cohort experiment is running (the default). Once one is, it
+  // promises the exact length before checkout rather than guessing an arm.
+  const trialDays = publicTrialDays();
 
   // Structured data — only claims visible on this page (Prompt 23). The
   // SoftwareApplication carries no rating/review (we have none), and the FAQ
@@ -250,8 +259,8 @@ export default function LandingPage() {
           </a>
         </div>
         <p className="mt-4 text-sm text-[#9CA3AF]">
-          {TERMS.sampleHelper} An account is required; no card is requested for
-          the sample.
+          {TERMS.sampleHelper} {trialOfferSentence(trialDays)} An account is
+          required; no card is requested for the sample.
         </p>
       </section>
 
@@ -403,9 +412,8 @@ export default function LandingPage() {
           See one day before you choose a plan.
         </h2>
         <p className="mt-2 text-[#6B7280]">
-          Create a free sample day without a card. If the structure feels
-          useful, Premium starts with a 3-day trial when you choose Monthly or
-          Yearly.
+          Create a free sample day without a card.{" "}
+          {trialOfferSentence(trialDays)}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-4">
           <TrackedCta
@@ -421,7 +429,7 @@ export default function LandingPage() {
               <span className="text-base font-normal text-[#6B7280]">/mo</span>
             </p>
             <p className="mt-1 text-sm text-[#6B7280]">
-              {PRICING.monthly.trialDays} days free, then monthly.
+              {trialThenPriceLine(trialDays, PRICING.monthly.price, "month")}
             </p>
             <span className="mt-4 inline-block rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white">
               Start with a free sample
@@ -447,7 +455,7 @@ export default function LandingPage() {
             <p className="mt-1 text-sm text-[#6B7280]">
               About €5.00/month, billed yearly. That&rsquo;s {PRICING.yearly.price}{" "}
               instead of €119.88 (12 × {PRICING.monthly.price}) — a 50% saving.{" "}
-              {PRICING.yearly.trialDays} days free.
+              {trialThenPriceLine(trialDays, PRICING.yearly.price, "year")}.
             </p>
             <span className="mt-4 inline-block rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white">
               Start with a free sample
