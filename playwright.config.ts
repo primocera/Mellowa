@@ -47,5 +47,18 @@ export default defineConfig({
       },
     },
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
+    // MW-V10-03: 320px is the narrowest viewport we support. It is a separate
+    // project rather than a resize inside a test, so every spec that runs here
+    // is checked at the width where cards clip and the fixed bottom nav is most
+    // likely to cover a primary action.
+    {
+      name: "mobile-320",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 320, height: 568 },
+        isMobile: true,
+        hasTouch: true,
+      },
+    },
   ],
 });

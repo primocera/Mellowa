@@ -7,6 +7,10 @@ import { trialLengthAdjective } from "@/lib/stripe/trial-experiment";
 export async function TrialBanner({ userId }: { userId: string }) {
   const sub = await getUserSubscriptionStatus(userId);
   if (!sub.shouldShowTrialBanner) return null;
+  // MW-V10-03: a trial set not to renew is owned by the billing-recovery
+  // notice, which states that no charge is coming. Saying "trial is active —
+  // 2 days left" alongside it would read as a pending charge.
+  if (sub.cancelAtPeriodEnd) return null;
 
   const days = sub.daysLeftInTrial ?? 0;
   // MW-V10-02: the total length is the one Stripe actually granted this user

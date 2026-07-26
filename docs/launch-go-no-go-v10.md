@@ -24,11 +24,12 @@ Nothing below claims production behaviour was verified from tests or mocks.
 |---|---|---|
 | Lint | `npm run lint` | ✅ 0 errors (8 pre-existing warnings, untouched files) |
 | Type safety | `npm run typecheck` | ✅ clean |
-| Unit/contract/safety suite | `npx vitest run` | ✅ **696 passed / 75 files** |
+| Unit/contract/safety suite | `npx vitest run` | ✅ **719 passed / 76 files** |
 | Adversarial red-team matrix | `npx vitest run tests/adversarial-matrix.test.ts` | ✅ within the suite |
 | Safety + eval gate | `npm run eval` | ✅ within the suite |
 | Production build | `npm run build` | ✅ clean |
-| Public browser journeys | `npm run test:e2e:public` | ✅ 26 passed — run twice, with the trial experiment off *and* at 100% |
+| Public browser journeys | `npm run test:e2e:public` | ✅ 39 passed across desktop / 375px / **320px** |
+| **Daily-journey state matrix** | `npm run test:e2e:journey` | ⛔ **not run — no seeded env.** 33 tests exist; unrun tests are not evidence. |
 | **Authenticated browser journeys** | `npm run test:e2e` | ⛔ **not run — no seeded env. Non-green for RC.** |
 | Env/readiness presence | `npm run release-check` | ⚠ run with production env pulled |
 
@@ -148,6 +149,48 @@ Not changed: €9.99 / €59.99, the refund policy, and the yearly-emphasis defa
 `FLAG_EMPHASIZE_YEARLY` must stay off while this experiment runs — two
 overlapping onboarding experiments would make neither readable.
 
+### MW-V10-03 — authenticated daily journey and failure states
+
+The Now-first loop was already built. What was missing was any statement of what
+happens when it *doesn't* work, and any browser evidence at all.
+
+- **A billing state the user cannot fix now has a route.** A `past_due`,
+  `unpaid` or `canceled` user previously had **no signal on any authenticated
+  surface** — they discovered it inside a 402 error at the moment they tried to
+  generate. `BillingRecoveryBanner` (in the app layout, so every surface) states
+  what is still readable *before* what is blocked, with exactly one CTA to
+  `/billing`. Read access was never actually revoked; nothing said so.
+- **Never two banners.** A trial set not to renew used to show "trial is
+  active — 2 days left" (implying a charge) next to nothing explaining the
+  cancellation. The trial banner now stands down and the recovery notice owns
+  that state.
+- **Completion is server-confirmed.** Two real defects: a double tap fired two
+  requests whose replies could land in either order, leaving the UI showing a
+  state the database did not have; and the Now card set "Marked done" at click
+  time, so a *failed* save still told the user the item was done. Now one save
+  per item is in flight at a time, a second tap is dropped rather than queued as
+  a toggle-back, the final state comes from the server's own `{ item_key, done }`
+  reply, and the confirmation appears only after it. Failure copy states the
+  resulting state explicitly instead of the ambiguous "your plan is unchanged".
+- **A stale tab moves forward, never backward.** `409 repair_in_progress`,
+  `409 version_conflict` on Undo, and a deduplicated repair each get their own
+  message and a "Reload today" control. On a version conflict the **newer plan
+  is kept** — undoing to the version the open page remembers would silently
+  discard work done in another tab. No code path offers to overwrite it.
+- **State matrix.** `e2e/daily-journey.spec.ts` — 33 tests over eight seeded
+  states at desktop / 375px / 320px, checking one primary action per state, no
+  horizontal overflow, the fixed bottom nav not covering a control, keyboard
+  reachability, and the absence of celebration/streak/adherence language.
+  `scripts/seed-test-user.mjs --state=<s>` produces each state and rebuilds the
+  plan every run so states cannot leak. **This suite has not been executed** —
+  it is code, not evidence, until someone runs it against a seeded environment.
+- Also fixed: `e2e/journeys.spec.ts` searched for `/start 3-day free trial/i`, a
+  string the pricing page has never rendered. It could only ever have failed —
+  and never did, because the suite has never run.
+
+No migration, no flag, no analytics event. Rollback is a revert of the two
+components; nothing was written to the database by this slice.
+
 ## 3. Live rehearsal — owner must execute (evidence required)
 
 None of these can be proven from this environment. Claude Code must not mutate
@@ -167,8 +210,9 @@ live Stripe, Supabase, Vercel, Resend, DNS or cron.
       **and a real click on the unsubscribe link from a mail client** —
       including the native Gmail/Apple Mail unsubscribe button, which exercises
       the one-click `POST` path rather than the footer link. Evidence: __
-- [ ] **Authenticated seeded E2E** (`npm run test:e2e` with `seed:test-user`)
-      against staging. Evidence: __
+- [ ] **Authenticated seeded E2E** — both `npm run test:e2e` and the MW-V10-03
+      state matrix `npm run test:e2e:journey` (8 seeded states × 3 viewports),
+      with `seed:test-user`, against staging. Evidence: __
 - [ ] **Key-rotation drill + backup/rollback rehearsal** — procedure and
       evidence template in `docs/runbooks/key-rotation-and-backup.md`.
       Evidence: __
@@ -204,8 +248,9 @@ migration reversal is required to roll back any behaviour.
 
 ## 6. Verdict
 
-- **Automated code gate:** ✅ GO — lint, typecheck, 696 tests, build and the
-  public Playwright suite green on `v10`.
+- **Automated code gate:** ✅ GO — lint, typecheck, 719 tests, build and the
+  39 public Playwright journeys green on `v10`. The 33-test authenticated state
+  matrix is **not** part of this GO: it has never been executed.
 - **Capped private beta (≤50 invites, no card for the sample):** ✅ GO, on the
   same terms as v9.
 - **Public paid launch: NO-GO.** P0 #1 is open and owner-run. P1 #2–#4 are open.
