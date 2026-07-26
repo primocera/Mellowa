@@ -328,6 +328,88 @@ export function detectAnomalies(
   return out;
 }
 
+// --- MW-V10-06: cost per outcome ---------------------------------------------
+
+/**
+ * What one unit of progress actually costs. `null` means **unknown**, and is
+ * returned whenever the denominator is zero or the cohort is too small to read.
+ *
+ * The distinction that matters: a cost of `0` means we spent nothing; `null`
+ * means we do not know. Rendering an unknown as zero is how a beta convinces
+ * itself the economics work, so the two are never collapsed.
+ */
+export interface CostPerOutcome {
+  /** AI spend ÷ samples generated. */
+  perSampleUsd: number | null;
+  /** AI spend ÷ trials started — the cost of getting one person to intent. */
+  perActivatedTrialUsd: number | null;
+  /** AI spend ÷ people who renewed — the only number that meets revenue. */
+  perRetainedPayerUsd: number | null;
+  /** Mean spend among users above the high-use threshold. */
+  perHighUseUserUsd: number | null;
+  /** Total AI spend in the window, for reference. */
+  totalCostUsd: number;
+  /**
+   * Every input we could not observe, named. An empty list means every figure
+   * above is derived from real ledger rows.
+   */
+  unknowns: string[];
+}
+
+export function costPerOutcome(
+  usage: UsageRow[],
+  counts: {
+    samplesGenerated: number;
+    trialsStarted: number;
+    retainedPayers: number;
+  },
+  highUseThreshold = 90
+): CostPerOutcome {
+  const unknowns: string[] = [];
+  let total = 0;
+  const perUser = new Map<string, { cost: number; generations: number }>();
+
+  for (const r of usage) {
+    if (r.status === "released") continue; // reservation, no provider call
+    const cost = rowCost(r);
+    total += cost;
+    if (r.user_id) {
+      const cur = perUser.get(r.user_id) ?? { cost: 0, generations: 0 };
+      cur.cost += cost;
+      cur.generations += 1;
+      perUser.set(r.user_id, cur);
+    }
+  }
+
+  // Provider fees, Stripe fees and infrastructure are not in this ledger. Say
+  // so rather than presenting an AI-only number as the cost of the business.
+  unknowns.push("Stripe fees and infrastructure are not in the AI ledger");
+
+  const div = (numerator: number, denominator: number, label: string): number | null => {
+    if (denominator <= 0) {
+      unknowns.push(`${label}: no ${label.split(" per ")[1] ?? "denominator"} in window`);
+      return null;
+    }
+    return round2(numerator / denominator);
+  };
+
+  const highUse = [...perUser.values()].filter(
+    (u) => u.generations >= highUseThreshold
+  );
+
+  return {
+    perSampleUsd: div(total, counts.samplesGenerated, "cost per sample"),
+    perActivatedTrialUsd: div(total, counts.trialsStarted, "cost per activated trial"),
+    perRetainedPayerUsd: div(total, counts.retainedPayers, "cost per retained payer"),
+    perHighUseUserUsd:
+      highUse.length === 0
+        ? null
+        : round2(highUse.reduce((a, u) => a + u.cost, 0) / highUse.length),
+    totalCostUsd: round2(total),
+    unknowns,
+  };
+}
+
 // --- MW-V10-05: email backlog and dead letters -------------------------------
 
 /**

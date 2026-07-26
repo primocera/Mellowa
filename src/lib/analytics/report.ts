@@ -12,12 +12,16 @@ import {
   usageScorecard,
   trialExperimentComparison,
   emailHealth,
+  costPerOutcome,
   type EmailDeliveryRow,
   type EventRow,
   type SubRow,
   type CostRow,
   type UsageRow,
 } from "@/lib/analytics/metrics";
+import { loopDecisions, expansionVerdict } from "@/lib/analytics/loop-decisions";
+import { readBetaCapacity, type BetaCapacity } from "@/lib/beta/capacity";
+import { experimentConflicts, runningExperiments } from "@/lib/beta/experiments";
 
 /**
  * Server-side metrics report (Launch v6, Prompt 10). Fetches the rows once and
@@ -49,6 +53,15 @@ export interface MetricsReport {
    * an operator can see that mail is broken without reading anyone's mail.
    */
   email: ReturnType<typeof emailHealth>;
+  /** MW-V10-06: the value loop with a decision per step, and the one question. */
+  loop: ReturnType<typeof loopDecisions>;
+  expansion: ReturnType<typeof expansionVerdict>;
+  /** MW-V10-06: cost per outcome. `null` means unknown, never zero. */
+  costPerOutcome: ReturnType<typeof costPerOutcome>;
+  /** MW-V10-06: beta intake state; null when it cannot be read. */
+  beta: BetaCapacity | null;
+  /** MW-V10-06: overlapping experiments make neither result attributable. */
+  experimentConflicts: ReturnType<typeof experimentConflicts>;
 }
 
 export async function buildMetricsReport(
@@ -131,6 +144,11 @@ export async function buildMetricsReport(
     checkout_completed: countEvent(prior, "checkout_completed"),
   };
 
+  // MW-V10-06: decisions are derived from the SAME funnel steps the dashboard
+  // renders, so the numbers and the recommended action can never disagree.
+  const loop = loopDecisions(funnels.value_loop);
+  const beta = await readBetaCapacity(admin);
+
   return {
     generatedAt: new Date().toISOString(),
     windowDays,
@@ -158,6 +176,15 @@ export async function buildMetricsReport(
     // Cohort membership is read from the pinned variant, so this comparison is
     // unaffected by the flag being turned off mid-experiment.
     email: emailHealth((emailRows ?? []) as EmailDeliveryRow[]),
+    loop: loop,
+    expansion: expansionVerdict(loop, windowDays),
+    costPerOutcome: costPerOutcome(usageRows, {
+      samplesGenerated: currentCounts.sample_plan_generated,
+      trialsStarted: currentCounts.trial_started,
+      retainedPayers: countEvent(events, "subscription_renewed"),
+    }),
+    beta,
+    experimentConflicts: experimentConflicts(runningExperiments()),
     trialExperiment: trialExperimentComparison(
       subs,
       events,
@@ -194,6 +221,18 @@ export function reportToCsv(report: MetricsReport): string {
   push("email", "dead_letter", report.email.deadLetter);
   push("email", "oldest_backlog_hours", report.email.oldestBacklogHours);
   push("email", "delivery_rate", report.email.deliveryRate);
+  push("expansion", "can_expand", report.expansion.canExpand ? "yes" : "no");
+  push("cost_per", "sample_usd", report.costPerOutcome.perSampleUsd);
+  push("cost_per", "activated_trial_usd", report.costPerOutcome.perActivatedTrialUsd);
+  push("cost_per", "retained_payer_usd", report.costPerOutcome.perRetainedPayerUsd);
+  push("cost_per", "high_use_user_usd", report.costPerOutcome.perHighUseUserUsd);
+  for (const d of report.loop) {
+    // numerator/denominator/state per step, so the CSV carries the decision
+    // context and not just a bare count.
+    push(`loop_${d.event}`, "numerator", d.numerator);
+    push(`loop_${d.event}`, "denominator", d.denominator);
+    push(`loop_${d.event}`, "state", d.state);
+  }
   for (const [template, n] of Object.entries(report.email.deadLetterByTemplate)) {
     push("email_dead_letter", template, n);
   }

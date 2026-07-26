@@ -5,8 +5,8 @@ what is actually open." It exists because prompt packs v8, v9 and v10 re-asked
 for work that was already shipped. If you are scoping a new pack from the public
 repo, read this file first — not the individual `launch-go-no-go-*.md` history.
 
-**Last verified:** 2026-07-26 on branch `v10` through MW-V10-05 (baseline
-`90f5482` = `main`). Automated suite: **809 tests / 78 files green**, lint clean
+**Last verified:** 2026-07-26 on branch `v10` through MW-V10-06 (baseline
+`90f5482` = `main`). Automated suite: **842 tests / 79 files green**, lint clean
 (0 errors), typecheck clean, production build clean, 39 public Playwright
 journeys green across desktop / 375px / 320px. The 33-test authenticated state
 matrix added in MW-V10-03 is **unrun** — no seeded environment exists.
@@ -15,7 +15,7 @@ matrix added in MW-V10-03 is **unrun** — no seeded environment exists.
 target — see `launch-go-no-go-v10.md`) · MW-V10-02 ✅ (infrastructure only; the
 experiment is **not running**) · MW-V10-03 ✅ (state matrix written but
 **unrun**) · MW-V10-04 ✅ · MW-V10-05 ✅ (live rehearsal still unrun —
-worksheet in `docs/ops-cron.md`) · MW-V10-06 … 08 not started.
+worksheet in `docs/ops-cron.md`) · MW-V10-06 ✅ · MW-V10-07 … 08 not started.
 
 **Status vocabulary** (used strictly, same as the go/no-go docs):
 *tested* = automated in-repo · *configured* = infrastructure set but not
@@ -85,7 +85,7 @@ Verified absent or partial in the code as of `90f5482`.
 | 4 | **Key rotation + backup/rollback drill** | No runbook evidence recorded | Owner |
 | 5 | `/api/health/ready` validates only migrations `020`/`021` | Reads `generation_requests` + `email_deliveries`; does not verify the `034`/`035` RPC overloads the app actually calls | Eng |
 | ~~6~~ | ~~Trial-length experiment infrastructure absent~~ | **Closed in MW-V10-02.** Server-owned allowlisted assignment pinned at checkout (`src/lib/stripe/trial-experiment.ts`, migration `036`); `TRIAL_DAYS` and `PRICING.trialDays` deleted so no surface can hardcode a length again. Default behaviour unchanged: 3-day control until the owner enables a cohort. | — |
-| 7 | **Beta invite cap + stop-acquisition switch absent** | Zero matches for cap/invite/stop-switch in `src/`; the v9 funnel measures but cannot gate intake | Eng |
+| ~~7~~ | ~~Beta invite cap + stop-acquisition switch absent~~ | **Closed in MW-V10-06.** Database trigger on `auth.users` (migration `039`) — a form check would not have been a cap, because signup calls Supabase from the browser. Closing intake deletes nothing; unconfigured fails open. | — |
 | 8 | Refund / dispute webhook events unhandled | `charge.refunded` and `charge.dispute.created` are not in the webhook switch | Eng |
 | 9 | Ceiling-denial counting not instrumented | Admin scorecard shows 0 denials by construction | Eng (P2) |
 | 10 | Public Lighthouse/perf never measured at an RC | No CI perf gate by project rule | Owner (P2) |

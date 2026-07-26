@@ -24,7 +24,7 @@ Nothing below claims production behaviour was verified from tests or mocks.
 |---|---|---|
 | Lint | `npm run lint` | ✅ 0 errors (8 pre-existing warnings, untouched files) |
 | Type safety | `npm run typecheck` | ✅ clean |
-| Unit/contract/safety suite | `npx vitest run` | ✅ **809 passed / 78 files** |
+| Unit/contract/safety suite | `npx vitest run` | ✅ **842 passed / 79 files** |
 | Adversarial red-team matrix | `npx vitest run tests/adversarial-matrix.test.ts` | ✅ within the suite |
 | Safety + eval gate | `npm run eval` | ✅ 81 passed — now includes the MW-V10-04 golden fit/variety gates |
 | Production build | `npm run build` | ✅ clean |
@@ -275,6 +275,40 @@ order, so no caller can implement half the rules.
 DST is covered by fixtures: the same 08:00 local resolves to a different UTC
 instant in winter and summer, and repeated runs across one local day send once.
 
+### MW-V10-06 — retention beta and evidence-backed decisions
+
+- **The beta cap is now real.** "≤50 invites" was a number in a document
+  enforced by nobody — nothing stopped the 51st signup, and there was no way to
+  stop intake at all if a stop criterion fired. Enforcement is a **database
+  trigger** (migration `039`), not a form check: signup goes through
+  `supabase.auth.signUp` from the browser, so a UI check is a courtesy, not a
+  cap. Closing intake **deletes nothing** — it blocks new rows only, so a stop
+  is instantly reversible. It fails **open** when unconfigured, so a missing
+  settings row can never lock everyone out (verified locally: with migration
+  `039` unapplied the signup form still renders).
+- **Every funnel step now carries a decision.** The dashboard showed the loop
+  but not what to do about any number on it, so a weak step produced a shrug.
+  Each step now shows numerator / denominator / rate / hypothesis / state /
+  action, and **"no data" (cohort under 5) and "below hypothesis" are separate
+  states** — conflating them is how a beta talks itself into expanding. None of
+  the weak-step actions is "add a notification".
+- **One expansion verdict**, on the dashboard: BLOCKED until next-day return
+  meets its hypothesis *over a four-week window*. Widening intake cannot happen
+  by momentum.
+- **Cost per outcome**, where `null` means unknown and is rendered as
+  "unknown", never `$0.00` — a zero reads as "this costs us nothing", which is
+  the opposite of no data. Uncovered inputs (Stripe fees, infrastructure) are
+  named rather than silently excluded.
+- **Overlapping experiments are detected.** "One experiment at a time" was
+  written in `docs/experiments/trial-length.md` and enforced by nobody; the
+  dashboard now raises a conflict naming both experiments and how to turn one
+  off. Deliberately advisory, not fail-closed — silently disabling an arm
+  mid-flight could re-time a pinned trial.
+- **Weekly memo** in `docs/beta-research.md` now names five outcomes with
+  triggers, so **Continue is a choice rather than what happens when nobody
+  decides**, and states that cancellation is never blocked or delayed by
+  research.
+
 ## 3. Live rehearsal — owner must execute (evidence required)
 
 None of these can be proven from this environment. Claude Code must not mutate
@@ -311,7 +345,7 @@ live Stripe, Supabase, Vercel, Resend, DNS or cron.
 | 3 | **P1** | Reminder/cron/email live rehearsal, incl. one-click unsubscribe | Owner | Evidence in §3 |
 | 4 | **P1** | Key rotation + backup/restore drill never rehearsed | Owner | Evidence in §3 |
 | ~~5~~ | ~~P2~~ | ~~Trial-length experiment infrastructure absent (MW-V10-02)~~ | — | **Closed.** Server-owned, pinned, allowlisted assignment; experiment shipped but **not running** |
-| 6 | P2 | Beta invite cap + stop-acquisition switch absent (MW-V10-06) | Eng | Cap enforced, switch works without data loss |
+| ~~6~~ | ~~P2~~ | ~~Beta invite cap + stop-acquisition switch absent (MW-V10-06)~~ | — | **Closed.** Enforced by a database trigger (migration `039`); closing intake deletes nothing and fails open when unconfigured |
 | 7 | P2 | Ceiling-denial counting not instrumented | Eng | Denial logging or accept |
 | 8 | P2 | Public Lighthouse/perf never measured at an RC | Owner | Manual run before launch |
 
@@ -333,7 +367,7 @@ migration reversal is required to roll back any behaviour.
 
 ## 6. Verdict
 
-- **Automated code gate:** ✅ GO — lint, typecheck, 809 tests, the 81-test eval
+- **Automated code gate:** ✅ GO — lint, typecheck, 842 tests, the 81-test eval
   gate, build and the 39 public Playwright journeys green on `v10`. **Not** part
   of this GO: the 33-test authenticated state matrix (never executed) and the
   optional live provider eval (skipped by design, and advisory even when run).

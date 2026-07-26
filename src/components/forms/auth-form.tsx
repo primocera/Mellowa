@@ -7,6 +7,10 @@ import { useForm } from "react-hook-form";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
+  BETA_CLOSED_MESSAGE,
+  isBetaGateError,
+} from "@/lib/beta/capacity-shared";
+import {
   resolveDestination,
   serializeIntent,
   type PlanIntent,
@@ -42,6 +46,15 @@ export function AuthForm({
   // Map provider errors to safe, non-enumerating customer copy — raw
   // Supabase strings are never shown (CE v6, Prompt 5).
   function safeAuthError(message: string): string {
+    // MW-V10-06: the beta gate is a database trigger, so Supabase surfaces it
+    // as a generic database error. Map it to honest copy — and say plainly
+    // that nothing was created, so the user is not left wondering whether a
+    // half-account exists. The same message covers "closed" and "full": how
+    // close the beta is to capacity is not the visitor's business, and a
+    // countdown would manufacture urgency.
+    if (isBetaGateError(message)) {
+      return BETA_CLOSED_MESSAGE;
+    }
     if (/invalid login credentials/i.test(message)) {
       return "That email and password combination didn't work. Try again or reset your password.";
     }

@@ -23,6 +23,9 @@ export default async function AdminPage({
 
   const pct = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)}%`);
   const eur = (v: number | null) => (v === null ? "—" : `€${v.toFixed(2)}`);
+  // MW-V10-06: "unknown" is rendered as "unknown", never as $0.00 — a zero
+  // reads as "this costs us nothing", which is the opposite of no data.
+  const usd = (v: number | null) => (v === null ? "unknown" : `$${v.toFixed(2)}`);
   const csvHref = `/admin/export?window=${windowDays}${release ? `&release=${encodeURIComponent(release)}` : ""}`;
 
   return (
@@ -95,18 +98,107 @@ export default async function AdminPage({
         <Row label="Involuntary (payment fails)" value={String(r.churn.involuntary)} />
       </Section>
 
-      <Section title="Beta value loop (signup → renewal)">
-        {r.funnels.value_loop.map((step) => (
-          <Row
-            key={step.event}
-            label={step.event}
-            value={`${step.reached}${step.stepRate !== null ? ` · ${pct(step.stepRate)}` : ""}`}
-          />
+      {/* MW-V10-06: intake control. Closing it blocks NEW accounts only —
+          nothing is deleted, so a stop is instantly reversible. */}
+      <Section title="Beta intake (MW-V10-06)">
+        {r.beta === null ? (
+          <p style={{ color: "#991B1B", fontSize: 14 }}>
+            Capacity could not be read — the cap may not be enforced. Check that
+            migration 039 is applied.
+          </p>
+        ) : (
+          <>
+            <Row
+              label="Signups"
+              value={r.beta.signupsOpen ? "OPEN" : "CLOSED (stop switch on)"}
+            />
+            <Row
+              label="Accounts / cap"
+              value={`${r.beta.used} / ${r.beta.inviteCap ?? "uncapped"}`}
+            />
+            <Row
+              label="Remaining invites"
+              value={r.beta.remaining === null ? "—" : String(r.beta.remaining)}
+            />
+            {r.beta.full && (
+              <p style={{ color: "#991B1B", fontSize: 13, marginTop: 6 }}>
+                New signups are being rejected right now.
+              </p>
+            )}
+          </>
+        )}
+        <p style={{ color: "#9CA3AF", fontSize: 12, marginTop: 6 }}>
+          Enforced by a database trigger, not the signup form — the form calls
+          Supabase directly, so a UI check would not be a cap. To stop intake:
+          <code> update beta_settings set signups_open = false; </code>
+          No data is deleted and existing users are unaffected.
+        </p>
+      </Section>
+
+      {r.experimentConflicts.length > 0 && (
+        <div style={{ background: "#FEE2E2", borderRadius: 12, padding: 12, marginBottom: 12 }}>
+          <strong>Overlapping experiments</strong>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+            {r.experimentConflicts.map((c) => (
+              <li key={c.area}>{c.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <Section title="Beta value loop (signup → renewal) — with the decision">
+        <div
+          style={{
+            background: r.expansion.canExpand ? "#DCFCE7" : "#FEF3C7",
+            borderRadius: 8,
+            padding: 10,
+            marginBottom: 10,
+            fontSize: 13,
+          }}
+        >
+          <strong>
+            {r.expansion.canExpand ? "Expansion: OK" : "Expansion: BLOCKED"}
+          </strong>
+          <div style={{ marginTop: 4 }}>{r.expansion.reason}</div>
+        </div>
+        {r.loop.map((d) => (
+          <div key={d.event} style={{ marginBottom: 8 }}>
+            <Row
+              label={`${d.event} — ${d.readsAs}`}
+              value={
+                `${d.numerator}` +
+                (d.denominator === null ? "" : ` / ${d.denominator}`) +
+                (d.rate === null ? "  ·  no data" : `  ·  ${pct(d.rate)}`) +
+                (d.hypothesis === null ? "" : ` (need ${pct(d.hypothesis)})`)
+              }
+            />
+            <div
+              style={{
+                paddingLeft: 12,
+                fontSize: 12,
+                color: d.state === "below_hypothesis" ? "#991B1B" : "#9CA3AF",
+              }}
+            >
+              {d.decision}
+            </div>
+          </div>
         ))}
         <p style={{ color: "#9CA3AF", fontSize: 12, marginTop: 6 }}>
-          Each row: distinct people reached · step conversion from the prior step
-          (— when the prior cohort is under 5). Decision mapping in
-          docs/beta-research.md.
+          numerator / denominator · step conversion · hypothesis. &ldquo;No
+          data&rdquo; (cohort under 5) and &ldquo;below hypothesis&rdquo; are
+          different states and must not be reported as the same thing. Window:
+          last {r.windowDays} days. Full mapping in docs/beta-research.md.
+        </p>
+      </Section>
+
+      <Section title="Cost per outcome (MW-V10-06) — null means unknown, not zero">
+        <Row label="Total AI cost (window)" value={`$${r.costPerOutcome.totalCostUsd.toFixed(2)}`} />
+        <Row label="Per sample generated" value={usd(r.costPerOutcome.perSampleUsd)} />
+        <Row label="Per activated trial" value={usd(r.costPerOutcome.perActivatedTrialUsd)} />
+        <Row label="Per retained payer" value={usd(r.costPerOutcome.perRetainedPayerUsd)} />
+        <Row label="Per high-use user (mean)" value={usd(r.costPerOutcome.perHighUseUserUsd)} />
+        <p style={{ color: "#9CA3AF", fontSize: 12, marginTop: 6 }}>
+          Not included: {r.costPerOutcome.unknowns.join("; ")}.
         </p>
       </Section>
 
