@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
 import { requireBearerSecret } from "@/lib/cron-auth";
+import { acquireCronLease } from "@/lib/cron-lease";
 import { deliverEmail } from "@/lib/email/deliver";
 import { trialEndingEmail } from "@/lib/email/templates";
 import { getUserEmails } from "@/lib/email/recipients";
@@ -20,6 +21,15 @@ export async function GET(request: Request) {
   if (denied) return denied;
 
   const admin = createAdminClient();
+
+  // MW-V10-05: same lease as daily-reminders. Duplicate sends were already
+  // impossible via the ledger event key; this stops an overlapping trigger
+  // repeating the whole scan. Fails open, so a lease problem cannot stop
+  // trial-ending mail — the one email a user must never miss.
+  const lease = await acquireCronLease(admin, "trial-reminders", 90);
+  if (!lease.acquired) {
+    return NextResponse.json({ ok: true, skipped: "already_running" });
+  }
   const now = new Date();
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
@@ -72,5 +82,6 @@ export async function GET(request: Request) {
     if (result.sent) sent += 1;
   }
 
+  await lease.release();
   return NextResponse.json({ ok: true, considered: due?.length ?? 0, sent });
 }

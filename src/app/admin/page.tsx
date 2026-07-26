@@ -110,6 +110,32 @@ export default async function AdminPage({
         </p>
       </Section>
 
+      <Section title="Email delivery (MW-V10-05) — categories only, no content">
+        <Row label="Backlog (retryable, waiting)" value={String(r.email.backlog)} />
+        <Row
+          label="Oldest backlog item"
+          value={
+            r.email.oldestBacklogHours === null
+              ? "—"
+              : `${r.email.oldestBacklogHours}h`
+          }
+        />
+        <Row label="Dead letters (given up)" value={String(r.email.deadLetter)} />
+        <Row label="Delivery rate" value={pct(r.email.deliveryRate)} />
+        {Object.entries(r.email.byStatus).map(([status, n]) => (
+          <Row key={status} label={`  status: ${status}`} value={String(n)} />
+        ))}
+        {Object.entries(r.email.deadLetterByTemplate).map(([template, n]) => (
+          <Row key={template} label={`  dead letter: ${template}`} value={String(n)} />
+        ))}
+        <p style={{ color: "#9CA3AF", fontSize: 12, marginTop: 6 }}>
+          Recipients, subjects and message bodies are deliberately not queried —
+          delivery health is observable without reading anyone&rsquo;s mail. A
+          growing backlog with a healthy delivery rate means the outbox worker
+          is not running; see docs/ops-cron.md.
+        </p>
+      </Section>
+
       <Section title="Trial-length experiment (MW-V10-02)">
         {r.trialExperiment.length === 0 ? (
           <p style={{ color: "#6B7280", fontSize: 14 }}>

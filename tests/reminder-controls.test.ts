@@ -8,6 +8,7 @@ import { CLIENT_EVENTS } from "@/lib/analytics/taxonomy";
  */
 
 const cron = readFileSync("src/app/api/cron/daily-reminders/route.ts", "utf8");
+const planner = readFileSync("src/lib/email/reminder-planner.ts", "utf8");
 const prefs = readFileSync("src/components/dailyflow/plan-preferences-form.tsx", "utf8");
 const checkin = readFileSync("src/components/dailyflow/checkin-form.tsx", "utf8");
 
@@ -54,7 +55,10 @@ describe("reminder delivery", () => {
   });
 
   it("stays idempotent per user and local day via the ledger event key", () => {
-    expect(cron).toContain("daily_reminder:${r.userId}:${r.localDate}");
+    // MW-V10-05: the key is produced by the planner (reminderDedupeKey) so no
+    // caller can invent a variant — a divergent key is a duplicate email.
+    expect(cron).toContain("eventKey: r.dedupeKey");
+    expect(planner).toContain("`daily_reminder:${userId}:${localDate}`");
   });
 
   it("selects the pause/skip columns so user controls reach the planner", () => {

@@ -328,6 +328,83 @@ export function detectAnomalies(
   return out;
 }
 
+// --- MW-V10-05: email backlog and dead letters -------------------------------
+
+/**
+ * One `email_deliveries` row, reduced to what an operator may see. Deliberately
+ * has no `to_email`, `subject` or `html` field: the whole point of surfacing
+ * delivery health is that it can be done without reading anyone's mail.
+ */
+export interface EmailDeliveryRow {
+  status: string;
+  template: string;
+  attempts: number | null;
+  created_at: string;
+  next_attempt_at?: string | null;
+}
+
+export interface EmailHealth {
+  /** Count per status: sent / pending / failed_transient / failed_permanent / … */
+  byStatus: Record<string, number>;
+  /** Retryable work waiting for the outbox worker. */
+  backlog: number;
+  /** Given up on after MAX_ATTEMPTS — needs a human, not another retry. */
+  deadLetter: number;
+  /** Dead letters per template, so a single broken template is obvious. */
+  deadLetterByTemplate: Record<string, number>;
+  /** Age of the oldest unsent retryable row, in hours. Null when none. */
+  oldestBacklogHours: number | null;
+  /** Sent ÷ (sent + permanently failed). Null when nothing has been attempted. */
+  deliveryRate: number | null;
+}
+
+const RETRYABLE_STATUSES = new Set(["pending", "failed_transient", "not_configured"]);
+
+/**
+ * Delivery health from the ledger alone. No content, no recipients, no provider
+ * payloads — categories, counts and ages only.
+ */
+export function emailHealth(
+  rows: EmailDeliveryRow[],
+  now: Date = new Date()
+): EmailHealth {
+  const byStatus: Record<string, number> = {};
+  const deadLetterByTemplate: Record<string, number> = {};
+  let backlog = 0;
+  let deadLetter = 0;
+  let sent = 0;
+  let oldestBacklogMs: number | null = null;
+
+  for (const r of rows) {
+    byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
+    if (r.status === "sent") sent += 1;
+    if (r.status === "failed_permanent") {
+      deadLetter += 1;
+      deadLetterByTemplate[r.template] = (deadLetterByTemplate[r.template] ?? 0) + 1;
+    }
+    if (RETRYABLE_STATUSES.has(r.status)) {
+      backlog += 1;
+      const age = now.getTime() - ts(r.created_at);
+      if (Number.isFinite(age) && (oldestBacklogMs === null || age > oldestBacklogMs)) {
+        oldestBacklogMs = age;
+      }
+    }
+  }
+
+  const attempted = sent + deadLetter;
+  return {
+    byStatus,
+    backlog,
+    deadLetter,
+    deadLetterByTemplate,
+    oldestBacklogHours:
+      oldestBacklogMs === null ? null : round(oldestBacklogMs / 3_600_000),
+    // Not suppressed: these are message counts, not people, and an operator
+    // needs to see a broken provider on the first failure, not the fifth.
+    deliveryRate: attempted === 0 ? null : round(sent / attempted),
+  };
+}
+
 // --- MW-V10-02: trial-length experiment comparison ---------------------------
 
 /** A subscriptions row with the pinned cohort fields. */

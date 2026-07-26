@@ -5,8 +5,8 @@ what is actually open." It exists because prompt packs v8, v9 and v10 re-asked
 for work that was already shipped. If you are scoping a new pack from the public
 repo, read this file first — not the individual `launch-go-no-go-*.md` history.
 
-**Last verified:** 2026-07-26 on branch `v10` through MW-V10-04 (baseline
-`90f5482` = `main`). Automated suite: **772 tests / 77 files green**, lint clean
+**Last verified:** 2026-07-26 on branch `v10` through MW-V10-05 (baseline
+`90f5482` = `main`). Automated suite: **809 tests / 78 files green**, lint clean
 (0 errors), typecheck clean, production build clean, 39 public Playwright
 journeys green across desktop / 375px / 320px. The 33-test authenticated state
 matrix added in MW-V10-03 is **unrun** — no seeded environment exists.
@@ -14,7 +14,8 @@ matrix added in MW-V10-03 is **unrun** — no seeded environment exists.
 **v10 progress:** MW-V10-00 ✅ · MW-V10-01 ✅ (copy reduction fell short of
 target — see `launch-go-no-go-v10.md`) · MW-V10-02 ✅ (infrastructure only; the
 experiment is **not running**) · MW-V10-03 ✅ (state matrix written but
-**unrun**) · MW-V10-04 ✅ · MW-V10-05 … 08 not started.
+**unrun**) · MW-V10-04 ✅ · MW-V10-05 ✅ (live rehearsal still unrun —
+worksheet in `docs/ops-cron.md`) · MW-V10-06 … 08 not started.
 
 **Status vocabulary** (used strictly, same as the go/no-go docs):
 *tested* = automated in-repo · *configured* = infrastructure set but not
@@ -80,7 +81,7 @@ Verified absent or partial in the code as of `90f5482`.
 |---|---|---|---|
 | 1 | **One real transaction end to end** (charge → cancel → reactivate → portal → refund) | No recorded evidence; `launch-go-no-go-v9.md` §4 blank | Owner (not Claude — live Stripe) |
 | 2 | **Authenticated seeded E2E never run** | `e2e/journeys.spec.ts` **and** the MW-V10-03 matrix `e2e/daily-journey.spec.ts` (8 states × 3 viewports) exist but need a seeded env; CI job skips. MW-V10-03 found a `journeys.spec.ts` assertion that could only ever have failed — direct proof this gate is doing nothing. | Owner/CI |
-| 3 | **Reminder / cron / email live rehearsal** | Planner is *tested*, never *rehearsed live* | Owner |
+| 3 | **Reminder / cron / email live rehearsal** | Planner is *tested*, never *rehearsed live*. MW-V10-05 wrote the step-by-step worksheet (end of `docs/ops-cron.md`) and found two conflicts the tests could not see: `past_due`/`canceled` users were being nudged into a paywall, and users with a recent crisis signal were still receiving activity nudges. | Owner |
 | 4 | **Key rotation + backup/rollback drill** | No runbook evidence recorded | Owner |
 | 5 | `/api/health/ready` validates only migrations `020`/`021` | Reads `generation_requests` + `email_deliveries`; does not verify the `034`/`035` RPC overloads the app actually calls | Eng |
 | ~~6~~ | ~~Trial-length experiment infrastructure absent~~ | **Closed in MW-V10-02.** Server-owned allowlisted assignment pinned at checkout (`src/lib/stripe/trial-experiment.ts`, migration `036`); `TRIAL_DAYS` and `PRICING.trialDays` deleted so no surface can hardcode a length again. Default behaviour unchanged: 3-day control until the owner enables a cohort. | — |

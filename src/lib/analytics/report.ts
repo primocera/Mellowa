@@ -11,6 +11,8 @@ import {
   detectAnomalies,
   usageScorecard,
   trialExperimentComparison,
+  emailHealth,
+  type EmailDeliveryRow,
   type EventRow,
   type SubRow,
   type CostRow,
@@ -42,6 +44,11 @@ export interface MetricsReport {
    * assigned; small arms come back suppressed rather than as misleading zeros.
    */
   trialExperiment: ReturnType<typeof trialExperimentComparison>;
+  /**
+   * MW-V10-05: delivery backlog and dead letters. Categories and counts only —
+   * an operator can see that mail is broken without reading anyone's mail.
+   */
+  email: ReturnType<typeof emailHealth>;
 }
 
 export async function buildMetricsReport(
@@ -54,7 +61,13 @@ export async function buildMetricsReport(
   const since = new Date(now - windowDays * day).toISOString();
   const priorSince = new Date(now - 2 * windowDays * day).toISOString();
 
-  const [{ data: eventRows }, { data: priorEventRows }, { data: subRows }, { data: costRows }] =
+  const [
+    { data: eventRows },
+    { data: priorEventRows },
+    { data: subRows },
+    { data: costRows },
+    { data: emailRows },
+  ] =
     await Promise.all([
       admin.from("app_events").select("event, user_id, anon_id, created_at").gte("created_at", since),
       admin
@@ -70,6 +83,12 @@ export async function buildMetricsReport(
       admin
         .from("ai_usage_events")
         .select("user_id, status, estimated_cost_usd, actual_cost_usd, created_at")
+        .gte("created_at", since),
+      // Never select to_email / subject / html — delivery health must be
+      // observable without exposing message content or recipients.
+      admin
+        .from("email_deliveries")
+        .select("status, template, attempts, created_at, next_attempt_at")
         .gte("created_at", since),
     ]);
 
@@ -138,6 +157,7 @@ export async function buildMetricsReport(
     anomalies: detectAnomalies(currentCounts, baselineCounts),
     // Cohort membership is read from the pinned variant, so this comparison is
     // unaffected by the flag being turned off mid-experiment.
+    email: emailHealth((emailRows ?? []) as EmailDeliveryRow[]),
     trialExperiment: trialExperimentComparison(
       subs,
       events,
@@ -170,6 +190,13 @@ export function reportToCsv(report: MetricsReport): string {
   push("usage", "total_cost_usd", report.usage.totalCostUsd);
   push("generation", "fallback_rate", report.generation.fallbackRate);
   for (const r of report.reconciliation) push("reconcile", r.metric, r.reconciled ? "ok" : "MISMATCH");
+  push("email", "backlog", report.email.backlog);
+  push("email", "dead_letter", report.email.deadLetter);
+  push("email", "oldest_backlog_hours", report.email.oldestBacklogHours);
+  push("email", "delivery_rate", report.email.deliveryRate);
+  for (const [template, n] of Object.entries(report.email.deadLetterByTemplate)) {
+    push("email_dead_letter", template, n);
+  }
   // A suppressed arm exports empty cells, never a zero that reads as a result.
   for (const v of report.trialExperiment) {
     push(`trial_experiment_${v.variant}`, "trial_days", v.trialDays);

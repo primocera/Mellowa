@@ -24,7 +24,7 @@ Nothing below claims production behaviour was verified from tests or mocks.
 |---|---|---|
 | Lint | `npm run lint` | ✅ 0 errors (8 pre-existing warnings, untouched files) |
 | Type safety | `npm run typecheck` | ✅ clean |
-| Unit/contract/safety suite | `npx vitest run` | ✅ **772 passed / 77 files** |
+| Unit/contract/safety suite | `npx vitest run` | ✅ **809 passed / 78 files** |
 | Adversarial red-team matrix | `npx vitest run tests/adversarial-matrix.test.ts` | ✅ within the suite |
 | Safety + eval gate | `npm run eval` | ✅ 81 passed — now includes the MW-V10-04 golden fit/variety gates |
 | Production build | `npm run build` | ✅ clean |
@@ -234,6 +234,47 @@ Fit findings are reported under their own codes, so a fit failure is never
 mistaken for — or able to mask — a safety failure. A test asserts both are
 reported together for a plan that is unsafe *and* unusable.
 
+### MW-V10-05 — reminder, timezone, cron and lifecycle reliability
+
+One planner now owns every reason a reminder is or is not sent, in a fixed
+order, so no caller can implement half the rules.
+
+- **Consent was recorded but never enforced.** `reminder_consent_version` was
+  written by the settings form and read by nothing — the constant was declared
+  inside the form component. It now lives in the planner and is checked before
+  every send, failing closed on a missing or older version. **Consequence to
+  know:** anyone who opted in before versioning has a NULL version and will not
+  receive reminders until they re-confirm. That is the safe direction, and
+  reminders have never been sent to real users (the rehearsal below is still
+  unrun), but it is a real behaviour change.
+- **Two conflicts the product had with itself.** A `past_due`, `unpaid` or
+  `canceled` user was still being nudged to "open Mellowa and check in" — into a
+  paywall. And a user with a recent crisis or eating-disorder safety signal was
+  still receiving activity nudges. Both are now suppressed, safety first, before
+  any other rule can decide to send.
+- **The dedupe key moved into the planner.** It was a template string at the
+  call site; a divergent key is a duplicate email.
+- **Cron run leases** (migration `038`, additive): an overlapping or retried
+  trigger is a no-op instead of a second full scan. This is *not* what prevents
+  duplicate emails — the ledger's unique `event_key` is, and it works whether or
+  not the lease does. The lease **fails open** on purpose: a problem with the
+  lease table must never silently stop reminders for everyone.
+- **Timing is now disclosed honestly.** Vercel Hobby gives one daily run, not a
+  to-the-minute scheduler. The settings screen states exactly what we can keep —
+  never earlier than the chosen time, sometimes later, at most one per day —
+  from a single string the tests assert. `docs/ops-cron.md` documents the three
+  timing cases for operators.
+- **Delivery health is observable without reading anyone's mail.** `/admin` now
+  shows backlog, oldest stuck item, dead letters per template and delivery rate.
+  The query deliberately never selects `to_email`, `subject` or `html`, and a
+  test asserts that.
+- **Owner rehearsal worksheet** added to `docs/ops-cron.md`: seven sections
+  including the native Gmail/Apple Mail one-click unsubscribe path, a
+  deliberate provider break, and the `past_due`/`canceled` suppression checks.
+
+DST is covered by fixtures: the same 08:00 local resolves to a different UTC
+instant in winter and summer, and repeated runs across one local day send once.
+
 ## 3. Live rehearsal — owner must execute (evidence required)
 
 None of these can be proven from this environment. Claude Code must not mutate
@@ -248,11 +289,12 @@ live Stripe, Supabase, Vercel, Resend, DNS or cron.
 - [ ] **One real low-value transaction** end to end: signup → sample → sample
       adjustment → live trial checkout → exact charge disclosure → daily repair
       + Undo → cancel → reactivate → billing portal → refund. Evidence: __
-- [ ] **Reminder / cron / email** live rehearsal: opt-in preview, quiet hours,
-      pause/skip, idempotent send, no sensitive content, dead-letter check,
-      **and a real click on the unsubscribe link from a mail client** —
-      including the native Gmail/Apple Mail unsubscribe button, which exercises
-      the one-click `POST` path rather than the footer link. Evidence: __
+- [ ] **Reminder / cron / email** live rehearsal — the worksheet is now written
+      out step by step at the end of `docs/ops-cron.md` (consent preview, the
+      disclosed timing window, pause/skip/disable, double-trigger idempotency,
+      the native Gmail/Apple Mail one-click unsubscribe, a deliberate provider
+      break and dead-letter recovery, and `past_due`/`canceled` suppression).
+      Evidence: __
 - [ ] **Authenticated seeded E2E** — both `npm run test:e2e` and the MW-V10-03
       state matrix `npm run test:e2e:journey` (8 seeded states × 3 viewports),
       with `seed:test-user`, against staging. Evidence: __
@@ -291,7 +333,7 @@ migration reversal is required to roll back any behaviour.
 
 ## 6. Verdict
 
-- **Automated code gate:** ✅ GO — lint, typecheck, 772 tests, the 81-test eval
+- **Automated code gate:** ✅ GO — lint, typecheck, 809 tests, the 81-test eval
   gate, build and the 39 public Playwright journeys green on `v10`. **Not** part
   of this GO: the 33-test authenticated state matrix (never executed) and the
   optional live provider eval (skipped by design, and advisory even when run).
