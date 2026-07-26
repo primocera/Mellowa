@@ -97,11 +97,19 @@ describe("MW-V9-08 wedge, mechanism and Premium jobs", () => {
     expect(landing).toContain("Fewer decisions");
   });
 
-  it("spells out the four-beat mechanism", () => {
-    expect(landing).toContain("One-minute check-in");
-    expect(landing).toContain("One next step");
-    expect(landing).toContain("Adjust the rest");
-    expect(landing).toContain("Carry it into the week");
+  it("shows the loop above the fold, including what survives an adjustment", () => {
+    // MW-V10-01 replaced the four-beat cards further down the page with a
+    // five-beat strip in the hero. The two extra beats are the wedge itself:
+    // adjusting does not erase completed work, and it is reversible.
+    for (const beat of [
+      "Check in",
+      "One next step",
+      "Adjust what's left",
+      "Completed items stay",
+      "Undo is free",
+    ]) {
+      expect(landing).toContain(beat);
+    }
   });
 
   it("frames Premium as the three ongoing jobs", () => {

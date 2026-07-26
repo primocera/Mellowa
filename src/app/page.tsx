@@ -8,37 +8,11 @@ import { TrackedCta } from "@/components/dailyflow/tracked-cta";
 import { SITE_URL } from "@/lib/seo/site";
 
 export const metadata: Metadata = {
-  title: "Mellowa — A realistic plan for the day you actually have",
+  title: "Mellowa — Reshape what's left when your day changes",
   description:
-    "Tell Mellowa how much energy and time you have. It shapes a doable plan: a meal rhythm, hydration cues, optional movement, one calm reset, an evening wind-down and one small habit — without calorie targets, streaks or pressure.",
+    "A general wellbeing plan for the day you actually have. Check in, get one next step, and adjust what's left when the day changes — completed items stay put and Undo is free. No calorie targets, no streaks, nothing to catch up on. Not medical care.",
   alternates: { canonical: "/" },
 };
-
-// The mechanism, in the four beats the product actually runs: a one-minute
-// check-in, one next step, adjusting the rest when the day changes, and
-// carrying what worked into the week.
-const STEPS = [
-  {
-    step: "1",
-    title: "One-minute check-in",
-    text: "Share your energy, available time and what today looks like. Approximate is enough.",
-  },
-  {
-    step: "2",
-    title: "One next step",
-    text: "Mellowa shapes the day and shows the single next thing that fits — not a long list.",
-  },
-  {
-    step: "3",
-    title: "Adjust the rest",
-    text: "When the day changes, adjust what's left in one pass — completed things stay put, and Undo is free.",
-  },
-  {
-    step: "4",
-    title: "Carry it into the week",
-    text: "Keep what worked and lighten what didn't, so next week starts from your real choices.",
-  },
-];
 
 // One concrete, anonymized example day: a meal rhythm, one movement moment
 // and one calm reset. Illustrative only — no fabricated data or outcomes.
@@ -51,12 +25,12 @@ const SAMPLE_DAY = [
   {
     time: "10:30",
     title: "Hydration cue",
-    detail: "A glass of water with your mid-morning break — before the coffee refill.",
+    detail: "A glass of water with your mid-morning break.",
   },
   {
     time: "12:30",
     title: "Lunch, no cooking",
-    detail: "A grain bowl from last night's leftovers plus a handful of greens.",
+    detail: "A grain bowl from last night's leftovers plus greens.",
   },
   {
     time: "15:00",
@@ -66,7 +40,7 @@ const SAMPLE_DAY = [
   {
     time: "16:30",
     title: "Calm reset",
-    detail: "Three slow breaths and a glass of water before the afternoon dip.",
+    detail: "Three slow breaths before the afternoon dip.",
   },
   {
     time: "19:00",
@@ -76,12 +50,12 @@ const SAMPLE_DAY = [
   {
     time: "21:00",
     title: "One small habit",
-    detail: "Lay out tomorrow's water bottle — the minimum version is just filling it.",
+    detail: "Lay out tomorrow's water bottle — minimum version: just fill it.",
   },
   {
     time: "21:30",
     title: "Evening wind-down",
-    detail: "Screens down, lights low, one page of anything you like.",
+    detail: "Screens down, lights low, one page of anything.",
   },
 ];
 
@@ -113,41 +87,39 @@ const PREMIUM_JOBS = [
 ];
 
 const DIFFERENCE = [
-  "The plan changes when your capacity changes.",
   "Meals come without calorie targets or food scoring.",
-  "One useful reset replaces a long list of practices.",
   "No streaks, red warnings or ‘starting over’.",
-  "Your explicit feedback can shape future plans — and you can remove what was learned.",
+  "Feedback you give shapes later plans — and you can remove what was learned.",
 ];
 
 const FAQ = [
   {
     q: "What does the free sample include?",
-    a: "One personalized day plan after a short setup — a one-time sample per account. No payment method is required for the account, the setup or the sample.",
+    a: "One personalized day plan after a short setup — a one-time sample per account. No payment method is required for the account, setup or sample.",
   },
   {
     q: "How long does the daily check-in take?",
-    a: "The core check-in — energy, stress and available time — takes about a minute. Optional details like mood, sleep or notes add a little more if you want a more tailored plan.",
+    a: "The core check-in — energy, stress and available time — takes about a minute. Optional mood, sleep or notes add a little more.",
   },
   {
     q: "When does the trial begin?",
-    a: "Only after you choose a paid plan and continue to secure checkout. A payment method is required, and you'll see the exact charge date before you continue.",
+    a: "Only after you choose a paid plan and continue to secure checkout. A payment method is required, and you'll see the exact charge date first.",
   },
   {
     q: "Is Mellowa a diet or calorie-tracking app?",
-    a: "No. Mellowa supports a regular, practical meal rhythm without calorie targets, restriction or weight-loss promises. Approximate nutrition details are optional and hidden by default.",
+    a: "No. Mellowa supports a practical meal rhythm without calorie targets, restriction or weight-loss promises. Approximate nutrition details are optional and hidden by default.",
   },
   {
     q: "Is this therapy or medical advice?",
-    a: "No. Mellowa is general wellbeing planning — not medical care, therapy or emergency support. Sensitive medical, crisis and severe-allergy needs are redirected to qualified help.",
+    a: "No. Mellowa is general wellbeing planning — not medical care, therapy or emergency support. Medical, crisis and severe-allergy needs are redirected to qualified help.",
   },
   {
     q: "What happens on a day with almost no energy?",
-    a: "You tell Mellowa capacity is low and the plan gets smaller: the easiest food option, one necessary thing, one recovery cue. Everything else can wait.",
+    a: "You say capacity is low and the plan gets smaller: the easiest food option, one necessary thing, one recovery cue. Everything else can wait.",
   },
   {
     q: "Can Mellowa replace my doctor, dietitian or therapist?",
-    a: "No. Mellowa never replaces professional care. For medical conditions, pregnancy nutrition, injury recovery, eating-disorder support or mental-health treatment, please work with a qualified professional — Mellowa will point you there when a request needs it.",
+    a: "No, never. For medical conditions, pregnancy nutrition, injury recovery, eating-disorder support or mental-health treatment, work with a qualified professional — Mellowa points you there when a request needs it.",
   },
 ];
 
@@ -167,7 +139,7 @@ export default function LandingPage() {
         operatingSystem: "Web",
         url: SITE_URL,
         description:
-          "Realistic daily wellbeing plans that adapt to your energy, mood and schedule — not medical care, therapy or emergency support.",
+          "General wellbeing day plans that reshape what is left when your day changes, keeping completed items and offering Undo — not medical care, therapy or emergency support.",
         offers: [
           {
             "@type": "Offer",
@@ -231,14 +203,36 @@ export default function LandingPage() {
           For days that don&rsquo;t follow a routine.
         </p>
         <h1 className="mt-3 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-          {TERMS.promise}
+          When your day changes, reshape what&rsquo;s left &mdash; without
+          starting over.
         </h1>
         <p className="mx-auto mt-5 max-w-2xl text-lg text-[#6B7280]">
-          Tell Mellowa how much energy and time you have. It shapes a doable
-          plan — a meal rhythm, hydration cues, optional movement, one calm
-          reset, an evening wind-down and one small habit — without calorie
-          targets, streaks or pressure.
+          {TERMS.promise} Tell Mellowa the energy and time you actually have,
+          and it shapes a general wellbeing plan around it &mdash; no calorie
+          targets, no streaks, nothing to catch up on.
         </p>
+
+        {/* The loop, above the fold: this is the wedge, so it must be the
+            first thing a visitor understands — not a mechanism section they
+            have to scroll to reach. */}
+        <ol className="mx-auto mt-7 flex max-w-2xl flex-wrap items-center justify-center gap-x-2 gap-y-2 text-sm text-[#6B7280]">
+          {[
+            "Check in",
+            "One next step",
+            "Adjust what's left",
+            "Completed items stay",
+            "Undo is free",
+          ].map((beat, index) => (
+            <li key={beat} className="flex items-center gap-2">
+              {index > 0 && (
+                <span aria-hidden className="text-[#C9C3B8]">
+                  &rarr;
+                </span>
+              )}
+              <span className="rounded-full bg-white px-3 py-1.5">{beat}</span>
+            </li>
+          ))}
+        </ol>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <TrackedCta
             href="/signup"
@@ -255,7 +249,10 @@ export default function LandingPage() {
             See a sample plan
           </a>
         </div>
-        <p className="mt-4 text-sm text-[#9CA3AF]">{TERMS.sampleHelper}</p>
+        <p className="mt-4 text-sm text-[#9CA3AF]">
+          {TERMS.sampleHelper} An account is required; no card is requested for
+          the sample.
+        </p>
       </section>
 
       {/* Trust strip */}
@@ -269,48 +266,14 @@ export default function LandingPage() {
         </p>
       </section>
 
-      {/* 2. Problem */}
-      <section className="mx-auto max-w-3xl px-6 py-12 text-center">
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Your day changes. Most plans don&rsquo;t.
-        </h2>
-        <p className="mx-auto mt-3 max-w-xl text-[#6B7280]">
-          Advice is easy to collect. The difficult part is deciding what fits
-          between work, meals, low energy and everything that changed after
-          breakfast. Mellowa turns that decision into one manageable day.
-        </p>
-      </section>
-
-      {/* 3. Mechanism */}
-      <section className="mx-auto max-w-3xl px-6 py-8">
-        <div className="rounded-3xl bg-[#7C9A92] p-8 text-center text-white sm:p-12">
-          <h2 className="text-2xl font-semibold tracking-tight">
-            Less deciding. One plan that adjusts with you.
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-white/85">
-            Your planning baseline plus today&rsquo;s energy, stress and time,
-            shaped by the plan mode you choose. The result is smaller on
-            difficult days and more complete when you have room.
-          </p>
-          <ul className="mx-auto mt-6 grid max-w-xl gap-2 text-left text-sm text-white/90 sm:grid-cols-2">
-            {PLAN_CATEGORIES.map((category) => (
-              <li key={category} className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-white/70" />
-                <span>{category}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
       {/* 4. Sample plan preview — one concrete, anonymized day */}
       <section id="sample-plan" className="mx-auto max-w-3xl px-6 py-12">
         <h2 className="text-center text-2xl font-semibold tracking-tight">
           One real day, start to finish
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-center text-[#6B7280]">
-          An example for a busy weekday with medium energy and about 20 minutes
-          to cook. Yours is shaped by your own check-in.
+          An example weekday with medium energy and about 20 minutes to cook.
+          Yours is shaped by your own check-in.
         </p>
         <div className="mx-auto mt-8 max-w-md rounded-2xl bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
@@ -339,60 +302,61 @@ export default function LandingPage() {
         </p>
       </section>
 
+      {/* 3. Mechanism */}
+      <section id="how-it-works" className="mx-auto max-w-3xl px-6 py-8">
+        <div className="rounded-3xl bg-[#7C9A92] p-8 text-center text-white sm:p-12">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Your day changes. Most plans don&rsquo;t.
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-white/85">
+            Every plan is smaller on difficult days and more complete when you
+            have room. Each one covers:
+          </p>
+          <ul className="mx-auto mt-6 grid max-w-xl gap-2 text-left text-sm text-white/90 sm:grid-cols-2">
+            {PLAN_CATEGORIES.map((category) => (
+              <li key={category} className="flex items-start gap-2">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-white/70" />
+                <span>{category}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
       {/* 5. Who it's for / how personalization works / what the AI does */}
       <section className="mx-auto max-w-3xl px-6 py-12">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <h3 className="font-medium text-[#1F2937]">Who it&rsquo;s for</h3>
             <p className="mt-2 text-sm text-[#6B7280]">
-              People with full, changeable days who want a simple, realistic
-              rhythm for food, movement, focus and winding down — without
-              dieting or tracking everything.
+              People with full, changeable days who want a realistic rhythm for
+              food, movement and winding down — without dieting or tracking.
             </p>
           </div>
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <h3 className="font-medium text-[#1F2937]">Who it&rsquo;s not for</h3>
             <p className="mt-2 text-sm text-[#6B7280]">
               It isn&rsquo;t medical care, therapy or crisis support, and
-              won&rsquo;t create disease-specific or weight-loss diets. Medical,
-              crisis and severe-allergy needs are redirected to qualified help.
+              won&rsquo;t create disease-specific or weight-loss diets. Those
+              needs are redirected to qualified help.
             </p>
           </div>
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <h3 className="font-medium text-[#1F2937]">How personalization works</h3>
             <p className="mt-2 text-sm text-[#6B7280]">
-              A short check-in — your energy, time, schedule, diet preference and
-              allergies — shapes each plan. You can tell Mellowa what didn&rsquo;t
-              fit, and remove anything it learned at any time.
+              Your check-in — energy, time, schedule, diet preference and
+              allergies — shapes each plan. Say what didn&rsquo;t fit, and remove
+              anything it learned at any time.
             </p>
           </div>
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <h3 className="font-medium text-[#1F2937]">What the AI does</h3>
             <p className="mt-2 text-sm text-[#6B7280]">
               It turns your check-in into a structured day using general
-              wellbeing guidance. Every request is safety-checked first. It
-              never diagnoses conditions and isn&rsquo;t a source of medical
-              nutrition advice.
+              wellbeing guidance. Every request is safety-checked first, and it
+              never diagnoses conditions.
             </p>
           </div>
-        </div>
-      </section>
-
-      {/* 6. How it works */}
-      <section id="how-it-works" className="mx-auto max-w-5xl px-6 py-12">
-        <h2 className="text-center text-2xl font-semibold tracking-tight">
-          From check-in to a clearer day
-        </h2>
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((item) => (
-            <div key={item.step} className="rounded-2xl bg-white p-6 shadow-sm">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#7C9A92]/10 text-sm font-semibold text-[#6D8C7D]">
-                {item.step}
-              </span>
-              <h3 className="mt-3 font-medium">{item.title}</h3>
-              <p className="mt-1 text-sm text-[#6B7280]">{item.text}</p>
-            </div>
-          ))}
         </div>
       </section>
 
