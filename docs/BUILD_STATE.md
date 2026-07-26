@@ -5,8 +5,8 @@ what is actually open." It exists because prompt packs v8, v9 and v10 re-asked
 for work that was already shipped. If you are scoping a new pack from the public
 repo, read this file first — not the individual `launch-go-no-go-*.md` history.
 
-**Last verified:** 2026-07-26 on branch `v10` through MW-V10-06 (baseline
-`90f5482` = `main`). Automated suite: **842 tests / 79 files green**, lint clean
+**Last verified:** 2026-07-26 on branch `v10` through MW-V10-07 (baseline
+`90f5482` = `main`). Automated suite: **873 tests / 80 files green**, lint clean
 (0 errors), typecheck clean, production build clean, 39 public Playwright
 journeys green across desktop / 375px / 320px. The 33-test authenticated state
 matrix added in MW-V10-03 is **unrun** — no seeded environment exists.
@@ -15,7 +15,8 @@ matrix added in MW-V10-03 is **unrun** — no seeded environment exists.
 target — see `launch-go-no-go-v10.md`) · MW-V10-02 ✅ (infrastructure only; the
 experiment is **not running**) · MW-V10-03 ✅ (state matrix written but
 **unrun**) · MW-V10-04 ✅ · MW-V10-05 ✅ (live rehearsal still unrun —
-worksheet in `docs/ops-cron.md`) · MW-V10-06 ✅ · MW-V10-07 … 08 not started.
+worksheet in `docs/ops-cron.md`) · MW-V10-06 ✅ · MW-V10-07 ✅ · MW-V10-08 not
+started.
 
 **Status vocabulary** (used strictly, same as the go/no-go docs):
 *tested* = automated in-repo · *configured* = infrastructure set but not

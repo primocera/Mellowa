@@ -28,6 +28,7 @@ import { isLighterDay, pickCalmReset } from "@/lib/today/disclosure";
 import { nextAction, type NowItem } from "@/lib/today/next-action";
 import { deterministicDiff } from "@/lib/plan/repair";
 import { trackClient } from "@/lib/analytics/client";
+import { buttonClass } from "@/components/ui";
 import { useRouter } from "next/navigation";
 
 // MW-S07: honest entitlement copy per server decision. Trial eligibility is
@@ -580,7 +581,7 @@ export function TodayPlanV2({
               setStaleView(null);
               router.refresh();
             }}
-            className="shrink-0 rounded-xl border border-[#7C9A92]/40 px-3 py-1.5 text-xs font-medium text-[#6D8C7D] transition hover:bg-white/60"
+            className="inline-flex min-h-[44px] shrink-0 items-center rounded-xl border border-[#7C9A92]/40 px-4 text-xs font-medium text-[#6D8C7D] transition hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2"
           >
             Reload today
           </button>
@@ -600,7 +601,7 @@ export function TodayPlanV2({
               toggleDone(justDone, "now");
               setJustDone(null);
             }}
-            className="shrink-0 font-medium underline underline-offset-2 hover:text-[#14532D]"
+            className="inline-flex min-h-[44px] shrink-0 items-center px-2 font-medium underline underline-offset-2 hover:text-[#14532D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#166534] focus-visible:ring-offset-2"
           >
             Undo
           </button>
@@ -634,7 +635,7 @@ export function TodayPlanV2({
               onClick={() => toggleDone(nowSelection.action!.key, "now")}
               disabled={savingKeys.has(nowSelection.action.key)}
               aria-busy={savingKeys.has(nowSelection.action.key)}
-              className="flex items-center gap-2 rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6D8C7D] disabled:opacity-70"
+              className={buttonClass("primary")}
             >
               {savingKeys.has(nowSelection.action.key) && (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -645,13 +646,13 @@ export function TodayPlanV2({
               onClick={() => setDeferOpen((v) => !v)}
               disabled={savingKeys.has(nowSelection.action.key)}
               aria-expanded={deferOpen}
-              className="rounded-xl border border-[#E5E1DA] px-4 py-2 text-sm text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937]"
+              className={buttonClass("secondary")}
             >
               Not now
             </button>
             <button
               onClick={() => setShowFull((v) => !v)}
-              className="rounded-xl px-3 py-2 text-sm text-[#7C9A92] underline underline-offset-2 hover:text-[#6D8C7D]"
+              className={buttonClass("quiet", "text-[#7C9A92] underline underline-offset-2 hover:text-[#6D8C7D]")}
             >
               {showFull ? "Hide full plan" : "View full plan"}
             </button>
@@ -669,7 +670,9 @@ export function TodayPlanV2({
                 <button
                   key={code}
                   onClick={() => deferNow(nowSelection.action!, code)}
-                  className="rounded-full border border-[#E5E1DA] px-3 py-1.5 text-xs text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937]"
+                  // MW-V10-07: 44px minimum. These sat at ~30px on the most
+                  // frequently tapped screen in the product.
+                  className="inline-flex min-h-[44px] items-center rounded-full border border-[#E5E1DA] px-4 text-xs text-[#6B7280] transition hover:border-[#7C9A92]/50 hover:text-[#1F2937] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2"
                 >
                   {label}
                 </button>
@@ -1072,7 +1075,7 @@ export function TodayPlanV2({
                 onClick={() => setRepairReason(code)}
                 aria-pressed={repairReason === code}
                 className={clsx(
-                  "rounded-full border px-3 py-1.5 text-xs transition",
+                  "inline-flex min-h-[44px] items-center rounded-full border px-4 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2",
                   repairReason === code
                     ? "border-[#7C9A92] bg-[#7C9A92]/10 text-[#1F2937]"
                     : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"
@@ -1115,7 +1118,10 @@ export function TodayPlanV2({
                       }
                       aria-pressed={isKept}
                       className={clsx(
-                        "rounded-full border px-2.5 py-0.5 text-xs transition",
+                        // MW-V10-07: this "Keep this" toggle was ~20px tall —
+                        // the smallest interactive target in the app, on the
+                        // control that decides what a repair may overwrite.
+                        "inline-flex min-h-[44px] shrink-0 items-center rounded-full border px-3 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2",
                         isKept
                           ? "border-[#7C9A92] bg-[#7C9A92]/10 text-[#1F2937]"
                           : "border-[#E5E1DA] text-[#6B7280] hover:border-[#7C9A92]/50"

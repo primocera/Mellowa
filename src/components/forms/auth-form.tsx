@@ -191,10 +191,14 @@ export function AuthForm({
       {!isLogin && (
         <fieldset className="space-y-2.5">
           <legend className="sr-only">Required confirmations</legend>
-          <label className="flex items-start gap-2.5 text-sm text-[#1F2937]">
+          <label className="flex min-h-[44px] items-center gap-2.5 py-1 text-sm text-[#1F2937]">
             <input
               type="checkbox"
-              className="mt-0.5 h-4 w-4 rounded border-[#E5E1DA] accent-[#7C9A92]"
+              // MW-V10-07: the checkbox stays visually 16px; the LABEL is the
+              // 44px target, which is the accessible pattern — tapping the text
+              // toggles the box. Enlarging the box itself would look wrong and
+              // help nobody.
+              className="h-4 w-4 shrink-0 rounded border-[#E5E1DA] accent-[#7C9A92]"
               {...register("age18", { required: "Please confirm you are 18 or older" })}
             />
             <span>I am at least 18 years old</span>
@@ -202,10 +206,14 @@ export function AuthForm({
           {errors.age18 && (
             <p className="text-sm text-red-500">{errors.age18.message}</p>
           )}
-          <label className="flex items-start gap-2.5 text-sm text-[#1F2937]">
+          <label className="flex min-h-[44px] items-center gap-2.5 py-1 text-sm text-[#1F2937]">
             <input
               type="checkbox"
-              className="mt-0.5 h-4 w-4 rounded border-[#E5E1DA] accent-[#7C9A92]"
+              // MW-V10-07: the checkbox stays visually 16px; the LABEL is the
+              // 44px target, which is the accessible pattern — tapping the text
+              // toggles the box. Enlarging the box itself would look wrong and
+              // help nobody.
+              className="h-4 w-4 shrink-0 rounded border-[#E5E1DA] accent-[#7C9A92]"
               {...register("policies", {
                 required: "Please accept the Terms and Privacy Policy",
               })}

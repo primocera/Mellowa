@@ -42,9 +42,14 @@ export default async function PricingPage() {
   const emphasizeYearly = isYearlyEmphasisEnabled();
   return (
     <div className="min-h-screen bg-[#FAF7F2] px-6 py-12">
-      <div className="mx-auto max-w-3xl">
+      {/* MW-V10-07: main landmark — see src/app/page.tsx. */}
+      <main id="main" className="mx-auto max-w-3xl">
         <div className="text-center">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-[#1F2937]">
+          {/* MW-V10-07: 44px — this is the only way back from Pricing. */}
+          <Link
+            href="/"
+            className="inline-flex min-h-[44px] items-center rounded-lg px-2 text-lg font-semibold tracking-tight text-[#1F2937] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2"
+          >
             Mellowa
           </Link>
           <h1 className="mt-6 text-3xl font-semibold tracking-tight text-[#1F2937]">
@@ -153,7 +158,7 @@ export default async function PricingPage() {
             : "Your subscription renews automatically. Cancel anytime from your billing settings."}{" "}
           Mellowa is not medical care, therapy or emergency support.
         </p>
-      </div>
+      </main>
     </div>
   );
 }

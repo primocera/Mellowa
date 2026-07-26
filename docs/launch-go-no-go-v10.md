@@ -24,11 +24,11 @@ Nothing below claims production behaviour was verified from tests or mocks.
 |---|---|---|
 | Lint | `npm run lint` | ✅ 0 errors (8 pre-existing warnings, untouched files) |
 | Type safety | `npm run typecheck` | ✅ clean |
-| Unit/contract/safety suite | `npx vitest run` | ✅ **842 passed / 79 files** |
+| Unit/contract/safety suite | `npx vitest run` | ✅ **873 passed / 80 files** |
 | Adversarial red-team matrix | `npx vitest run tests/adversarial-matrix.test.ts` | ✅ within the suite |
 | Safety + eval gate | `npm run eval` | ✅ 81 passed — now includes the MW-V10-04 golden fit/variety gates |
 | Production build | `npm run build` | ✅ clean |
-| Public browser journeys | `npm run test:e2e:public` | ✅ 39 passed across desktop / 375px / **320px** |
+| Public browser journeys | `npm run test:e2e:public` | ✅ **48 passed** across desktop / 375px / 320px, now including landmark, heading, focus-visibility and measured 44px-target checks |
 | **Daily-journey state matrix** | `npm run test:e2e:journey` | ⛔ **not run — no seeded env.** 33 tests exist; unrun tests are not evidence. |
 | **Authenticated browser journeys** | `npm run test:e2e` | ⛔ **not run — no seeded env. Non-green for RC.** |
 | Env/readiness presence | `npm run release-check` | ⚠ run with production env pulled |
@@ -309,6 +309,48 @@ instant in winter and summer, and repeated runs across one local day send once.
   decides**, and states that cancellation is never blocked or delayed by
   research.
 
+### MW-V10-07 — mobile polish, accessibility and failure states
+
+The audit found real defects rather than cosmetic ones, and the new browser
+checks are what found most of them.
+
+- **Today could present another day's plan as today's.** For a profile with an
+  unusable timezone the query fell back to a rolling `plan_date >= yesterday`
+  window, and the page then labelled the result "Today · plan ready". A user
+  would have followed a day built for different conditions. The plan's own
+  `plan_date` is now always compared against the resolved local date; a
+  non-matching plan is named with its real date and framed as history.
+- **The public routes had no error boundary at all.** `(app)/error.tsx` covered
+  the authenticated shell, so a failed read on the landing, pricing or legal
+  pages showed Next's default error screen — on the first page a prospective
+  user sees. Added `app/error.tsx` and `app/global-error.tsx`; the latter renders
+  its own document and imports nothing shared, because any import could be the
+  module that failed.
+- **No `<main>` landmark on any public page**, so a screen-reader user had
+  nothing to skip the navigation to. Added to the landing, pricing and auth
+  layouts (legal pages already had one).
+- **Touch targets below the AA minimum on the most-used controls.** The landing
+  nav links were 20px and the legal/support footer links 16px — the links a user
+  reaches for when they want to leave or complain. On Today, the Now card's
+  Done/Not now buttons were ~36px, the defer-reason chips ~30px, and the repair
+  sheet's "Keep this" toggle ~20px — the control that decides what a repair may
+  overwrite. All now 44px, via the shared primitive where one applies.
+- **Loading boundaries** added for check-in, billing and You (previously only
+  Today and Week), so the three remaining daily routes no longer blank. Billing
+  matters most: that page can sync with Stripe on return from checkout, which is
+  the slowest read in the app and the worst place for a blank screen.
+- **One round trip removed from Today** by running the profile and plan reads in
+  parallel — possible only because the plan query no longer depends on the
+  timezone.
+
+The 44px check measures the **effective** target: a checkbox's wrapping
+`<label>` counts, because tapping the text toggles it, and inline links inside
+body copy are exempt by design. Both exemptions are documented in the test
+rather than assumed.
+
+**No Lighthouse score is claimed.** LCP/CLS/INP have not been measured at an RC;
+P2 #8 stays open.
+
 ## 3. Live rehearsal — owner must execute (evidence required)
 
 None of these can be proven from this environment. Claude Code must not mutate
@@ -347,7 +389,7 @@ live Stripe, Supabase, Vercel, Resend, DNS or cron.
 | ~~5~~ | ~~P2~~ | ~~Trial-length experiment infrastructure absent (MW-V10-02)~~ | — | **Closed.** Server-owned, pinned, allowlisted assignment; experiment shipped but **not running** |
 | ~~6~~ | ~~P2~~ | ~~Beta invite cap + stop-acquisition switch absent (MW-V10-06)~~ | — | **Closed.** Enforced by a database trigger (migration `039`); closing intake deletes nothing and fails open when unconfigured |
 | 7 | P2 | Ceiling-denial counting not instrumented | Eng | Denial logging or accept |
-| 8 | P2 | Public Lighthouse/perf never measured at an RC | Owner | Manual run before launch |
+| 8 | P2 | Public Lighthouse/perf never measured at an RC | Owner | Manual run before launch. **Still unmeasured** — MW-V10-07 removed a round trip from Today and added loading boundaries, but no LCP/CLS/INP number has been taken, so no score is claimed. |
 
 ## 5. Rollback triggers
 
@@ -367,8 +409,8 @@ migration reversal is required to roll back any behaviour.
 
 ## 6. Verdict
 
-- **Automated code gate:** ✅ GO — lint, typecheck, 842 tests, the 81-test eval
-  gate, build and the 39 public Playwright journeys green on `v10`. **Not** part
+- **Automated code gate:** ✅ GO — lint, typecheck, 873 tests, the 81-test eval
+  gate, build and the 48 public Playwright journeys green on `v10`. **Not** part
   of this GO: the 33-test authenticated state matrix (never executed) and the
   optional live provider eval (skipped by design, and advisory even when run).
 - **Capped private beta (≤50 invites, no card for the sample):** ✅ GO, on the

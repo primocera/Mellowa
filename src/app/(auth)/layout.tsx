@@ -10,7 +10,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             A realistic wellbeing plan for the day you actually have.
           </p>
         </div>
-        <div className="rounded-2xl bg-white p-8 shadow-sm">{children}</div>
+        {/* MW-V10-07: a main landmark on the auth pages too. */}
+        <main id="main" className="rounded-2xl bg-white p-8 shadow-sm">
+          {children}
+        </main>
       </div>
     </div>
   );

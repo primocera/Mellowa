@@ -128,6 +128,12 @@ const FAQ = [
   },
 ];
 
+/** MW-V10-07: one definition per link role, so a 44px target is not optional. */
+const NAV_LINK =
+  "inline-flex min-h-[44px] items-center rounded-lg px-1.5 text-sm text-[#6B7280] transition hover:text-[#1F2937] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2 sm:px-2";
+const FOOTER_LINK =
+  "inline-flex min-h-[44px] items-center rounded-lg px-3 transition hover:text-[#6D8C7D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2";
+
 export default function LandingPage() {
   const legal = readLegalConfig();
   // MW-V10-02: the landing page has no user, so it names the trial length only
@@ -182,30 +188,40 @@ export default function LandingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       {/* Nav */}
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
+      <header className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-2 gap-y-1 px-4 py-4 sm:px-6 sm:py-5">
         <span className="text-lg font-semibold tracking-tight">Mellowa</span>
-        <nav className="flex items-center gap-3">
+        {/* MW-V10-07: every nav control is a 44px target. These were 20px
+            links — below even the 24px AA minimum, on the first row of the
+            first page anyone sees. */}
+        <nav className="flex items-center gap-1 sm:gap-2">
           <a
             href="#how-it-works"
-            className="hidden text-sm text-[#6B7280] transition hover:text-[#1F2937] sm:inline"
+            className={NAV_LINK + " hidden sm:inline-flex"}
           >
             How it works
           </a>
-          <Link href="/pricing" className="text-sm text-[#6B7280] transition hover:text-[#1F2937]">
+          {/* MW-V10-07: hidden below 380px so the 44px targets fit without the
+              header forcing a horizontally scrolling page. Pricing stays
+              reachable from the hero CTA and the footer. */}
+          <Link href="/pricing" className={NAV_LINK + " hidden min-[380px]:inline-flex"}>
             Pricing
           </Link>
-          <Link href="/login" className="text-sm text-[#6B7280] transition hover:text-[#1F2937]">
+          <Link href="/login" className={NAV_LINK}>
             Sign in
           </Link>
           <Link
             href="/signup"
-            className="rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6D8C7D]"
+            className="inline-flex min-h-[44px] items-center rounded-xl bg-[#7C9A92] px-4 text-sm font-medium text-white transition hover:bg-[#6D8C7D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2"
           >
             Create free sample
           </Link>
         </nav>
       </header>
 
+      {/* MW-V10-07: the authenticated shell had a <main> landmark; the public
+          pages had none, so a screen-reader user arriving on the landing page
+          had nothing to skip the navigation to. */}
+      <main id="main">
       {/* 1. Hero */}
       <section className="mx-auto max-w-3xl px-6 pb-12 pt-14 text-center sm:pt-20">
         <p className="text-sm font-medium uppercase tracking-wide text-[#6D8C7D]">
@@ -469,7 +485,7 @@ export default function LandingPage() {
         </p>
         <Link
           href="/pricing"
-          className="mt-6 inline-block text-sm font-medium text-[#7C9A92] hover:underline"
+          className="mt-6 inline-flex min-h-[44px] items-center rounded-lg px-2 text-sm font-medium text-[#7C9A92] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2"
         >
           See what&apos;s included →
         </Link>
@@ -510,18 +526,23 @@ export default function LandingPage() {
         </TrackedCta>
       </section>
 
+      </main>
+
       <footer className="border-t border-[#EDE9E2] py-8 text-center text-xs text-[#9CA3AF]">
-        <div className="mb-2 flex flex-wrap justify-center gap-4">
-          <Link href="/privacy" className="hover:text-[#6D8C7D]">
+        {/* MW-V10-07: legal/support links were 16px tall. These are the links a
+            user reaches for when they want to leave or complain — the last place
+            to make tapping hard. */}
+        <div className="mb-2 flex flex-wrap justify-center gap-1">
+          <Link href="/privacy" className={FOOTER_LINK}>
             Privacy
           </Link>
-          <Link href="/terms" className="hover:text-[#6D8C7D]">
+          <Link href="/terms" className={FOOTER_LINK}>
             Terms
           </Link>
-          <Link href="/refund" className="hover:text-[#6D8C7D]">
+          <Link href="/refund" className={FOOTER_LINK}>
             Refunds
           </Link>
-          <a href={`mailto:${legal.supportEmail}`} className="hover:text-[#6D8C7D]">
+          <a href={`mailto:${legal.supportEmail}`} className={FOOTER_LINK}>
             Support
           </a>
         </div>
