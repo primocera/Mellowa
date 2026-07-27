@@ -132,3 +132,25 @@ export const PRICING = {
     features: PREMIUM_FEATURES,
   },
 } as const;
+
+/**
+ * What the Stripe price objects MUST be, in machine-comparable form.
+ *
+ * Why this exists: the live prices were created in **USD** while every surface
+ * in the product — landing, pricing, paywall, emails, Terms, Refund policy —
+ * promised EUR. A user reading "€9.99" was sent to a checkout charging $9.99,
+ * their bank converted at its own rate and added a foreign-transaction fee, so
+ * the amount actually taken was never a number this product had shown them.
+ * `release-check` passed throughout, because it verified only that the price
+ * IDs were *set* — never what they cost or in what currency.
+ *
+ * `scripts/verify-stripe-prices.mjs` compares these values against the real
+ * Stripe objects. The display strings above and the amounts here are pinned to
+ * each other by `tests/billing-contract.test.ts`, so changing a price has to be
+ * done deliberately in both places rather than drifting in one.
+ */
+export const BILLING_CONTRACT = {
+  currency: "eur",
+  monthly: { minorUnits: 999, interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY" },
+  yearly: { minorUnits: 5999, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY" },
+} as const;

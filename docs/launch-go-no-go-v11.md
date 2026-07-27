@@ -120,10 +120,20 @@ Recorded as done (so it stops being re-asked):
       read-only check on 2026-07-26. Confirm via `/api/health/ready`.
 - [x] **Manual functional testing across versions** — owner, ongoing.
 - [x] **Live Stripe configuration** switched 2026-07-21 (live key, webhook and
-      signing secret, two live EUR price ids). **Configured only** — no
+      signing secret, two live price ids). **The price ids were recorded here as
+      EUR and they are not — both are USD.** See `P0-PRICE-CURRENCY`; this line
+      is left uncorrected above the correction on purpose, because "configured"
+      was asserted from the fact that ids existed rather than from reading them.
+      **Configured only** — no
       transaction has been put through it.
 
 Open, with an owner:
+
+- [ ] **Fix the price currency before any other billing step.** Create EUR
+      prices (999 and 5999), repoint `STRIPE_PRICE_PRO_MONTHLY` and
+      `STRIPE_PRICE_PRO_YEARLY` in Vercel production, archive the USD prices,
+      and run `npm run verify-prices` against the production env until it is
+      green. (`P0-PRICE-CURRENCY`) Evidence: __
 
 - [ ] **One real low-value transaction** end to end: signup → sample → sample
       adjustment → live trial checkout → exact charge disclosure → daily repair
@@ -157,7 +167,7 @@ support cost — each with its numerator, denominator, window and the action to
 take if it lands short. Cohorts under five report "—" rather than 0%, and the
 expansion verdict defaults to BLOCKED.
 
-That is **3 owner-run items**. The count is derived from the manifest and
+That is **4 owner-run items**. The count is derived from the manifest and
 asserted by a test, so it can no longer disagree with the list beneath it.
 
 ## 4. Open blockers
@@ -168,6 +178,7 @@ convention.
 
 | Id | Level | Blocks | Item | Owner |
 |---|---|---|---|---|
+| `P0-PRICE-CURRENCY` | **P0** | capped beta + public paid | Live Stripe prices are USD while every surface promises EUR; Stripe does not convert | Owner |
 | `P0-LIVE-TRANSACTION` | **P0** | public paid | No real transaction has been put through live Stripe end to end | Owner |
 | `P1-REMINDER-REHEARSAL` | **P1** | public paid | Reminder / cron / lifecycle email delivery never observed in a real inbox | Owner |
 | `P1-ROTATION-RESTORE` | **P1** | public paid | Key rotation and backup restore never rehearsed | Owner |

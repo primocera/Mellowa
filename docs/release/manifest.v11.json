@@ -125,19 +125,27 @@
       "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
       "counts": {
         "total": 12,
-        "passed": 6,
+        "passed": 9,
         "failed": 0,
-        "skipped": 6
+        "skipped": 3
       },
-      "evidence": "docs/release/evidence/v11/rc/e2e-auth.txt",
-      "note": "PARTIAL. Six journeys (login, settings data controls, pricing trial state) now genuinely execute against the live Supabase project as a synthetic account, across desktop / 375px / 320px — the first authenticated execution at this baseline. Six remain skipped: they require the trial-eligible and trial-used fixtures, which MW-V11-04 added to the seed script but which have not been seeded here (running the service-role seed is not permitted in this session). Each skip now names the exact fixture and command, so it can no longer be mistaken for a decision. This is recorded as a pass only for the six that ran."
+      "evidence": "docs/release/evidence/v11/rc/e2e-auth-trial-eligible.txt",
+      "note": "Run per fixture, because no single database state satisfies every journey: trial-eligible (e2e-auth-trial-eligible.txt) and trial-used (e2e-auth-trial-used.txt), 9 passed / 3 skipped each, the 3 skips in each being the tests that need the other fixture. Together all 12 execute. Both fixtures were added in MW-V11-04 because no seed state could previously produce a trial-eligible or prior-trial user, so two required journeys had never run."
     },
     {
       "id": "e2e-daily-journey",
       "command": "npm run test:e2e:journey",
       "required": true,
-      "status": "blocked",
-      "note": "BLOCKED for the same reason as e2e-authenticated. Every one of the eight seeded states now asserts page identity and that the fixture actually applied before testing anything, so a seed that silently fails to apply produces a failure rather than a state assertion that passes for the wrong reason."
+      "status": "local_pass",
+      "note": "33/33 green — the first execution of the eight-state matrix in its history. The first run failed 21 of 33 on false negatives in the harness, not the product: one-shot innerText reads raced the loading boundaries, a signature regex said 'stays readable' where the banner says 'stay readable', and the nav-occlusion check used scrollIntoViewIfNeeded, which is unaware of fixed overlays.",
+      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
+      "counts": {
+        "total": 33,
+        "passed": 33,
+        "failed": 0,
+        "skipped": 0
+      },
+      "evidence": "docs/release/evidence/v11/rc/e2e-daily-journey.txt"
     },
     {
       "id": "release-check",
@@ -217,6 +225,17 @@
     }
   ],
   "blockers": [
+    {
+      "id": "P0-PRICE-CURRENCY",
+      "level": "P0",
+      "title": "The live Stripe prices are in USD while every customer surface promises EUR. price_1TvRDS is 999 usd/month and price_1TvREH is 5999 usd/year, on an account whose default currency is eur.",
+      "owner": "Owner",
+      "blocks": [
+        "capped_beta",
+        "public_paid"
+      ],
+      "acceptance": "EUR prices created (999 and 5999), STRIPE_PRICE_PRO_MONTHLY and STRIPE_PRICE_PRO_YEARLY repointed in Vercel production, the USD prices archived rather than deleted, and `npm run verify-prices` green against the production env. Stripe does not convert, so until then a user who reads EUR 9.99 is charged USD 9.99 plus whatever their bank adds in FX. This is also the most likely cause of the rehearsal card declines: an EU card asked to authorise a USD charge from an EU merchant is the shape issuers refuse after 3DS."
+    },
     {
       "id": "P0-LIVE-TRANSACTION",
       "level": "P0",
@@ -345,5 +364,6 @@
     "docs/runbooks/live-transaction-rehearsal.md",
     "docs/runbooks/key-rotation-and-backup.md",
     "docs/ops-cron.md"
-  ]
+  ],
+  "supersededNote": "RC 0025a502 is SUPERSEDED. Product code changed after the freeze: the mobile sign-out fix, the paywall hydration fix, and the USD/EUR billing contract work. The candidate must be re-cut and every gate re-run before any verdict is read from this file."
 }

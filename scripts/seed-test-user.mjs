@@ -371,10 +371,22 @@ console.log("\n✅ Test user ready:");
 console.log("   Email:    " + EMAIL);
 console.log("   Password: " + PASSWORD);
 console.log("   State:    " + STATE);
+// MW-V11: report what was actually written, not the default that the two
+// billing states never use. This line printed "trialing" for `trial-eligible`
+// (which deletes the subscription row outright) and for `trial-used` (which
+// writes a canceled row with trial_used_at) — so the summary contradicted the
+// state it had just seeded, which is exactly the kind of small lie that costs
+// an hour when a live test then behaves "wrong".
+const reportedStatus =
+  STATE === "trial-eligible"
+    ? "no subscription row — trial-eligible"
+    : STATE === "trial-used"
+      ? "canceled, trial_used_at set — pay-today only"
+      : subState.status + (subState.cancel_at_period_end ? " (set not to renew)" : "");
+
 console.log(
   "   Status:   " +
-    subState.status +
-    (subState.cancel_at_period_end ? " (set not to renew)" : "") +
+    reportedStatus +
     (STATE === "no-plan" ? ", no plan for today" : ", plan seeded for " + localDate) +
     "\n"
 );
