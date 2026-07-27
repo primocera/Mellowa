@@ -892,3 +892,78 @@ scorecard is read from events that already exist; no new event was added.
 and revert the runbook. No product behaviour is involved.
 
 **Open blockers after this prompt:** unchanged.
+
+---
+
+## MW-V11-08 — Freeze the final candidate and issue separate gates
+
+**Outcome:** candidate frozen at **`0025a5021f921800d08edee1c86f3c33c62185da`**.
+Capped private beta: **CONDITIONAL GO**. Unrestricted public paid launch:
+**NO-GO**.
+
+The RC is the last *functional* commit. This slice adds no product code — only
+the freeze and the manifest update — because freezing the gate's own commit
+would mean the verdict described code the gate had not been run against. Same
+reasoning v10 used, and the same reason the RC SHA is not the branch tip.
+
+**Measured at the candidate**
+
+| Command | Result |
+|---|---|
+| `npm run lint` | 0 errors, 8 pre-existing warnings |
+| `npm run typecheck` | clean |
+| `npx vitest run` | **1076 passed / 87 files** |
+| `npm run eval` | 81 passed |
+| Safety suites (6 files) | 73 passed |
+| Privacy suites (3 files) | 26 passed |
+| `npm run build` | clean |
+| `npm run test:e2e:public` | 75 passed × desktop / 375px / 320px |
+| `npx playwright test e2e/journeys.spec.ts` | 6 passed / **6 skipped** |
+| `npm run test:e2e:journey` | **blocked** — service-role seed not permitted here |
+| `npm run perf` | 4 passed — landing LCP 812ms, CLS 0 |
+| `npm run release-check` | fails closed by design — 14 missing, no values printed |
+| `git diff --check` | clean |
+
+**Verdicts, and why they differ.** The beta is conditional rather than blocked
+because its risk profile is genuinely different: the cap is a database trigger
+rather than a documented intention, the safety and allergen gates are
+fail-closed and tested, the sample needs no card, and the thresholds that decide
+whether to widen are now predeclared. Its one condition is the eight-state
+matrix — one seeded run, not a code change.
+
+Public paid stays NO-GO on one P0 and four P1s, three of which no development
+environment can close: a real transaction through to refund, delivery observed
+in a real inbox, and a restore with a measured recovery time.
+
+**Pinned at the RC:** prompt `daily-plan-v2@1`, model default
+`claude-haiku-4-5-20251001`, analytics v1, migrations `001`–`039` (**v11 adds
+none**), reminder consent `2026-07`, both opt-in flags OFF, and — new — **no
+webfonts at all**.
+
+**The seven defects v11 found, none visible to a green suite.** Four were in the
+product (hero whitespace, "a 3 days trial" on three surfaces, the header
+exemption, 53KB of fonts rendering nothing). Three were tests that had stopped
+testing: a locator pinned to pre-rename copy that skipped forever, a config that
+never read `.env.local` so the authenticated suites skipped while looking
+configured, and two required journeys no fixture could ever reach. Those three
+are the reason the manifest validator refuses a pass without a raw artifact at
+the candidate SHA, and why a skipped required suite can never produce a GO.
+
+**Changed files**
+
+| Area | File | What |
+|---|---|---|
+| Release | `docs/release/manifest.v11.json` | RC SHA frozen; every suite record re-pointed at the RC evidence with counts |
+| Release | `docs/launch-go-no-go-v11.md` | FROZEN; pinned contract versions, measured table, two verdicts, what would change them |
+| Evidence | `docs/release/evidence/v11/rc/*` | Raw logs for every gate run at the candidate |
+| Tests | `tests/release-manifest.test.ts` | The "no candidate yet" assertion became "a frozen candidate must be a real SHA and not the baseline" |
+
+**Migrations / config / flags:** none. **Analytics impact:** none.
+
+**Rollback:** the candidate is a commit on `v11`, not a deploy. Nothing has been
+pushed or merged. Reverting is `git revert` or abandoning the branch; no schema,
+flag or persisted data is involved anywhere in v11.
+
+**Open blockers at the frozen candidate:** `P0-LIVE-TRANSACTION`,
+`P1-REMINDER-REHEARSAL`, `P1-ROTATION-RESTORE` (owner-run),
+`P1-AUTH-E2E-AT-HEAD` (one seeded run), and six P2s.

@@ -350,10 +350,15 @@ describe("the real v11 manifest", () => {
     ).toEqual([]);
   });
 
-  it("records the reviewed baseline and no frozen candidate yet", () => {
+  it("records the reviewed baseline and, once frozen, a real candidate", () => {
     expect(manifest.baselineSha).toBe(SHA);
-    // MW-V11-08 freezes the candidate; until then a GO is impossible.
-    expect(manifest.rcSha).toBeNull();
+    // MW-V11-08 froze the candidate. Before that this asserted rcSha was null;
+    // now the rule is that a frozen candidate must be a real 40-character SHA
+    // and must not be the baseline it was cut from.
+    if (manifest.rcSha !== null) {
+      expect(manifest.rcSha).toMatch(/^[0-9a-f]{40}$/);
+      expect(manifest.rcSha).not.toBe(manifest.baselineSha);
+    }
     expect(manifest.verdicts.public_paid).toBe("NO-GO");
   });
 

@@ -2,14 +2,49 @@
   "schema": 1,
   "release": "v11",
   "baselineSha": "169c706683a821054351f45a5916f667ea93557c",
-  "rcSha": null,
-  "reconciledAtUtc": "2026-07-26T19:05:00Z",
-  "buildId": null,
+  "rcSha": "0025a5021f921800d08edee1c86f3c33c62185da",
+  "reconciledAtUtc": "2026-07-27T00:00:00Z",
+  "buildId": "local production build at the RC (no deploy id; Vercel deploy is owner-run)",
   "migrations": [
-    "001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
-    "011", "012", "013", "014", "015", "016", "017", "018", "019", "020",
-    "021", "022", "023", "024", "025", "026", "027", "028", "029", "030",
-    "031", "032", "033", "034", "035", "036", "037", "038", "039"
+    "001",
+    "002",
+    "003",
+    "004",
+    "005",
+    "006",
+    "007",
+    "008",
+    "009",
+    "010",
+    "011",
+    "012",
+    "013",
+    "014",
+    "015",
+    "016",
+    "017",
+    "018",
+    "019",
+    "020",
+    "021",
+    "022",
+    "023",
+    "024",
+    "025",
+    "026",
+    "027",
+    "028",
+    "029",
+    "030",
+    "031",
+    "032",
+    "033",
+    "034",
+    "035",
+    "036",
+    "037",
+    "038",
+    "039"
   ],
   "suites": [
     {
@@ -17,8 +52,8 @@
       "command": "npm run lint",
       "required": true,
       "status": "local_pass",
-      "sha": "169c706683a821054351f45a5916f667ea93557c",
-      "evidence": "docs/release/evidence/v11/lint.txt",
+      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
+      "evidence": "docs/release/evidence/v11/rc/lint.txt",
       "note": "0 errors, 8 pre-existing warnings in untouched files."
     },
     {
@@ -26,17 +61,22 @@
       "command": "npm run typecheck",
       "required": true,
       "status": "local_pass",
-      "sha": "169c706683a821054351f45a5916f667ea93557c",
-      "evidence": "docs/release/evidence/v11/typecheck.txt"
+      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
+      "evidence": "docs/release/evidence/v11/rc/typecheck.txt"
     },
     {
       "id": "unit-contract-safety",
       "command": "npx vitest run",
       "required": true,
       "status": "local_pass",
-      "sha": "169c706683a821054351f45a5916f667ea93557c",
-      "counts": { "total": 1029, "passed": 1029, "failed": 0, "skipped": 0 },
-      "evidence": "docs/release/evidence/v11/vitest.txt",
+      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
+      "counts": {
+        "total": 1076,
+        "passed": 1076,
+        "failed": 0,
+        "skipped": 0
+      },
+      "evidence": "docs/release/evidence/v11/rc/vitest.txt",
       "note": "86 files. The baseline was 900/81 before any v11 slice landed (see vitest.txt for that run); v11 added copy, landing-proof, release-manifest and e2e-integrity coverage. Re-measured at the frozen candidate in MW-V11-08. A large green count is not launch readiness — see the v10 record of defects this suite reported green, and note that MW-V11-04 found a silently-skipping browser test that this suite could not see."
     },
     {
@@ -44,9 +84,14 @@
       "command": "npm run eval",
       "required": true,
       "status": "local_pass",
-      "sha": "169c706683a821054351f45a5916f667ea93557c",
-      "counts": { "total": 81, "passed": 81, "failed": 0, "skipped": 0 },
-      "evidence": "docs/release/evidence/v11/eval.txt",
+      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
+      "counts": {
+        "total": 81,
+        "passed": 81,
+        "failed": 0,
+        "skipped": 0
+      },
+      "evidence": "docs/release/evidence/v11/rc/eval.txt",
       "note": "Safety plus golden fit and variety gates. No LLM judges safety anywhere."
     },
     {
@@ -54,17 +99,22 @@
       "command": "npm run build",
       "required": true,
       "status": "local_pass",
-      "sha": "169c706683a821054351f45a5916f667ea93557c",
-      "evidence": "docs/release/evidence/v11/build.txt"
+      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
+      "evidence": "docs/release/evidence/v11/rc/build.txt"
     },
     {
       "id": "e2e-public",
       "command": "npm run test:e2e:public",
       "required": true,
       "status": "local_pass",
-      "sha": "169c706683a821054351f45a5916f667ea93557c",
-      "counts": { "total": 75, "passed": 75, "failed": 0, "skipped": 0 },
-      "evidence": "docs/release/evidence/v11/e2e-public-mw-v11-03.txt",
+      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
+      "counts": {
+        "total": 75,
+        "passed": 75,
+        "failed": 0,
+        "skipped": 0
+      },
+      "evidence": "docs/release/evidence/v11/rc/e2e-public.txt",
       "note": "25 tests across desktop, 375px and 320px. Baseline was 51 (e2e-public.txt); v11 added rendered-copy, header geometry/disclosure/zoom and landing-proof assertions. The header exemption is gone, so this run does certify the header. Two intermittent failures were seen once each during v11 and did not reproduce on re-run — see blocker P2-SUITE-FLAKES."
     },
     {
@@ -72,9 +122,14 @@
       "command": "npx playwright test e2e/journeys.spec.ts",
       "required": true,
       "status": "local_pass",
-      "sha": "169c706683a821054351f45a5916f667ea93557c",
-      "counts": { "total": 12, "passed": 6, "failed": 0, "skipped": 6 },
-      "evidence": "docs/release/evidence/v11/e2e-auth-mw-v11-04.txt",
+      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
+      "counts": {
+        "total": 12,
+        "passed": 6,
+        "failed": 0,
+        "skipped": 6
+      },
+      "evidence": "docs/release/evidence/v11/rc/e2e-auth.txt",
       "note": "PARTIAL. Six journeys (login, settings data controls, pricing trial state) now genuinely execute against the live Supabase project as a synthetic account, across desktop / 375px / 320px — the first authenticated execution at this baseline. Six remain skipped: they require the trial-eligible and trial-used fixtures, which MW-V11-04 added to the seed script but which have not been seeded here (running the service-role seed is not permitted in this session). Each skip now names the exact fixture and command, so it can no longer be mistaken for a decision. This is recorded as a pass only for the six that ran."
     },
     {
@@ -89,16 +144,22 @@
       "command": "npm run release-check",
       "required": true,
       "status": "blocked",
-      "note": "Fails closed without production env pulled, by design. Owner must run it with the real environment; it prints presence only and never a value."
+      "note": "Fails closed without production env pulled, by design. Owner must run it with the real environment; it prints presence only and never a value.",
+      "evidence": "docs/release/evidence/v11/rc/release-check.txt"
     },
     {
       "id": "web-vitals",
       "command": "npm run perf",
       "required": true,
       "status": "local_pass",
-      "sha": "169c706683a821054351f45a5916f667ea93557c",
-      "counts": { "total": 4, "passed": 4, "failed": 0, "skipped": 0 },
-      "evidence": "docs/release/evidence/v11/perf/vitals.json",
+      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
+      "counts": {
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      },
+      "evidence": "docs/release/evidence/v11/rc/perf.txt",
       "note": "First performance measurement in the project's history. Lab, not field: 4x CPU throttle, ~Slow 4G, cold browser cache against a warmed server. Landing LCP 812ms, pricing 600ms, signup 612ms against a 2500ms budget; CLS 0 on all three against a 0.1 budget. INP is NOT measured — the recorded interaction probe is a labelled proxy and must not be reported as INP. Cold-start is excluded and remains a separate risk: the first request to a cold route measured 4080ms LCP versus 812ms warm."
     },
     {
@@ -161,7 +222,9 @@
       "level": "P0",
       "title": "No real transaction has been put through live Stripe end to end.",
       "owner": "Owner",
-      "blocks": ["public_paid"],
+      "blocks": [
+        "public_paid"
+      ],
       "acceptance": "Recorded owner evidence for charge, cancel, reactivate, portal and refund against the live 9.99 EUR monthly plan."
     },
     {
@@ -169,7 +232,9 @@
       "level": "P1",
       "title": "Reminder, cron and lifecycle email delivery has never been observed in a real inbox.",
       "owner": "Owner",
-      "blocks": ["public_paid"],
+      "blocks": [
+        "public_paid"
+      ],
       "acceptance": "Recorded owner evidence covering consent, send window, duplicate cron run, unsubscribe and provider failure."
     },
     {
@@ -177,7 +242,9 @@
       "level": "P1",
       "title": "Key rotation and backup restore have never been rehearsed.",
       "owner": "Owner",
-      "blocks": ["public_paid"],
+      "blocks": [
+        "public_paid"
+      ],
       "acceptance": "Rotation completed and rolled back without exposing a secret, plus an isolated restore with a measured recovery time."
     },
     {
@@ -185,7 +252,9 @@
       "level": "P1",
       "title": "Authenticated browser journeys have not been run at this baseline.",
       "owner": "Eng + Owner (env)",
-      "blocks": ["public_paid"],
+      "blocks": [
+        "public_paid"
+      ],
       "acceptance": "The full authenticated matrix run at the candidate SHA with raw artifacts. Evidence from an earlier SHA does not carry forward. Progress in MW-V11-04: six journeys now execute and pass against live Supabase as a synthetic account. Still outstanding: the eight-state daily-journey matrix, plus the trial-eligible and trial-used journeys, all of which need the service-role seed script to be run per state. Owner runs the seed; the suites then run unattended."
     },
     {
@@ -243,7 +312,9 @@
       "level": "P1",
       "title": "Public commercial copy was ungrammatical and inconsistent: the hero rendered the promise glued to the next sentence with no space, and the canonical helpers produced a plural noun form where the sentence needed the adjective form.",
       "owner": "Eng",
-      "blocks": ["public_paid"],
+      "blocks": [
+        "public_paid"
+      ],
       "acceptance": "Every public, auth, paywall and lifecycle surface is grammatical and agrees on sample, trial length, card requirement and charge date.",
       "closedBy": "MW-V11-01",
       "evidence": "docs/release/evidence/v11/e2e-public-mw-v11-01.txt — 57 browser journeys green, including rendered-text assertions that fail on either defect. Contract coverage in tests/commercial-copy.test.ts."
@@ -253,7 +324,9 @@
       "level": "P1",
       "title": "The public 44px target rule exempted every header control, so the header's accessibility was untested rather than compliant.",
       "owner": "Eng",
-      "blocks": ["public_paid"],
+      "blocks": [
+        "public_paid"
+      ],
       "acceptance": "The exemption is removed and replaced with explicit target-size and layout assertions across breakpoints.",
       "closedBy": "MW-V11-02",
       "evidence": "docs/release/evidence/v11/e2e-public-mw-v11-02.txt — 72 browser journeys green with no header exemption. Every header target measured at 320, 360, 375, 768, 1024 and 1440 plus a 200% zoom case; disclosure keyboard and focus-return behaviour asserted."

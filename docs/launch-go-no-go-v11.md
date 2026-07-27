@@ -1,9 +1,14 @@
-# Launch go/no-go scorecard — v11 (ACTIVE)
+# Launch go/no-go scorecard — v11 (FROZEN)
 
-**Status: OPEN.** This is the active release truth. It is not frozen: MW-V11-08
-freezes the candidate and issues the final verdict. Until then every line here
-is either a measured result, an explicitly unrun check, or an owner action with
-an owner and an acceptance test.
+**Status: FROZEN (MW-V11-08).** This is the release-candidate verdict for v11.
+Every line is either a measured result, an explicitly unrun check, or an owner
+action with an owner and an acceptance test. Nothing here is a plan.
+
+**RC SHA:** `0025a5021f921800d08edee1c86f3c33c62185da` — the last functional
+commit. MW-V11-08 adds no product code: only this freeze and the manifest
+update, because freezing the gate's own commit would mean the verdict described
+code the gate had not run against. Any later commit creates a new candidate and
+requires the affected evidence to be re-run.
 
 **Machine-readable source:** [`docs/release/manifest.v11.json`](release/manifest.v11.json).
 This document is checked against that manifest by `tests/release-manifest.test.ts`.
@@ -12,7 +17,6 @@ v10 documents did.
 
 **Branch:** `v11`. **Baseline:** `169c706683a821054351f45a5916f667ea93557c`
 (= `main` at the start of v11; confirmed as the actual HEAD, no drift).
-**RC SHA:** not yet frozen. No tier can be GO without one.
 
 Supersedes [`launch-go-no-go-v10.md`](launch-go-no-go-v10.md), which stays as
 history and must not be edited to match this document.
@@ -205,27 +209,111 @@ spike or dead-letter growth; a reconcile report containing `adoptedSubscriptions
 which means webhooks are being dropped and users are paying without access; any
 trial charged on a date the user was not shown.
 
-## 6. Verdict at this baseline
+## 5b. Pinned contract versions at the RC
 
-- **Automated code gate: CONDITIONAL GO.** Lint, typecheck, 900 tests, the
-  81-test eval gate, the build and 51 public browser journeys pass at
-  `169c706`. It is *conditional* rather than GO because two required suites —
-  authenticated journeys and the daily-journey matrix — have not been run at
-  this commit, and no performance number has ever been measured.
+Anything below that changes makes this a different release candidate. Verified
+against the code by `tests/rc-gate.test.ts`, not copied by hand.
+
+| Contract | Pinned value |
+|---|---|
+| Daily-plan prompt | `daily-plan-v2@1` (sha256 in `src/prompts/versions.ts`) |
+| Model | `AI_PROVIDER_MODEL`, default `claude-haiku-4-5-20251001`; per-route policy in `src/lib/ai/model-policy.ts` |
+| Analytics taxonomy | analytics v1 — closed event enum, closed property keys |
+| Migrations | `001`–`039`; v11 adds **none** |
+| Reminder consent | `2026-07` |
+| Trial variants | `control` = 3 days, `week_beta` = 7 days — experiment **inactive** |
+| Opt-in flags (default OFF) | `FLAG_EMPHASIZE_YEARLY`, `FLAG_TRIAL_LENGTH_EXPERIMENT` |
+| Fonts | none. Both webfonts were removed in MW-V11-05; the product renders in the platform stack |
+
+**Migration rollback dry run.** v11 adds no migration. Every migration in the
+repository was re-scanned for `drop table`, `drop column`, `truncate`, top-level
+`delete from` and destructive type changes — none present, so a rollback is a
+flag change or a code revert and never a migration reversal.
+
+## 6. Verdict at the frozen candidate
+
+Every command below was run at `0025a502`. Nothing here is inferred.
+
+| Command | Result |
+|---|---|
+| `npm run lint` | ✅ 0 errors, 8 pre-existing warnings |
+| `npm run typecheck` | ✅ clean |
+| `npx vitest run` | ✅ **1076 passed / 87 files** |
+| `npm run eval` | ✅ 81 passed |
+| Safety suites (`safety`, `safety-matrix`, `adversarial-matrix`, `severe-allergy`, `output-guards`, `crisis-resources`) | ✅ 73 passed |
+| Privacy suites (`privacy-registry`, `analytics-contract`, `consent`) | ✅ 26 passed |
+| `npm run build` | ✅ clean |
+| `npm run test:e2e:public` | ✅ 75 passed × desktop / 375px / 320px |
+| `npx playwright test e2e/journeys.spec.ts` | ⚠ 6 passed / **6 skipped** |
+| `npm run test:e2e:journey` | ⛔ **blocked** — needs the service-role seed |
+| `npm run perf` | ✅ 4 passed — landing LCP 812ms, CLS 0 |
+| `npm run release-check` | ⚠ **fails closed as designed** — 14 missing, no values printed. Owner must re-run with production env |
+| `scripts/eval-live.mjs` | ⏭ skipped by design |
+| `git diff --check` | ✅ clean |
+
+### The two verdicts
+
+- **Automated code gate: CONDITIONAL GO.** Everything runnable from this
+  environment is green at the candidate. It is *conditional*, not GO, because
+  the eight-state daily-journey matrix has not run at all and six authenticated
+  journeys are skipped for want of a seeded fixture. A gate that has not
+  executed is not a gate.
+
 - **Capped private beta (≤50 invites, no card for the sample): CONDITIONAL GO.**
-  The cap is enforced by a database trigger rather than a document, and the
-  safety gates are in place. It stays conditional until the authenticated
-  journeys are green at the candidate SHA.
-- **Public paid launch: NO-GO.** One P0 and three P1 blockers are open. Three are
-  owner-run and cannot be closed from this environment; the remaining one is the
-  authenticated E2E rerun owned by MW-V11-04.
+  The cap is a database trigger rather than a sentence in a document, the safety
+  and allergen gates are fail-closed and tested, the sample needs no card, and
+  `docs/beta-scorecard.md` now has thresholds predeclared before the data
+  exists. The condition is the daily-journey matrix: before real people use the
+  authenticated product daily, the eight states it covers should be green at
+  this SHA. That is one seeded run away, not a code change.
 
-This is the expected outcome at the start of a hardening line, not a failure of
-the work. The v10 record is worth re-reading on the point: **every slice in v10
-found a defect in code the suite reported green** — a consent version nobody
-read, a `trialEligible` flag never passed to a component, `past_due` users nudged
-into a paywall, a stale plan labelled as today's, and an E2E assertion matching a
-string the app has never rendered. A 900-test suite caught none of them.
+- **Unrestricted public paid launch: NO-GO.**
 
-_No sign-off is granted in this document. MW-V11-08 freezes the candidate and
-issues the final verdict; public-paid sign-off remains with the owner._
+  One P0 and four P1s are open. Three are owner-run and cannot be closed from
+  any development environment — a real €9.99 transaction through to refund,
+  reminder/cron/email delivery observed in a real inbox, and a key-rotation plus
+  isolated-restore drill with a measured recovery time. The fourth is the
+  authenticated matrix above.
+
+  Under the standing rule that no GO may be marked with an open transaction,
+  safety, allergen, privacy, billing or authenticated-E2E P0/P1, this verdict
+  cannot be anything else.
+
+### What this candidate changed, and why the rule keeps earning its place
+
+v11 found seven defects, and **not one of them was visible to a green suite**:
+
+1. The live hero rendered `you actually have.Tell Mellowa` with no space.
+2. The canonical helpers produced "a 3 days trial" on three surfaces.
+3. The 44px rule exempted every header control, so the header was untested
+   rather than compliant.
+4. Both webfonts loaded on every page and rendered nowhere — 53KB on the
+   critical path for a typeface the product does not use.
+5. A required E2E test located the trial CTA by its pre-rename wording, so it
+   skipped for every user, forever, reporting nothing wrong.
+6. Playwright never loaded `.env.local`, so configuring the authenticated suites
+   in the obvious place configured nothing.
+7. No seed fixture could produce a trial-eligible or prior-trial user, so two
+   required journeys had never been able to run at all.
+
+Defects 5–7 are the ones worth remembering: all three were *tests that had
+stopped testing*, and each looked identical to a deliberate decision. That is
+why the manifest validator refuses a pass without a raw artifact at the
+candidate SHA, and why a skipped required suite can never produce a GO.
+
+### What would change the public-paid verdict
+
+Nothing in the code. Four items, ordered by risk removed per hour:
+
+| # | Action | Effort |
+|---|---|---|
+| 1 | Seed the fixtures and run the full authenticated matrix (`P1-AUTH-E2E-AT-HEAD`) | ~20 min |
+| 2 | One real €9.99 transaction: charge → cancel → reactivate → portal → refund (`P0-LIVE-TRANSACTION`) | ~30 min |
+| 3 | Reminder/cron/email rehearsal using the worksheet in `docs/ops-cron.md` (`P1-REMINDER-REHEARSAL`) | ~45 min |
+| 4 | Key rotation + isolated restore drill (`P1-ROTATION-RESTORE`) | ~60 min |
+
+Record each result in §3. When all four carry evidence and no stop criterion is
+open, the public-paid verdict may be revisited — **by a human**.
+
+_Signed (automated evidence only): Claude Code, at RC `0025a502` on `v11`.
+Public-paid sign-off remains with the owner and is not granted here._
