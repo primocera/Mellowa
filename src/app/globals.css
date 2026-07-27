@@ -8,8 +8,13 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* MW-V11-05: platform stacks instead of webfonts. These pointed at
+     --font-geist-sans / --font-geist-mono, which were downloaded on every page
+     and rendered nowhere: no component uses font-sans, and the `body` rule
+     below sets Arial, which wins. The one `font-mono` use in the account
+     deletion confirmation now resolves to the platform's monospace face. */
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {

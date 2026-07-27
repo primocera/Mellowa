@@ -44,7 +44,11 @@ describe("content claim audit (CE-20 gate)", () => {
     // canonical promise stays adjacent and word-for-word — the through-line is
     // still one promise, just no longer the headline.
     expect(landing).toMatch(/reshape what&rsquo;s left/i);
-    expect(landing).toContain("{TERMS.promise}");
+    // MW-V11-01: the hero composes its sentences through joinSentences rather
+    // than interpolating them adjacently, so assert the reference, not the
+    // JSX shape. Written as `{TERMS.promise}` beside prose, the space between
+    // the two sentences did not survive rendering.
+    expect(landing).toMatch(/joinSentences\(\s*TERMS\.promise/);
     expect(TERMS.promise).toContain(CANONICAL_TAIL);
     // Metadata must promise what the page now leads with, not the old hero.
     expect(landing).toMatch(/title:\s*"Mellowa[^"]*Reshape what's left/);

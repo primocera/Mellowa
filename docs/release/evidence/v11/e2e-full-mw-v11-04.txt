@@ -1,0 +1,142 @@
+# command: npm run test:e2e (full matrix: public + authenticated)
+# slice: MW-V11-04
+# base sha: 169c706683a821054351f45a5916f667ea93557c plus uncommitted v11 work
+# utc: 2026-07-26T21:42:04Z
+
+> dailyflow-ai@0.1.0 test:e2e
+> playwright test
+
+[WebServer] [legal] outstanding before paid launch: [
+[WebServer]   'LEGAL_ENTITY_NAME is not set',
+[WebServer]   'LEGAL_REGISTERED_ADDRESS is not set',
+[WebServer]   'LEGAL_GOVERNING_LAW is not set',
+[WebServer]   'SUPPORT_EMAIL is not set (hardcoded fallback in use)',
+[WebServer]   'NEXT_PUBLIC_APP_URL is a temporary domain: http://localhost:3000'
+[WebServer] ]
+
+Running 120 tests using 1 worker
+
+  -    1 [mobile] › e2e\daily-journey.spec.ts:101:7 › no plan yet › offers exactly one way forward, reachable by keyboard
+  -    2 [mobile] › e2e\daily-journey.spec.ts:128:7 › plan ready › shows one Now action; the full plan stays reachable
+  -    3 [mobile] › e2e\daily-journey.spec.ts:146:7 › plan ready › a double tap on Done completes once and reads as done once
+  -    4 [mobile] › e2e\daily-journey.spec.ts:170:7 › plan ready › Undo reverses the completion and says nothing about success
+  -    5 [mobile] › e2e\daily-journey.spec.ts:179:7 › plan ready › no celebration, streak or adherence language anywhere on Today
+  -    6 [mobile] › e2e\daily-journey.spec.ts:204:7 › partly done › skips the completed item without hiding it from the full plan
+  -    7 [mobile] › e2e\daily-journey.spec.ts:222:7 › all done › states there is nothing left, neutrally, with the plan still open
+  -    8 [mobile] › e2e\daily-journey.spec.ts:243:7 › payment needs attention › says history is readable and gives one route to billing
+  -    9 [mobile] › e2e\daily-journey.spec.ts:269:7 › subscription ended › keeps history readable and offers plans without pressure
+  -   10 [mobile] › e2e\daily-journey.spec.ts:283:7 › trial set not to renew › shows one notice, not a trial countdown as well
+  -   11 [mobile] › e2e\daily-journey.spec.ts:294:7 › invalid stored timezone › offers timezone repair instead of a wrong day
+  -   12 [mobile] › e2e\journeys.spec.ts:46:5 › login → dashboard → consent state → settings data controls
+  -   13 [mobile] › e2e\journeys.spec.ts:61:5 › pricing reflects trial state for the signed-in user
+  -   14 [mobile] › e2e\journeys.spec.ts:81:5 › assigned trial length is disclosed identically on pricing and billing
+  -   15 [mobile] › e2e\journeys.spec.ts:135:5 › a user who already used their trial sees pay-today copy only
+  ✓   16 [mobile] › e2e\public.spec.ts:9:5 › home page renders with safety boundary and legal links (7.6s)
+  ✓   17 [mobile] › e2e\public.spec.ts:18:5 › no horizontal overflow on mobile (968ms)
+  ✓   18 [mobile] › e2e\public.spec.ts:26:5 › pricing shows exact prices and payment disclosure near CTA (3.0s)
+  ✓   19 [mobile] › e2e\public.spec.ts:52:5 › anonymous trial disclosure never claims an unassigned length (2.4s)
+  ✓   20 [mobile] › e2e\public.spec.ts:85:5 › public routes are usable without a pointer and without horizontal scroll (2.7s)
+  ✓   21 [mobile] › e2e\public.spec.ts:108:5 › every interactive control on the public pages is at least 44px tall (3.0s)
+  ✓   22 [mobile] › e2e\public.spec.ts:170:5 › every header target meets 44px at every supported width (4.1s)
+  ✓   23 [mobile] › e2e\public.spec.ts:198:5 › the header stays on one row and never overflows (2.3s)
+  ✓   24 [mobile] › e2e\public.spec.ts:236:5 › the header survives 200% zoom without wrapping or clipping (1.6s)
+  ✓   25 [mobile] › e2e\public.spec.ts:256:5 › pricing, sign-in and sample access stay reachable at 320px (2.7s)
+  ✓   26 [mobile] › e2e\public.spec.ts:276:5 › the header disclosure is operable by keyboard and closes predictably (2.8s)
+  ✓   27 [mobile] › e2e\public.spec.ts:306:5 › the header exposes literal accessible names at every width (1.7s)
+  ✓   28 [mobile] › e2e\public.spec.ts:346:5 › the adaptation proof renders truthfully and fits a phone (736ms)
+  ✓   29 [mobile] › e2e\public.spec.ts:383:5 › focus is visible on the primary signup control (878ms)
+  ✓   30 [mobile] › e2e\public.spec.ts:395:5 › signup requires 18+ and policy consent (not pre-checked) (1.0s)
+  ✓   31 [mobile] › e2e\public.spec.ts:412:5 › login offers forgot-password recovery (601ms)
+  ✓   32 [mobile] › e2e\public.spec.ts:417:5 › privacy policy lists processors and retention (1.0s)
+  ✓   33 [mobile] › e2e\public.spec.ts:425:5 › legal pages have no placeholder lorem or broken headings (1.1s)
+  ✓   34 [mobile] › e2e\public.spec.ts:433:5 › keyboard navigation reaches the primary signup CTA (1.1s)
+  ✓   35 [mobile] › e2e\public.spec.ts:440:5 › verify-email page shows next step, resend and change-email (606ms)
+  ✓   36 [mobile] › e2e\public.spec.ts:448:5 › auth callback rejects a missing code and a malicious next URL (760ms)
+  ✓   37 [mobile] › e2e\public.spec.ts:455:5 › hero leads with the free-sample funnel, not a trial promise (700ms)
+  ✓   38 [mobile] › e2e\public.spec.ts:470:5 › public commercial copy is grammatical and spaced in the browser (1.1s)
+  ✓   39 [mobile] › e2e\public.spec.ts:495:5 › the hero states the sample terms once, not twice (841ms)
+  ✓   40 [mobile] › e2e\public.spec.ts:506:5 › signup and login pages carry the elevated account copy (1.1s)
+  -   41 [desktop] › e2e\daily-journey.spec.ts:101:7 › no plan yet › offers exactly one way forward, reachable by keyboard
+  -   42 [desktop] › e2e\daily-journey.spec.ts:128:7 › plan ready › shows one Now action; the full plan stays reachable
+  -   43 [desktop] › e2e\daily-journey.spec.ts:146:7 › plan ready › a double tap on Done completes once and reads as done once
+  -   44 [desktop] › e2e\daily-journey.spec.ts:170:7 › plan ready › Undo reverses the completion and says nothing about success
+  -   45 [desktop] › e2e\daily-journey.spec.ts:179:7 › plan ready › no celebration, streak or adherence language anywhere on Today
+  -   46 [desktop] › e2e\daily-journey.spec.ts:204:7 › partly done › skips the completed item without hiding it from the full plan
+  -   47 [desktop] › e2e\daily-journey.spec.ts:222:7 › all done › states there is nothing left, neutrally, with the plan still open
+  -   48 [desktop] › e2e\daily-journey.spec.ts:243:7 › payment needs attention › says history is readable and gives one route to billing
+  -   49 [desktop] › e2e\daily-journey.spec.ts:269:7 › subscription ended › keeps history readable and offers plans without pressure
+  -   50 [desktop] › e2e\daily-journey.spec.ts:283:7 › trial set not to renew › shows one notice, not a trial countdown as well
+  -   51 [desktop] › e2e\daily-journey.spec.ts:294:7 › invalid stored timezone › offers timezone repair instead of a wrong day
+  -   52 [desktop] › e2e\journeys.spec.ts:46:5 › login → dashboard → consent state → settings data controls
+  -   53 [desktop] › e2e\journeys.spec.ts:61:5 › pricing reflects trial state for the signed-in user
+  -   54 [desktop] › e2e\journeys.spec.ts:81:5 › assigned trial length is disclosed identically on pricing and billing
+  -   55 [desktop] › e2e\journeys.spec.ts:135:5 › a user who already used their trial sees pay-today copy only
+  ✓   56 [desktop] › e2e\public.spec.ts:9:5 › home page renders with safety boundary and legal links (919ms)
+  ✓   57 [desktop] › e2e\public.spec.ts:18:5 › no horizontal overflow on mobile (772ms)
+  ✓   58 [desktop] › e2e\public.spec.ts:26:5 › pricing shows exact prices and payment disclosure near CTA (980ms)
+  ✓   59 [desktop] › e2e\public.spec.ts:52:5 › anonymous trial disclosure never claims an unassigned length (1.8s)
+  ✓   60 [desktop] › e2e\public.spec.ts:85:5 › public routes are usable without a pointer and without horizontal scroll (1.9s)
+  ✓   61 [desktop] › e2e\public.spec.ts:108:5 › every interactive control on the public pages is at least 44px tall (3.1s)
+  ✓   62 [desktop] › e2e\public.spec.ts:170:5 › every header target meets 44px at every supported width (4.5s)
+  ✓   63 [desktop] › e2e\public.spec.ts:198:5 › the header stays on one row and never overflows (1.8s)
+  ✓   64 [desktop] › e2e\public.spec.ts:236:5 › the header survives 200% zoom without wrapping or clipping (557ms)
+  ✓   65 [desktop] › e2e\public.spec.ts:256:5 › pricing, sign-in and sample access stay reachable at 320px (687ms)
+  ✓   66 [desktop] › e2e\public.spec.ts:276:5 › the header disclosure is operable by keyboard and closes predictably (1.8s)
+  ✓   67 [desktop] › e2e\public.spec.ts:306:5 › the header exposes literal accessible names at every width (1.4s)
+  ✓   68 [desktop] › e2e\public.spec.ts:346:5 › the adaptation proof renders truthfully and fits a phone (767ms)
+  ✓   69 [desktop] › e2e\public.spec.ts:383:5 › focus is visible on the primary signup control (1.0s)
+  ✓   70 [desktop] › e2e\public.spec.ts:395:5 › signup requires 18+ and policy consent (not pre-checked) (1.4s)
+  ✓   71 [desktop] › e2e\public.spec.ts:412:5 › login offers forgot-password recovery (648ms)
+  ✓   72 [desktop] › e2e\public.spec.ts:417:5 › privacy policy lists processors and retention (677ms)
+  ✓   73 [desktop] › e2e\public.spec.ts:425:5 › legal pages have no placeholder lorem or broken headings (1.0s)
+  ✓   74 [desktop] › e2e\public.spec.ts:433:5 › keyboard navigation reaches the primary signup CTA (872ms)
+  ✓   75 [desktop] › e2e\public.spec.ts:440:5 › verify-email page shows next step, resend and change-email (1.5s)
+  ✓   76 [desktop] › e2e\public.spec.ts:448:5 › auth callback rejects a missing code and a malicious next URL (1.3s)
+  ✓   77 [desktop] › e2e\public.spec.ts:455:5 › hero leads with the free-sample funnel, not a trial promise (927ms)
+  ✓   78 [desktop] › e2e\public.spec.ts:470:5 › public commercial copy is grammatical and spaced in the browser (1.4s)
+  ✓   79 [desktop] › e2e\public.spec.ts:495:5 › the hero states the sample terms once, not twice (1.3s)
+  ✓   80 [desktop] › e2e\public.spec.ts:506:5 › signup and login pages carry the elevated account copy (1.0s)
+  -   81 [mobile-320] › e2e\daily-journey.spec.ts:101:7 › no plan yet › offers exactly one way forward, reachable by keyboard
+  -   82 [mobile-320] › e2e\daily-journey.spec.ts:128:7 › plan ready › shows one Now action; the full plan stays reachable
+  -   83 [mobile-320] › e2e\daily-journey.spec.ts:146:7 › plan ready › a double tap on Done completes once and reads as done once
+  -   84 [mobile-320] › e2e\daily-journey.spec.ts:170:7 › plan ready › Undo reverses the completion and says nothing about success
+  -   85 [mobile-320] › e2e\daily-journey.spec.ts:179:7 › plan ready › no celebration, streak or adherence language anywhere on Today
+  -   86 [mobile-320] › e2e\daily-journey.spec.ts:204:7 › partly done › skips the completed item without hiding it from the full plan
+  -   87 [mobile-320] › e2e\daily-journey.spec.ts:222:7 › all done › states there is nothing left, neutrally, with the plan still open
+  -   88 [mobile-320] › e2e\daily-journey.spec.ts:243:7 › payment needs attention › says history is readable and gives one route to billing
+  -   89 [mobile-320] › e2e\daily-journey.spec.ts:269:7 › subscription ended › keeps history readable and offers plans without pressure
+  -   90 [mobile-320] › e2e\daily-journey.spec.ts:283:7 › trial set not to renew › shows one notice, not a trial countdown as well
+  -   91 [mobile-320] › e2e\daily-journey.spec.ts:294:7 › invalid stored timezone › offers timezone repair instead of a wrong day
+  -   92 [mobile-320] › e2e\journeys.spec.ts:46:5 › login → dashboard → consent state → settings data controls
+  -   93 [mobile-320] › e2e\journeys.spec.ts:61:5 › pricing reflects trial state for the signed-in user
+  -   94 [mobile-320] › e2e\journeys.spec.ts:81:5 › assigned trial length is disclosed identically on pricing and billing
+  -   95 [mobile-320] › e2e\journeys.spec.ts:135:5 › a user who already used their trial sees pay-today copy only
+  ✓   96 [mobile-320] › e2e\public.spec.ts:9:5 › home page renders with safety boundary and legal links (1.2s)
+  ✓   97 [mobile-320] › e2e\public.spec.ts:18:5 › no horizontal overflow on mobile (584ms)
+  ✓   98 [mobile-320] › e2e\public.spec.ts:26:5 › pricing shows exact prices and payment disclosure near CTA (1.1s)
+  ✓   99 [mobile-320] › e2e\public.spec.ts:52:5 › anonymous trial disclosure never claims an unassigned length (1.4s)
+  ✓  100 [mobile-320] › e2e\public.spec.ts:85:5 › public routes are usable without a pointer and without horizontal scroll (2.0s)
+  ✓  101 [mobile-320] › e2e\public.spec.ts:108:5 › every interactive control on the public pages is at least 44px tall (2.5s)
+  ✓  102 [mobile-320] › e2e\public.spec.ts:170:5 › every header target meets 44px at every supported width (3.1s)
+  ✓  103 [mobile-320] › e2e\public.spec.ts:198:5 › the header stays on one row and never overflows (1.7s)
+  ✓  104 [mobile-320] › e2e\public.spec.ts:236:5 › the header survives 200% zoom without wrapping or clipping (668ms)
+  ✓  105 [mobile-320] › e2e\public.spec.ts:256:5 › pricing, sign-in and sample access stay reachable at 320px (1.4s)
+  ✓  106 [mobile-320] › e2e\public.spec.ts:276:5 › the header disclosure is operable by keyboard and closes predictably (1.2s)
+  ✓  107 [mobile-320] › e2e\public.spec.ts:306:5 › the header exposes literal accessible names at every width (1.3s)
+  ✓  108 [mobile-320] › e2e\public.spec.ts:346:5 › the adaptation proof renders truthfully and fits a phone (865ms)
+  ✓  109 [mobile-320] › e2e\public.spec.ts:383:5 › focus is visible on the primary signup control (681ms)
+  ✓  110 [mobile-320] › e2e\public.spec.ts:395:5 › signup requires 18+ and policy consent (not pre-checked) (997ms)
+  ✓  111 [mobile-320] › e2e\public.spec.ts:412:5 › login offers forgot-password recovery (637ms)
+  ✓  112 [mobile-320] › e2e\public.spec.ts:417:5 › privacy policy lists processors and retention (565ms)
+  ✓  113 [mobile-320] › e2e\public.spec.ts:425:5 › legal pages have no placeholder lorem or broken headings (1.0s)
+  ✓  114 [mobile-320] › e2e\public.spec.ts:433:5 › keyboard navigation reaches the primary signup CTA (886ms)
+  ✓  115 [mobile-320] › e2e\public.spec.ts:440:5 › verify-email page shows next step, resend and change-email (980ms)
+  ✓  116 [mobile-320] › e2e\public.spec.ts:448:5 › auth callback rejects a missing code and a malicious next URL (819ms)
+  ✓  117 [mobile-320] › e2e\public.spec.ts:455:5 › hero leads with the free-sample funnel, not a trial promise (1.0s)
+  ✓  118 [mobile-320] › e2e\public.spec.ts:470:5 › public commercial copy is grammatical and spaced in the browser (864ms)
+  ✓  119 [mobile-320] › e2e\public.spec.ts:495:5 › the hero states the sample terms once, not twice (540ms)
+  ✓  120 [mobile-320] › e2e\public.spec.ts:506:5 › signup and login pages carry the elevated account copy (952ms)
+
+  45 skipped
+  75 passed (3.4m)
+# exit: 0

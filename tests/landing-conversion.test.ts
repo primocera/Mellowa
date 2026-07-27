@@ -7,16 +7,27 @@ import { TERMS } from "@/lib/content/terminology";
 const landing = readFileSync("src/app/page.tsx", "utf8");
 const pricing = readFileSync("src/app/pricing/page.tsx", "utf8");
 
+/**
+ * Prose in JSX wraps across source lines, so a sentence that renders as one
+ * phrase spans several lines in the file. Collapse whitespace before matching a
+ * sentence, or the assertion is really about where the formatter broke a line.
+ */
+const landingFlat = landing.replace(/\s+/g, " ");
+
 describe("hero communicates audience, outcome, mechanism, next step", () => {
   it("uses the exact required headline, CTA and helper", () => {
     expect(TERMS.promise).toBe(
       "A realistic wellbeing plan for the day you actually have."
     );
     // Headline renders the canonical promise; CTA + helper come from TERMS.
-    expect(landing).toContain("{TERMS.promise}");
+    // MW-V11-01: the promise is composed via joinSentences rather than
+    // interpolated beside prose, because the adjacent form lost its space.
+    expect(landing).toMatch(/joinSentences\(\s*TERMS\.promise/);
     expect(landing).toContain("{TERMS.sampleCta}");
     expect(TERMS.sampleCta).toBe("Create my free sample plan");
-    expect(TERMS.sampleHelper).toContain("No card for the sample");
+    // The helper now states both facts once: account required, no card asked.
+    expect(TERMS.sampleHelper).toContain("no payment card");
+    expect(TERMS.sampleHelper).toContain("account is required");
   });
 
   it("clarifies who it is for and who it is not for", () => {
@@ -80,7 +91,7 @@ describe("honest, evidence-based claims", () => {
   });
 
   it("keeps payment/renewal disclosure next to the CTA", () => {
-    expect(landing).toMatch(/renews automatically unless you cancel/i);
+    expect(landingFlat).toMatch(/renews automatically unless you cancel/i);
   });
 
   it("contains no fabricated testimonials or usage numbers", () => {
@@ -101,9 +112,14 @@ describe("MW-V9-08 wedge, mechanism and Premium jobs", () => {
     // MW-V10-01 replaced the four-beat cards further down the page with a
     // five-beat strip in the hero. The two extra beats are the wedge itself:
     // adjusting does not erase completed work, and it is reversible.
+    //
+    // MW-V11-03 split them into a three-beat flow and a two-item trust subrow.
+    // As one five-item row it wrapped wherever the viewport broke, stranding
+    // "Undo is free" on a line of its own. All five statements are still above
+    // the fold; only the composition changed.
     for (const beat of [
       "Check in",
-      "One next step",
+      "See one next step",
       "Adjust what's left",
       "Completed items stay",
       "Undo is free",

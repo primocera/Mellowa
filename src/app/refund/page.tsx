@@ -3,6 +3,7 @@ import { LegalPage, LegalSection } from "@/components/legal/legal-page";
 import { readLegalConfig } from "@/lib/legal/config";
 import {
   publicTrialDays,
+  trialLengthAdjective,
   trialLengthLabel,
 } from "@/lib/stripe/trial-experiment";
 
@@ -28,7 +29,8 @@ export default function RefundPage() {
         heading={
           trialDays === null
             ? "Free sample and free trial"
-            : `Free sample and ${trialLengthLabel(trialDays)} trial`
+            : // Attributive position, so the adjective form is required here.
+              `Free sample and ${trialLengthAdjective(trialDays)} trial`
         }
       >
         <p>

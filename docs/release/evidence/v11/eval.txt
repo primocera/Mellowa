@@ -1,0 +1,17 @@
+# command: npm run eval
+# sha: 169c706683a821054351f45a5916f667ea93557c
+# utc: 2026-07-26T19:05:57Z
+
+> dailyflow-ai@0.1.0 eval
+> vitest run tests/eval-suite.test.ts tests/eval-golden.test.ts tests/prompt-versions.test.ts
+
+
+ RUN  v4.1.10 C:/Users/primo/dailyflowai
+
+
+ Test Files  3 passed (3)
+      Tests  81 passed (81)
+   Start at  21:05:59
+   Duration  920ms (transform 389ms, setup 0ms, import 1.09s, tests 143ms, environment 0ms)
+
+# exit: 0

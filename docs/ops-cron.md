@@ -139,11 +139,23 @@ id, never content.
 
 # Owner live rehearsal — reminders, cron and email
 
-**Status: NOT DONE.** This is P1 in `docs/launch-go-no-go-v10.md` §3 and cannot
-be closed by Claude Code or by any test in this repo. Delivery is only
-*observed* when a real message arrives in a real inbox.
+**Status: NOT DONE.** This is `P1-REMINDER-REHEARSAL` in
+`docs/launch-go-no-go-v11.md` §3 and cannot be closed by Claude Code or by any
+test in this repo. Delivery is only *observed* when a real message arrives in a
+real inbox.
 
 Fill this in, anonymize anything personal, and paste it into the go/no-go.
+
+**Stop conditions — abort and record the reason if any of these occur:**
+
+| Condition | Why it stops the rehearsal |
+|---|---|
+| Two reminders for one local day | The dedupe ledger has failed; at scale this is the complaint that ends a sender's reputation |
+| Any mood, energy, meal, journal, allergy, check-in or plan text in a subject or preview | Privacy gate failure — the preview line is visible on a lock screen |
+| A reminder arriving **before** the user's chosen local time | The one timing promise the product makes |
+| A `past_due` or `canceled` account being nudged toward a paywall | Fixed in v10; a regression here is a trust failure, not a bug |
+| An account with a recent safety signal receiving an activity nudge | Safety suppression must outrank every other rule |
+| Unsubscribing stopping **billing or account** mail | Those are transactional and must keep arriving; suppressing them is a legal problem, not a preference |
 
 | Field | Value |
 |---|---|
@@ -201,5 +213,37 @@ Fill this in, anonymize anything personal, and paste it into the go/no-go.
 - [ ] Trial-started mail states the **assigned** trial length and charge date
       (MW-V10-02) and matches what pricing showed. Evidence: __
 
+### 8. Unsubscribe suppresses the right mail, and only the right mail
+
+The one-click opt-out covers *activity* mail. Billing and account mail is
+transactional: the user is entitled to it and suppressing it would be both a
+product failure and a legal one. `src/lib/email/categories.ts` is the single
+place that decides which is which.
+
+- [ ] After unsubscribing from reminders, trigger a **billing** email (e.g.
+      cancel the test subscription) → it still arrives. Evidence: __
+- [ ] Confirm the suppression is recorded per category, not as a global block on
+      the address. Evidence: __
+- [ ] Re-enable reminders from Settings → reminders resume, and the earlier
+      suppression does not silently persist. Evidence: __
+
+### 9. Cleanup
+
+Do this whether the run passed or aborted.
+
+1. Disable reminders on the synthetic account so nothing keeps sending.
+2. Restore the provider key if step 6 broke it deliberately, and confirm the
+   backlog drains to zero.
+3. Clear any dead letters created by the run, or record why they remain.
+4. Confirm `/admin` delivery health shows no backlog attributable to the run.
+
 **Sign-off:** reminders may not go to real users until every box above has
 recorded evidence.
+
+**What this rehearsal cannot prove, and is not asked to.** DST correctness,
+quiet-hours wrapping past midnight, consent-version enforcement and safety
+suppression are covered by fixtures in `tests/reminder-reliability.test.ts`,
+because reproducing them live would mean waiting for a DST boundary or putting a
+crisis signal on a real account. The rehearsal proves *delivery*: that a real
+message reaches a real inbox, at the right time, saying the right thing, and
+that the controls stop it.

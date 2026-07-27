@@ -110,11 +110,10 @@ test("every interactive control on the public pages is at least 44px tall", asyn
 }) => {
   for (const path of ["/", "/pricing", "/signup"]) {
     await page.goto(path);
-    // The landing header is deliberately kept at its original v9 layout (owner
-    // decision, 2026-07-26): the 44px rework pushed the nav onto a second row on
-    // a phone, which looked worse than the small targets it fixed. Its links are
-    // therefore exempt here — recorded rather than silently dropped, so the
-    // trade-off stays visible. Everything outside the header still must comply.
+    // MW-V11-02: the header exemption that used to sit here is gone. The header
+    // is held to the same rule as every other control on the page, and the
+    // dedicated header tests below assert geometry and behaviour across
+    // breakpoints. An exemption made a real surface invisible to its own test.
     const controls = page.locator(
       "button:visible, a[href]:visible, input:visible:not([type=hidden])"
     );
@@ -130,8 +129,6 @@ test("every interactive control on the public pages is at least 44px tall", asyn
       //  - a checkbox/radio's real target is its wrapping <label>, because
       //    tapping the text toggles it — so the LABEL's height is what counts.
       const effectiveHeight = await el.evaluate((node) => {
-        // Header exemption (see the note above the loop).
-        if (node.closest("header")) return null;
         const tag = node.tagName.toLowerCase();
         const parent = node.parentElement;
         const parentTag = parent?.tagName.toLowerCase() ?? "";
@@ -158,30 +155,229 @@ test("every interactive control on the public pages is at least 44px tall", asyn
 });
 
 /**
- * The header must stay on ONE row at every width. MW-V10-07 fixed a 320px
- * overflow with flex-wrap, which pushed the nav under the wordmark on a phone
- * and looked broken. Measured by comparing vertical positions rather than by
- * inspecting classes, so any future layout change that re-wraps it fails here.
+ * MW-V11-02: the header accessibility contract, asserted rather than exempted.
+ *
+ * The rule this encodes: every header target is ≥44×44 CSS px (WCAG 2.2
+ * SC 2.5.5), the row never wraps at any supported width, and nothing essential
+ * is removed to achieve either. The previous arrangement satisfied the second
+ * requirement by abandoning the first and hiding the header from the test.
+ *
+ * Widths are checked explicitly instead of relying on the project viewports, so
+ * one run covers the whole supported range including the 200% zoom case.
  */
-test("the header never wraps onto a second row", async ({ page }) => {
+const HEADER_WIDTHS = [320, 360, 375, 768, 1024, 1440];
+
+test("every header target meets 44px at every supported width", async ({ page }) => {
+  const failures: string[] = [];
+
+  for (const width of HEADER_WIDTHS) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/");
+
+    const targets = page.locator("header a[href], header button");
+    const count = await targets.count();
+    expect(count, `${width}px: header has no targets`).toBeGreaterThan(0);
+
+    for (let i = 0; i < count; i++) {
+      const target = targets.nth(i);
+      if (!(await target.isVisible())) continue;
+      const box = await target.boundingBox();
+      if (!box) continue;
+      const label = (await target.innerText()).trim() || "(unlabelled)";
+      if (box.height < 44 || box.width < 44) {
+        failures.push(
+          `${width}px: "${label}" is ${Math.round(box.width)}×${Math.round(box.height)}`
+        );
+      }
+    }
+  }
+
+  expect(failures, `header targets under 44px: ${failures.join("; ")}`).toEqual([]);
+});
+
+test("the header stays on one row and never overflows", async ({ page }) => {
+  for (const width of HEADER_WIDTHS) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/");
+
+    const targets = page.locator("header a[href]:visible, header button:visible");
+    const boxes = (await targets.evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const rect = node.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom, text: node.textContent?.trim() ?? "" };
+      })
+    )) as { top: number; bottom: number; text: string }[];
+
+    expect(boxes.length, `${width}px: no visible header targets`).toBeGreaterThan(0);
+
+    // One row = every target's vertical span overlaps every other's. This
+    // catches a wrap without caring how the layout was written.
+    const first = boxes[0];
+    for (const box of boxes) {
+      const overlaps = box.top < first.bottom && box.bottom > first.top;
+      expect(
+        overlaps,
+        `${width}px: "${box.text}" wrapped onto a second row`
+      ).toBe(true);
+    }
+
+    // No horizontal overflow anywhere on the page at this width.
+    const scrollWidth = await page.evaluate(() => ({
+      doc: document.documentElement.scrollWidth,
+      client: document.documentElement.clientWidth,
+    }));
+    expect(
+      scrollWidth.doc,
+      `${width}px: page scrolls horizontally (${scrollWidth.doc} > ${scrollWidth.client})`
+    ).toBeLessThanOrEqual(scrollWidth.client + 1);
+  }
+});
+
+test("the header survives 200% zoom without wrapping or clipping", async ({ page }) => {
+  // 200% zoom on a 1280px screen presents as a 640px viewport to the layout.
+  await page.setViewportSize({ width: 640, height: 512 });
   await page.goto("/");
-  const wordmark = page.locator("header span").first();
-  const cta = page.locator('header a[href="/signup"]');
-  const wordmarkBox = await wordmark.boundingBox();
-  const ctaBox = await cta.boundingBox();
-  expect(wordmarkBox).not.toBeNull();
-  expect(ctaBox).not.toBeNull();
 
-  // Same row = their vertical centres are within half a target height.
-  const wordmarkMid = wordmarkBox!.y + wordmarkBox!.height / 2;
-  const ctaMid = ctaBox!.y + ctaBox!.height / 2;
-  expect(
-    Math.abs(wordmarkMid - ctaMid),
-    "header nav has wrapped below the wordmark"
-  ).toBeLessThan(22);
+  const targets = page.locator("header a[href]:visible, header button:visible");
+  const boxes = (await targets.evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const rect = node.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom, right: rect.right, text: node.textContent?.trim() ?? "" };
+    })
+  )) as { top: number; bottom: number; right: number; text: string }[];
 
-  // …and the CTA sits to the RIGHT of the wordmark, not under it.
-  expect(ctaBox!.x).toBeGreaterThan(wordmarkBox!.x);
+  const first = boxes[0];
+  for (const box of boxes) {
+    expect(box.top < first.bottom && box.bottom > first.top, `"${box.text}" wrapped at 200% zoom`).toBe(true);
+    expect(box.right, `"${box.text}" is clipped at 200% zoom`).toBeLessThanOrEqual(641);
+  }
+});
+
+test("pricing, sign-in and sample access stay reachable at 320px", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/");
+
+  // Primary action and account access are always visible — never behind a menu.
+  await expect(page.locator('header a[href="/signup"]')).toBeVisible();
+  await expect(page.locator('header a[href="/login"]')).toBeVisible();
+
+  // Pricing is reachable through the disclosure, not removed. The inline copy
+  // of the link also exists in the DOM at this width but is display:none, so
+  // assert on the visible one specifically.
+  const menu = page.locator("header button");
+  await expect(menu).toBeVisible();
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator('header a[href="/pricing"]:visible')).toHaveCount(0);
+  await menu.click();
+  await expect(menu).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator('header a[href="/pricing"]:visible')).toHaveCount(1);
+});
+
+test("the header disclosure is operable by keyboard and closes predictably", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/");
+
+  const menu = page.locator("header button");
+  const panelId = await menu.getAttribute("aria-controls");
+  expect(panelId, "menu button does not name the region it controls").toBeTruthy();
+
+  // Opens from the keyboard.
+  await menu.focus();
+  await page.keyboard.press("Enter");
+  await expect(menu).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(`#${panelId}`)).toBeVisible();
+
+  // Escape closes it AND returns focus to the button, so a keyboard user is
+  // never left focused on something that no longer exists.
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator(`#${panelId}`)).toHaveCount(0);
+  await expect(menu).toBeFocused();
+
+  // An outside click closes it too.
+  await menu.click();
+  await expect(menu).toHaveAttribute("aria-expanded", "true");
+  await page.locator("main").click({ position: { x: 5, y: 5 } });
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
+});
+
+test("the header exposes literal accessible names at every width", async ({ page }) => {
+  // Wide: every label is inline, no disclosure. Viewport is set explicitly so
+  // this asserts the same thing in all three projects.
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await page.goto("/");
+  const header = page.locator("header");
+  for (const name of [/how it works/i, /pricing/i, /sign in/i, /create my sample/i]) {
+    await expect(header.getByRole("link", { name }).first()).toBeVisible();
+  }
+  // The disclosure exists in the DOM but must not be shown when every link is
+  // already inline — two competing navigations is the failure mode here.
+  await expect(page.locator("header button")).not.toBeVisible();
+  await expect(page.locator('header a[href="/"]')).toBeVisible();
+
+  // Narrow: the two secondary labels move into the disclosure, and the CTA
+  // shortens. No icon-only control appears at any width — every target still
+  // carries readable text.
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/");
+  await expect(header.getByRole("link", { name: /free sample/i })).toBeVisible();
+  await expect(header.getByRole("link", { name: /sign in/i })).toBeVisible();
+  await expect(header.getByRole("button", { name: /menu/i })).toBeVisible();
+
+  const targets = page.locator("header a[href]:visible, header button:visible");
+  const labels = await targets.evaluateAll((nodes) =>
+    nodes.map((node) => (node as HTMLElement).innerText.trim())
+  );
+  expect(labels.every((label) => label.length > 0), `unlabelled target: ${labels.join("|")}`).toBe(
+    true
+  );
+
+  await header.getByRole("button", { name: /menu/i }).click();
+  await expect(header.getByRole("link", { name: /how it works/i })).toBeVisible();
+  await expect(header.getByRole("link", { name: /pricing/i })).toBeVisible();
+});
+
+/**
+ * MW-V11-03: the adaptation proof. It is an illustration, so the things that
+ * can go wrong with it are layout and honesty, not behaviour.
+ */
+test("the adaptation proof renders truthfully and fits a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/#how-it-works");
+
+  const figure = page.locator("figure").first();
+  await expect(figure).toBeVisible();
+
+  // innerText applies text-transform, so the step labels come back uppercased.
+  // Compare case-insensitively: the assertion is about wording, not casing.
+  const text = (await figure.innerText()).replace(/\s+/g, " ").toLowerCase();
+
+  // The beats of the loop, in the product's own words.
+  for (const beat of [
+    "today · one next step",
+    "then the day changes",
+    "what will change",
+    "rest of today adjusted",
+    "undo — bring the previous plan back",
+  ]) {
+    expect(text, `proof is missing "${beat}"`).toContain(beat);
+  }
+
+  // It says what it is. A product screenshot that could be read as a customer
+  // result is the failure mode worth a test.
+  expect(text).toContain("example of the product view");
+  expect(text).toContain("not a customer result");
+
+  // No fake controls: nothing inside the illustration is focusable.
+  expect(await figure.locator("button, a[href], input").count()).toBe(0);
+
+  // Fits 320px without its own scrollbar.
+  const overflows = await figure.evaluate(
+    (node) => node.scrollWidth > node.clientWidth + 1
+  );
+  expect(overflows, "the proof overflows a 320px screen").toBe(false);
 });
 
 test("focus is visible on the primary signup control", async ({ page }) => {
@@ -259,8 +455,52 @@ test("auth callback rejects a missing code and a malicious next URL", async ({ p
 test("hero leads with the free-sample funnel, not a trial promise", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("link", { name: /create my free sample plan/i }).first()).toBeVisible();
-  await expect(page.getByText(/no card for the sample/i).first()).toBeVisible();
+  await expect(page.getByText(/no payment card is requested/i).first()).toBeVisible();
   await expect(page.locator("body")).not.toContainText(/start my 3-day free trial/i);
+});
+
+/**
+ * MW-V11-01: rendered commercial copy.
+ *
+ * These assertions exist because the defects they catch were live while a
+ * 900-test suite was green. A contract test can prove a helper returns the
+ * right string; only a render can prove the page puts a space between two of
+ * them. The hero really did read "…the day you actually have.Tell Mellowa…".
+ */
+test("public commercial copy is grammatical and spaced in the browser", async ({
+  page,
+}) => {
+  for (const path of ["/", "/pricing", "/refund", "/terms"]) {
+    await page.goto(path);
+    const text = (await page.locator("main").innerText()).replace(/\s+/g, " ");
+
+    // A sentence-ending period glued to the next sentence's capital letter.
+    // Scoped to a lowercase letter before the period so abbreviations and
+    // decimals ("€9.99", "e.g.") are not swept up.
+    const glued = text.match(/[a-z]{2}\.[A-Z][a-z]/g) ?? [];
+    expect(glued, `${path} renders sentences with no space: ${glued.join(", ")}`).toEqual(
+      [],
+    );
+
+    // The plural noun form used attributively, e.g. "a 3 days trial".
+    expect(text, `${path} renders an ungrammatical trial length`).not.toMatch(
+      /\ba \d+ days\b/i,
+    );
+    expect(text, `${path} renders an ungrammatical trial length`).not.toMatch(
+      /\d+ days trial/i,
+    );
+  }
+});
+
+test("the hero states the sample terms once, not twice", async ({ page }) => {
+  await page.goto("/");
+  const hero = (await page.locator("main section").first().innerText()).replace(
+    /\s+/g,
+    " ",
+  );
+  // Both facts a visitor needs before clicking, each stated exactly once.
+  expect((hero.match(/no payment card|no card|without a card/gi) ?? []).length).toBe(1);
+  expect((hero.match(/account is required/gi) ?? []).length).toBe(1);
 });
 
 test("signup and login pages carry the elevated account copy", async ({ page }) => {

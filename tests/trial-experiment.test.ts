@@ -175,7 +175,8 @@ describe("a pinned trial is never re-timed", () => {
 describe("anonymous surfaces never guess an arm", () => {
   it("names the control length while no experiment runs (copy unchanged)", () => {
     expect(publicTrialDays({})).toBe(3);
-    expect(trialOfferSentence(publicTrialDays({}))).toContain("3 days");
+    // MW-V11-01: attributive form. "a 3 days trial" was live copy.
+    expect(trialOfferSentence(publicTrialDays({}))).toContain("a 3-day trial");
   });
 
   it("stops naming a length once a cohort is being assigned", () => {
@@ -192,8 +193,8 @@ describe("disclosure copy", () => {
     expect(trialLengthLabel(7)).toBe("7 days");
     expect(trialLengthLabel(1)).toBe("1 day");
     expect(trialLengthAdjective(7)).toBe("7-day");
-    expect(startTrialCta(3)).toBe("Start 3 days free");
-    expect(startTrialCta(7)).toBe("Start 7 days free");
+    expect(startTrialCta(3)).toBe("Start free 3-day trial");
+    expect(startTrialCta(7)).toBe("Start free 7-day trial");
   });
 
   it("never says 'free week' or 'a week free' for any length", () => {

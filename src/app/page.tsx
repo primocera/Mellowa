@@ -3,13 +3,15 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { readLegalConfig } from "@/lib/legal/config";
 import { PRICING } from "@/lib/stripe/plans";
-import { TERMS } from "@/lib/content/terminology";
+import { TERMS, joinSentences } from "@/lib/content/terminology";
 import {
   publicTrialDays,
   trialOfferSentence,
   trialThenPriceLine,
 } from "@/lib/stripe/trial-experiment";
 import { TrackedCta } from "@/components/dailyflow/tracked-cta";
+import { LandingHeader } from "@/components/dailyflow/landing-header";
+import { AdaptiveDayProof } from "@/components/dailyflow/adaptive-day-proof";
 import { SITE_URL } from "@/lib/seo/site";
 
 export const metadata: Metadata = {
@@ -19,52 +21,17 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-// One concrete, anonymized example day: a meal rhythm, one movement moment
-// and one calm reset. Illustrative only — no fabricated data or outcomes.
-const SAMPLE_DAY = [
-  {
-    time: "8:00",
-    title: "Breakfast that travels",
-    detail: "Overnight oats with fruit and yoghurt — made the night before.",
-  },
-  {
-    time: "10:30",
-    title: "Hydration cue",
-    detail: "A glass of water with your mid-morning break.",
-  },
-  {
-    time: "12:30",
-    title: "Lunch, no cooking",
-    detail: "A grain bowl from last night's leftovers plus greens.",
-  },
-  {
-    time: "15:00",
-    title: "Movement moment",
-    detail: "A 10-minute walk after your busiest meeting — only if it helps.",
-  },
-  {
-    time: "16:30",
-    title: "Calm reset",
-    detail: "Three slow breaths before the afternoon dip.",
-  },
-  {
-    time: "19:00",
-    title: "Dinner in 20 minutes",
-    detail: "Sheet-pan chicken and vegetables you can leave in the oven.",
-  },
-  {
-    time: "21:00",
-    title: "One small habit",
-    detail: "Lay out tomorrow's water bottle — minimum version: just fill it.",
-  },
-  {
-    time: "21:30",
-    title: "Evening wind-down",
-    detail: "Screens down, lights low, one page of anything.",
-  },
-];
-
-// The exact categories every daily plan contains — mirrors the plan schema.
+/**
+ * The exact categories every daily plan contains — mirrors the plan schema.
+ *
+ * MW-V11-03 briefly removed this as a duplicate of the items the adaptation
+ * proof shows concretely, which cut the copy further. That was wrong:
+ * `landing-conversion.test.ts` pins it as a contract, because enumerating what
+ * a plan actually produces is a completeness statement a prospective buyer is
+ * entitled to, not marketing padding. An example day proves the format exists;
+ * only the list proves nothing has quietly been dropped from it. Restored, and
+ * the word-count target missed instead.
+ */
 const PLAN_CATEGORIES = [
   "A flexible meal rhythm",
   "Hydration cues",
@@ -78,8 +45,10 @@ const PLAN_CATEGORIES = [
 // implemented capabilities, with no outcome or open-ended-volume claims.
 const PREMIUM_JOBS = [
   {
+    // MW-V11-03: the "completed items stay put, Undo is free" half of this is
+    // now demonstrated in the proof above, so it is not claimed again here.
     title: "Adapt today",
-    text: "Create plans day to day and adjust the rest of any day in one pass — completed items stay put, Undo is free.",
+    text: "Create plans day to day, and adjust any day in one pass.",
   },
   {
     title: "Reuse what works",
@@ -91,10 +60,12 @@ const PREMIUM_JOBS = [
   },
 ];
 
+// MW-V11-03: the third line ("feedback shapes later plans, and you can remove
+// what was learned") moved into the "How it decides" card, where the same fact
+// was already being stated. These two are the ones nothing else covers.
 const DIFFERENCE = [
-  "Meals come without calorie targets or food scoring.",
-  "No streaks, red warnings or ‘starting over’.",
-  "Feedback you give shapes later plans — and you can remove what was learned.",
+  "No calorie targets or food scoring.",
+  "No streaks, warnings or ‘starting over’.",
 ];
 
 const FAQ = [
@@ -185,30 +156,8 @@ export default function LandingPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      {/* Nav */}
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
-        <span className="text-lg font-semibold tracking-tight">Mellowa</span>
-        <nav className="flex items-center gap-3">
-          <a
-            href="#how-it-works"
-            className="hidden text-sm text-[#6B7280] transition hover:text-[#1F2937] sm:inline"
-          >
-            How it works
-          </a>
-          <Link href="/pricing" className="text-sm text-[#6B7280] transition hover:text-[#1F2937]">
-            Pricing
-          </Link>
-          <Link href="/login" className="text-sm text-[#6B7280] transition hover:text-[#1F2937]">
-            Sign in
-          </Link>
-          <Link
-            href="/signup"
-            className="rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6D8C7D]"
-          >
-            Create free sample
-          </Link>
-        </nav>
-      </header>
+      {/* Nav — see LandingHeader for the accessibility contract it encodes. */}
+      <LandingHeader />
 
       {/* MW-V10-07: the authenticated shell had a <main> landmark; the public
           pages had none, so a screen-reader user arriving on the landing page
@@ -223,23 +172,28 @@ export default function LandingPage() {
           When your day changes, reshape what&rsquo;s left &mdash; without
           starting over.
         </h1>
+        {/* MW-V11-01: composed in JS, not by JSX adjacency. Written as an
+            expression followed by prose, this rendered with no space at all
+            between the two sentences, because JSX drops the whitespace between
+            an expression and a text node that spans lines. */}
         <p className="mx-auto mt-5 max-w-2xl text-lg text-[#6B7280]">
-          {TERMS.promise} Tell Mellowa the energy and time you actually have,
-          and it shapes a general wellbeing plan around it &mdash; no calorie
-          targets, no streaks, nothing to catch up on.
+          {joinSentences(
+            TERMS.promise,
+            "Tell Mellowa the energy and time you actually have, and it shapes a general wellbeing plan around it."
+          )}
         </p>
 
         {/* The loop, above the fold: this is the wedge, so it must be the
             first thing a visitor understands — not a mechanism section they
-            have to scroll to reach. */}
-        <ol className="mx-auto mt-7 flex max-w-2xl flex-wrap items-center justify-center gap-x-2 gap-y-2 text-sm text-[#6B7280]">
-          {[
-            "Check in",
-            "One next step",
-            "Adjust what's left",
-            "Completed items stay",
-            "Undo is free",
-          ].map((beat, index) => (
+            have to scroll to reach.
+
+            MW-V11-03: three beats, not five. As one five-item row it wrapped
+            wherever the viewport happened to break, stranding "Undo is free"
+            alone on a second line and reading like an accident. The flow is
+            the three beats; the two reassurances about what a change costs you
+            are a separate, deliberate subrow. */}
+        <ol className="mx-auto mt-7 flex max-w-2xl flex-wrap items-center justify-center gap-2 text-sm text-[#6B7280]">
+          {["Check in", "See one next step", "Adjust what's left"].map((beat, index) => (
             <li key={beat} className="flex items-center gap-2">
               {index > 0 && (
                 <span aria-hidden className="text-[#C9C3B8]">
@@ -250,6 +204,11 @@ export default function LandingPage() {
             </li>
           ))}
         </ol>
+        <p className="mx-auto mt-2.5 flex max-w-2xl flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-[#9CA3AF]">
+          <span>Completed items stay</span>
+          <span aria-hidden>·</span>
+          <span>Undo is free</span>
+        </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <TrackedCta
             href="/signup"
@@ -260,15 +219,15 @@ export default function LandingPage() {
             {TERMS.sampleCta}
           </TrackedCta>
           <a
-            href="#sample-plan"
+            href="#how-it-works"
             className="rounded-xl border border-[#E5E1DA] bg-white px-6 py-3.5 font-medium text-[#1F2937] transition hover:border-[#7C9A92]/50"
           >
-            See a sample plan
+            See how it adapts
           </a>
         </div>
+        {/* One statement of the sample terms, not three overlapping ones. */}
         <p className="mt-4 text-sm text-[#9CA3AF]">
-          {TERMS.sampleHelper} {trialOfferSentence(trialDays)} An account is
-          required; no card is requested for the sample.
+          {joinSentences(TERMS.sampleHelper, trialOfferSentence(trialDays))}
         </p>
       </section>
 
@@ -283,61 +242,41 @@ export default function LandingPage() {
         </p>
       </section>
 
-      {/* 4. Sample plan preview — one concrete, anonymized day */}
-      <section id="sample-plan" className="mx-auto max-w-3xl px-6 py-12">
+      {/*
+        MW-V11-03: the proof of the wedge comes before the description of it.
+        This section carries the `how-it-works` anchor because showing the loop
+        *is* how it works — the paragraph that used to claim it is gone.
+      */}
+      <section id="how-it-works" className="mx-auto max-w-3xl px-6 py-12">
         <h2 className="text-center text-2xl font-semibold tracking-tight">
-          One real day, start to finish
+          What happens when your day changes
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-center text-[#6B7280]">
-          An example weekday with medium energy and about 20 minutes to cook.
-          Yours is shaped by your own check-in.
+          One pass replaces only what is still open.
         </p>
-        <div className="mx-auto mt-8 max-w-md rounded-2xl bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium text-[#1F2937]">Wednesday</h3>
-            <span className="rounded-full bg-[#7C9A92]/10 px-2.5 py-0.5 text-xs font-medium text-[#6D8C7D]">
-              Medium energy · 20-min cooking
-            </span>
-          </div>
-          <ul className="mt-5 space-y-4">
-            {SAMPLE_DAY.map((item) => (
-              <li key={item.time} className="flex gap-3">
-                <span className="w-16 shrink-0 text-xs font-medium uppercase tracking-wide text-[#9CA3AF]">
-                  {item.time}
-                </span>
-                <div>
-                  <p className="text-sm font-medium text-[#1F2937]">{item.title}</p>
-                  <p className="text-sm text-[#6B7280]">{item.detail}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <p className="mt-3 text-center text-sm text-[#9CA3AF]">
-          An illustrative example, not a fixed template — a low-energy day would
-          be smaller, and nothing here is a rule you have to follow.
-        </p>
-      </section>
+        <AdaptiveDayProof />
 
-      {/* 3. Mechanism */}
-      <section id="how-it-works" className="mx-auto max-w-3xl px-6 py-8">
-        <div className="rounded-3xl bg-[#7C9A92] p-8 text-center text-white sm:p-12">
-          <h2 className="text-2xl font-semibold tracking-tight">
-            Your day changes. Most plans don&rsquo;t.
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-white/85">
-            Every plan is smaller on difficult days and more complete when you
-            have room. Each one covers:
-          </p>
-          <ul className="mx-auto mt-6 grid max-w-xl gap-2 text-left text-sm text-white/90 sm:grid-cols-2">
-            {PLAN_CATEGORIES.map((category) => (
-              <li key={category} className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-white/70" />
-                <span>{category}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {/*
+          MW-V11-03: three things collapsed into this one section. The green
+          "Your day changes. Most plans don't." panel restated the wedge the
+          proof demonstrates; the eight-item "One real day" list was a second
+          example day; and the "every plan covers…" checklist was the abstract
+          version of the very items the proof shows concretely. The one category
+          the example did not cover — hydration — is now an item in it, so the
+          completeness is demonstrated instead of asserted.
+        */}
+        <p className="mx-auto mt-8 max-w-xl text-center text-sm text-[#6B7280]">
+          Every plan covers the same ground — smaller on hard days, fuller when
+          you have room:
+        </p>
+        <ul className="mx-auto mt-3 grid max-w-xl gap-x-4 gap-y-1.5 text-sm text-[#6B7280] sm:grid-cols-2">
+          {PLAN_CATEGORIES.map((category) => (
+            <li key={category} className="flex items-start gap-2">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#7C9A92]" />
+              <span>{category}</span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* 5. Who it's for / how personalization works / what the AI does */}
@@ -346,8 +285,8 @@ export default function LandingPage() {
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <h3 className="font-medium text-[#1F2937]">Who it&rsquo;s for</h3>
             <p className="mt-2 text-sm text-[#6B7280]">
-              People with full, changeable days who want a realistic rhythm for
-              food, movement and winding down — without dieting or tracking.
+              Full, changeable days that need a realistic rhythm for food,
+              movement and winding down — without dieting or tracking.
             </p>
           </div>
           <div className="rounded-2xl bg-white p-6 shadow-sm">
@@ -358,38 +297,28 @@ export default function LandingPage() {
               needs are redirected to qualified help.
             </p>
           </div>
+          {/*
+            MW-V11-03: "How personalization works" and "What the AI does" were
+            two cards answering one question, and the third bullet of the old
+            "Fewer decisions" section said the removable-learning part a third
+            time. One card, said once.
+          */}
           <div className="rounded-2xl bg-white p-6 shadow-sm">
-            <h3 className="font-medium text-[#1F2937]">How personalization works</h3>
+            <h3 className="font-medium text-[#1F2937]">How it decides</h3>
             <p className="mt-2 text-sm text-[#6B7280]">
               Your check-in — energy, time, schedule, diet preference and
-              allergies — shapes each plan. Say what didn&rsquo;t fit, and remove
-              anything it learned at any time.
-            </p>
-          </div>
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
-            <h3 className="font-medium text-[#1F2937]">What the AI does</h3>
-            <p className="mt-2 text-sm text-[#6B7280]">
-              It turns your check-in into a structured day using general
-              wellbeing guidance. Every request is safety-checked first, and it
-              never diagnoses conditions.
+              allergies — shapes each plan, using general wellbeing guidance.
+              Every request is safety-checked first, and it never diagnoses
+              conditions. Say what didn&rsquo;t fit, or remove anything it
+              learned.
             </p>
           </div>
         </div>
-      </section>
-
-      {/* 7. Difference */}
-      <section className="mx-auto max-w-3xl px-6 py-12">
-        <h2 className="text-center text-2xl font-semibold tracking-tight">
-          Not more wellness tasks. Fewer decisions.
-        </h2>
-        <ul className="mx-auto mt-6 max-w-xl space-y-3">
+        <ul className="mx-auto mt-4 flex max-w-xl flex-wrap justify-center gap-x-4 gap-y-1.5 text-sm text-[#6B7280]">
           {DIFFERENCE.map((line) => (
-            <li
-              key={line}
-              className="flex items-start gap-3 rounded-2xl bg-white px-5 py-4 shadow-sm"
-            >
+            <li key={line} className="flex items-start gap-2">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#7C9A92]" />
-              <span className="text-sm">{line}</span>
+              <span>{line}</span>
             </li>
           ))}
         </ul>
@@ -401,8 +330,7 @@ export default function LandingPage() {
           What Premium keeps doing
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-center text-[#6B7280]">
-          The free sample is one day. Premium is the ongoing loop — three jobs,
-          day after day and week after week.
+          The free sample is one day. Premium is the ongoing loop.
         </p>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {PREMIUM_JOBS.map((job) => (
@@ -420,8 +348,10 @@ export default function LandingPage() {
           See one day before you choose a plan.
         </h2>
         <p className="mt-2 text-[#6B7280]">
-          Create a free sample day without a card.{" "}
-          {trialOfferSentence(trialDays)}
+          {joinSentences(
+            "Create a free sample day without a card.",
+            trialOfferSentence(trialDays)
+          )}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-4">
           <TrackedCta
@@ -461,9 +391,12 @@ export default function LandingPage() {
               <span className="text-base font-normal text-[#6B7280]">/yr</span>
             </p>
             <p className="mt-1 text-sm text-[#6B7280]">
-              About €5.00/month, billed yearly. That&rsquo;s {PRICING.yearly.price}{" "}
-              instead of €119.88 (12 × {PRICING.monthly.price}) — a 50% saving.{" "}
-              {trialThenPriceLine(trialDays, PRICING.yearly.price, "year")}.
+              {/* The explicit arithmetic stays: a "50% saving" a reader cannot
+                  check is a marketing claim, and this one is checkable. */}
+              {joinSentences(
+                `About €5.00/month, billed yearly — ${PRICING.yearly.price} instead of €119.88 (12 × ${PRICING.monthly.price}).`,
+                `${trialThenPriceLine(trialDays, PRICING.yearly.price, "year")}.`
+              )}
             </p>
             <span className="mt-4 inline-block rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white">
               Start with a free sample
@@ -471,9 +404,9 @@ export default function LandingPage() {
           </TrackedCta>
         </div>
         <p className="mx-auto mt-4 max-w-xl text-xs text-[#9CA3AF]">
-          No card for the sample. A trial only begins when you choose a plan and
-          continue to checkout — you&rsquo;ll see the exact charge date first,
-          and it renews automatically unless you cancel before the trial ends.
+          A trial only begins when you choose a plan and continue to checkout.
+          You&rsquo;ll see the exact charge date first, and it renews
+          automatically unless you cancel before the trial ends.
         </p>
         <Link
           href="/pricing"
