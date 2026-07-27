@@ -193,6 +193,12 @@ if (STATE === "trial-eligible") {
       current_period_end: new Date(Date.now() - 27 * 24 * 60 * 60 * 1000).toISOString(),
       cancel_at_period_end: false,
       trial_used_at: new Date(Date.now() - 27 * 24 * 60 * 60 * 1000).toISOString(),
+      // Stripe locks a customer's currency the first time it is billed, and the
+      // app reuses stripe_customer_id for the account's lifetime. A customer
+      // created while the prices were USD can never be charged in EUR, and
+      // checkout fails with a generic 502. Billing fixtures therefore start
+      // from no customer at all, so each run creates a fresh, unlocked one.
+      stripe_customer_id: null,
     },
     { onConflict: "user_id" }
   );

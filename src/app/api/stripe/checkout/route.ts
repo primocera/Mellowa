@@ -135,13 +135,33 @@ export async function POST(request: Request) {
         },
       },
       {
-        // Idempotent per user + interval + trial-eligibility + trial length, so
-        // a double click or retried request cannot create two subscriptions,
-        // and a re-pinned length can never be silently served from a cached
-        // session created for a different number of days.
+        /*
+         * Idempotent per user + interval + trial-eligibility + trial length +
+         * **price**, so a double click or retried request cannot create two
+         * subscriptions, and a re-pinned length can never be silently served
+         * from a cached session created for a different number of days.
+         *
+         * The price is in the key because leaving it out broke checkout
+         * outright. Stripe caches an idempotency key for 24 hours and rejects
+         * reuse with different parameters:
+         *
+         *   StripeIdempotencyError: Keys for idempotent requests can only be
+         *   used with the same parameters they were first used with.
+         *
+         * So when the live prices were corrected from USD to EUR, every user
+         * who had attempted checkout in the previous 24 hours got a 502 on
+         * every retry — the key was identical, the price was not. It would have
+         * healed itself a day later, which is the worst kind of failure: it
+         * looks like an outage, resists every retry, and then vanishes before
+         * anyone can debug it.
+         *
+         * Including the price means a price change immediately mints a new key,
+         * and the double-click protection this exists for is unaffected: two
+         * clicks a second apart still send identical parameters.
+         */
         idempotencyKey: `checkout_${user.id}_${parsed.data.interval}_${
           trialEligible ? `trial${trialConfig.days}` : "paid"
-        }`,
+        }_${price}`,
       }
     );
 

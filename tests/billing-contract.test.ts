@@ -88,3 +88,35 @@ describe("the price verifier is wired up and checks the right things", () => {
     expect(script).toContain(`currency: "${BILLING_CONTRACT.currency}"`);
   });
 });
+
+describe("a price change must not strand users behind a cached idempotency key", () => {
+  const route = readFileSync("src/app/api/stripe/checkout/route.ts", "utf8");
+
+  it("includes the price in the checkout idempotency key", () => {
+    /*
+     * Stripe caches an idempotency key for 24 hours and rejects reuse with
+     * different parameters. Without the price in the key, correcting the live
+     * prices from USD to EUR made every retry fail with a 502 for anyone who
+     * had attempted checkout in the previous day — a failure that resists
+     * retries and then heals itself before it can be debugged.
+     */
+    // The key itself contains a nested template literal, so it cannot be
+    // captured with a naive [^`]+ — read from the label to the end of the call.
+    const start = route.indexOf("idempotencyKey:");
+    expect(start, "no idempotency key on the checkout session").toBeGreaterThan(-1);
+    const key = route.slice(start, route.indexOf("\n      }", start));
+
+    expect(
+      key,
+      "the idempotency key does not vary with the price, so a price change breaks checkout for 24h"
+    ).toContain("${price}");
+  });
+
+  it("still varies by user, interval and trial length", () => {
+    const start = route.indexOf("idempotencyKey:");
+    const key = route.slice(start, route.indexOf("\n      }", start));
+    for (const part of ["${user.id}", "interval", "trial"]) {
+      expect(key, `the key no longer varies by ${part}`).toContain(part);
+    }
+  });
+});
