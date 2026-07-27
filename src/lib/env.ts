@@ -47,8 +47,28 @@ export const serverEnv = {
   get resendApiKey() {
     return process.env.RESEND_API_KEY ?? null;
   },
+  /**
+   * The sender address, normalized.
+   *
+   * Production had `EMAIL_FROM=<hello@mellowa.app>` — angle brackets, no
+   * display name. That is not a valid address: providers accept
+   * `user@domain` or `Name <user@domain>`, and a bare `<user@domain>` is
+   * rejected. Resend returned 422 to **every single send**, so Mellowa had
+   * never successfully delivered one email: not a welcome, not a verification,
+   * not a trial-started notice, not an account-deleted confirmation. Fifteen
+   * attempts, fifteen `failed_permanent`, discovered only because the owner
+   * noticed he was getting mail from a different product and none from this one.
+   *
+   * Stripping the brackets here means a malformed value cannot silently disable
+   * all email again. It is a guard, not a licence to keep the env var wrong —
+   * `npm run release-check` should also be reading this.
+   */
   get emailFrom() {
-    return process.env.EMAIL_FROM ?? "Mellowa <onboarding@resend.dev>";
+    const configured = process.env.EMAIL_FROM?.trim();
+    if (!configured) return "Mellowa <onboarding@resend.dev>";
+    // `<addr>` with no display name → `addr`. `Name <addr>` is left alone.
+    const bareAngled = configured.match(/^<\s*([^<>\s]+@[^<>\s]+)\s*>$/);
+    return bareAngled ? bareAngled[1] : configured;
   },
   // Shared secret for Vercel Cron endpoints. Routes fail closed (503) when
   // unset — required in production deployments (see lib/cron-auth.ts).

@@ -68,7 +68,29 @@ export async function sendEmail(args: {
       const text = await res.text().catch(() => "");
       console.error("[email] Resend send failed", { status: res.status, text });
       const permanent = res.status >= 400 && res.status < 500 && res.status !== 429;
-      return { sent: false, permanent, error: `provider ${res.status}` };
+      /*
+       * Keep the provider's explanation, not just the status code.
+       *
+       * Every send had been failing with `provider 422` for weeks. The reason —
+       * a malformed `from` address — was in this response body and was logged
+       * here, but only the bare status reached `email_deliveries`. So the admin
+       * delivery-health view, the one place anyone would look, showed a wall of
+       * identical "provider 422" with nothing to act on.
+       *
+       * Addresses are redacted before storing: the reason a send failed is
+       * operational data, but the recipient is the user's, and this row is read
+       * by an admin view and pasted into launch evidence.
+       */
+      const reason = text
+        .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[address]")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 200);
+      return {
+        sent: false,
+        permanent,
+        error: reason ? `provider ${res.status}: ${reason}` : `provider ${res.status}`,
+      };
     }
     const body = (await res.json().catch(() => null)) as { id?: string } | null;
     return { sent: true, providerId: body?.id ?? null };
