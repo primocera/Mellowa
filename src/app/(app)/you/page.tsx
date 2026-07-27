@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SlidersHorizontal, CreditCard, ShieldCheck, LifeBuoy, TrendingUp } from "lucide-react";
 import { HubLinks, type HubLink } from "@/components/layout/hub-links";
+import { SignOutButton } from "@/components/dailyflow/sign-out-button";
 
 export const metadata: Metadata = { title: "You — Mellowa" };
 
@@ -53,6 +54,15 @@ export default function YouPage() {
         </p>
       </header>
       <HubLinks links={LINKS} />
+      {/*
+        Sign out lives here because this is the account hub and it renders at
+        every width. The desktop sidebar has its own control, but that sidebar
+        is `hidden … md:flex`, so before this existed a phone had no way to end
+        the session at all.
+      */}
+      <div className="pt-1">
+        <SignOutButton />
+      </div>
     </div>
   );
 }
