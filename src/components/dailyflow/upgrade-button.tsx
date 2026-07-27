@@ -11,10 +11,29 @@ import { trackClient } from "@/lib/analytics/client";
  * trial length — the date is whatever the checkout route computed for this
  * user's assigned variant, so the two can never disagree.
  */
+/**
+ * Format the charge date with an EXPLICIT locale.
+ *
+ * This used to pass `undefined`, which resolves to the runtime's own locale —
+ * Node's on the server, the visitor's on the client. Those disagree (en-US
+ * "July 30, 2026" versus en-GB "30 July 2026"), and because this line renders
+ * on first paint for every trial-eligible viewer, the two HTML versions did not
+ * match and React threw hydration error #418 on the pricing page.
+ *
+ * The mismatched string is "Cancel before {date} to avoid the €9.99 charge" —
+ * the one date a user has to be able to trust, briefly rendering as a different
+ * date than the server intended.
+ *
+ * Found by MW-V11-04's console-error guard the first time a trial-eligible
+ * fixture existed to render this branch at all. The app is English-only
+ * (`docs/localization.md` locks copy until translation), so pinning en-GB is
+ * the honest fix; when localization lands, this takes the user's chosen locale
+ * from server-provided state rather than from whatever the runtime guesses.
+ */
 function formatChargeDate(isoDate: string): string {
   const d = new Date(`${isoDate}T00:00:00`);
   if (Number.isNaN(d.getTime())) return isoDate;
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",
     year: "numeric",

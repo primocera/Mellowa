@@ -200,16 +200,26 @@ export async function assertIdentity(page: Page, identity: Identity): Promise<vo
     /\/login/
   );
 
-  await assertNoErrorBoundary(page);
-
   if (identity.heading) {
     await expect(page.getByRole("heading", { name: identity.heading }).first()).toBeVisible();
   }
 
-  const body = await page.locator("body").innerText();
+  // Retrying, for the same reason as assertSeededState: a one-shot read here
+  // raced the loading boundaries and reported missing content that was simply
+  // not rendered yet.
   for (const pattern of identity.expect ?? []) {
-    expect(body, `expected page to contain ${pattern}`).toMatch(pattern);
+    await expect(
+      page.locator("body"),
+      `expected page to contain ${pattern}`
+    ).toContainText(pattern);
   }
+
+  // Absence checks run last, once the page has settled — asserting that
+  // something is absent before the page renders would pass for the wrong
+  // reason, which is exactly the false green this harness exists to remove.
+  await assertNoErrorBoundary(page);
+
+  const body = await page.locator("body").innerText();
   for (const pattern of identity.reject ?? []) {
     expect(body, `expected page NOT to contain ${pattern}`).not.toMatch(pattern);
   }
@@ -228,12 +238,25 @@ export async function assertSeededState(
   state: SeedState,
   signature: RegExp
 ): Promise<void> {
-  const body = await page.locator("body").innerText();
-  expect(
-    body,
+  /*
+   * Retrying assertion, not a one-shot read.
+   *
+   * The first version called `innerText()` once, immediately after navigation.
+   * That raced the loading boundaries MW-V10-07 added: the body contained the
+   * nav and the trial banner and nothing else yet, so every state reported
+   * "the fixture did not apply" when the fixture had applied perfectly well and
+   * the page simply had not finished rendering. 21 of 33 journeys failed that
+   * way — a false negative, which is the mirror image of the false greens this
+   * harness exists to prevent, and just as misleading.
+   *
+   * `toContainText` polls until the expect timeout, so it waits for content
+   * without a fixed sleep.
+   */
+  await expect(
+    page.locator("body"),
     `seeded state "${state}" is not present on the page — the fixture did not apply, ` +
       "so this journey would have tested nothing"
-  ).toMatch(signature);
+  ).toContainText(signature);
 }
 
 // ---------------------------------------------------------------------------

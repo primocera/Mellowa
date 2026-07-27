@@ -79,20 +79,37 @@ async function arriveAtToday(
 async function assertNotCoveredByNav(page: Page, name: RegExp) {
   const control = page.getByRole("button", { name }).first();
   await expect(control).toBeVisible();
-  const box = await control.boundingBox();
-  const nav = page.locator("nav.fixed").first();
-  if ((await nav.count()) === 0 || !box) return;
-  const navBox = await nav.boundingBox();
-  if (!navBox) return;
-  // Scroll the control fully into view first — being below the fold is fine;
-  // being *under* the nav once scrolled to is not.
   await control.scrollIntoViewIfNeeded();
-  const after = await control.boundingBox();
-  if (!after) return;
-  expect(
-    after.y + after.height <= navBox.y + 1,
-    "control sits underneath the fixed bottom nav"
-  ).toBe(true);
+
+  /*
+   * Ask the browser what is actually at the control's centre, rather than
+   * comparing boxes against the nav.
+   *
+   * The box comparison was wrong in a way that took a real run to expose. It
+   * called `scrollIntoViewIfNeeded`, which scrolls an element to be *minimally*
+   * visible and knows nothing about fixed overlays — so it happily parks the
+   * button directly behind the bottom nav and then failed on the geometry it
+   * had just created. The layout already reserves `pb-24` (96px) for a ~60px
+   * nav, so the content can always be scrolled clear; what the test needed to
+   * know was never "where is this box" but "if the user taps here, does the
+   * button receive it".
+   *
+   * `elementFromPoint` answers exactly that, and it also catches any future
+   * overlay — a toast, a sticky banner, a modal backdrop — not just this nav.
+   */
+  const reachable = await control.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    if (y < 0 || y > window.innerHeight) return "offscreen";
+    const hit = document.elementFromPoint(x, y);
+    if (!hit) return "nothing at point";
+    if (node.contains(hit) || hit.contains(node)) return true;
+    const covering = hit.closest("nav,header,[role=dialog]") ?? hit;
+    return `covered by <${covering.tagName.toLowerCase()}>`;
+  });
+
+  expect(reachable, `the primary action is not tappable: ${reachable}`).toBe(true);
 }
 
 test.describe("no plan yet", () => {
@@ -243,11 +260,11 @@ test.describe("payment needs attention", () => {
   test("says history is readable and gives one route to billing", async ({
     page,
   }) => {
-    await arriveAtToday(page, "past-due", /stays readable/i);
+    await arriveAtToday(page, "past-due", /stays? readable/i);
 
     const banner = page.getByRole("status").filter({ hasText: /readable/i }).first();
     await expect(banner).toBeVisible();
-    await expect(banner).toContainText(/stays readable/i);
+    await expect(banner).toContainText(/stays? readable/i);
     // Exactly one recovery CTA, and it goes to billing.
     const cta = banner.getByRole("link");
     await expect(cta).toHaveCount(1);
@@ -269,7 +286,9 @@ test.describe("subscription ended", () => {
   test("keeps history readable and offers plans without pressure", async ({
     page,
   }) => {
-    await arriveAtToday(page, "canceled", /stays readable/i);
+    // The canceled banner reads "…reflections stay readable"; the past_due one
+    // reads "stays readable". Tolerate both rather than pin the wrong one.
+    await arriveAtToday(page, "canceled", /stays? readable/i);
     const banner = page.getByRole("status").filter({ hasText: /readable/i }).first();
     await expect(banner).toBeVisible();
     await expect(banner.getByRole("link")).toHaveAttribute("href", "/billing");

@@ -1,0 +1,25 @@
+[WebServer] [legal] outstanding before paid launch: [
+[WebServer]   'LEGAL_ENTITY_NAME is not set',
+[WebServer]   'LEGAL_REGISTERED_ADDRESS is not set',
+[WebServer]   'LEGAL_GOVERNING_LAW is not set',
+[WebServer]   'SUPPORT_EMAIL is not set (hardcoded fallback in use)',
+[WebServer]   'NEXT_PUBLIC_APP_URL is a temporary domain: http://localhost:3000'
+[WebServer] ]
+
+Running 12 tests using 1 worker
+
+  ✓   1 [mobile] › e2e\journeys.spec.ts:48:5 › login → dashboard → consent state → settings data controls (4.0s)
+  ✓   2 [mobile] › e2e\journeys.spec.ts:63:5 › pricing reflects trial state for the signed-in user (2.2s)
+  ✓   3 [mobile] › e2e\journeys.spec.ts:83:5 › assigned trial length is disclosed identically on pricing and billing (2.8s)
+  -   4 [mobile] › e2e\journeys.spec.ts:146:5 › a user who already used their trial sees pay-today copy only
+  ✓   5 [desktop] › e2e\journeys.spec.ts:48:5 › login → dashboard → consent state → settings data controls (3.5s)
+  ✓   6 [desktop] › e2e\journeys.spec.ts:63:5 › pricing reflects trial state for the signed-in user (2.0s)
+  ✓   7 [desktop] › e2e\journeys.spec.ts:83:5 › assigned trial length is disclosed identically on pricing and billing (3.2s)
+  -   8 [desktop] › e2e\journeys.spec.ts:146:5 › a user who already used their trial sees pay-today copy only
+  ✓   9 [mobile-320] › e2e\journeys.spec.ts:48:5 › login → dashboard → consent state → settings data controls (2.3s)
+  ✓  10 [mobile-320] › e2e\journeys.spec.ts:63:5 › pricing reflects trial state for the signed-in user (1.8s)
+  ✓  11 [mobile-320] › e2e\journeys.spec.ts:83:5 › assigned trial length is disclosed identically on pricing and billing (2.5s)
+  -  12 [mobile-320] › e2e\journeys.spec.ts:146:5 › a user who already used their trial sees pay-today copy only
+
+  3 skipped
+  9 passed (37.8s)

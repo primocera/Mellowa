@@ -1,0 +1,49 @@
+
+> dailyflow-ai@0.1.0 test:e2e:journey
+> playwright test e2e/daily-journey.spec.ts
+
+[WebServer] [legal] outstanding before paid launch: [
+[WebServer]   'LEGAL_ENTITY_NAME is not set',
+[WebServer]   'LEGAL_REGISTERED_ADDRESS is not set',
+[WebServer]   'LEGAL_GOVERNING_LAW is not set',
+[WebServer]   'SUPPORT_EMAIL is not set (hardcoded fallback in use)',
+[WebServer]   'NEXT_PUBLIC_APP_URL is a temporary domain: http://localhost:3000'
+[WebServer] ]
+
+Running 33 tests using 1 worker
+
+  ✓   1 [mobile] › e2e\daily-journey.spec.ts:118:7 › no plan yet › offers exactly one way forward, reachable by keyboard (6.4s)
+  ✓   2 [mobile] › e2e\daily-journey.spec.ts:145:7 › plan ready › shows one Now action; the full plan stays reachable (8.0s)
+  ✓   3 [mobile] › e2e\daily-journey.spec.ts:163:7 › plan ready › a double tap on Done completes once and reads as done once (4.8s)
+  ✓   4 [mobile] › e2e\daily-journey.spec.ts:187:7 › plan ready › Undo reverses the completion and says nothing about success (4.1s)
+  ✓   5 [mobile] › e2e\daily-journey.spec.ts:196:7 › plan ready › no celebration, streak or adherence language anywhere on Today (3.5s)
+  ✓   6 [mobile] › e2e\daily-journey.spec.ts:221:7 › partly done › skips the completed item without hiding it from the full plan (3.5s)
+  ✓   7 [mobile] › e2e\daily-journey.spec.ts:239:7 › all done › states there is nothing left, neutrally, with the plan still open (3.4s)
+  ✓   8 [mobile] › e2e\daily-journey.spec.ts:260:7 › payment needs attention › says history is readable and gives one route to billing (3.5s)
+  ✓   9 [mobile] › e2e\daily-journey.spec.ts:286:7 › subscription ended › keeps history readable and offers plans without pressure (4.2s)
+  ✓  10 [mobile] › e2e\daily-journey.spec.ts:302:7 › trial set not to renew › shows one notice, not a trial countdown as well (3.5s)
+  ✓  11 [mobile] › e2e\daily-journey.spec.ts:313:7 › invalid stored timezone › offers timezone repair instead of a wrong day (3.4s)
+  ✓  12 [desktop] › e2e\daily-journey.spec.ts:118:7 › no plan yet › offers exactly one way forward, reachable by keyboard (4.7s)
+  ✓  13 [desktop] › e2e\daily-journey.spec.ts:145:7 › plan ready › shows one Now action; the full plan stays reachable (4.0s)
+  ✓  14 [desktop] › e2e\daily-journey.spec.ts:163:7 › plan ready › a double tap on Done completes once and reads as done once (4.8s)
+  ✓  15 [desktop] › e2e\daily-journey.spec.ts:187:7 › plan ready › Undo reverses the completion and says nothing about success (4.6s)
+  ✓  16 [desktop] › e2e\daily-journey.spec.ts:196:7 › plan ready › no celebration, streak or adherence language anywhere on Today (4.6s)
+  ✓  17 [desktop] › e2e\daily-journey.spec.ts:221:7 › partly done › skips the completed item without hiding it from the full plan (4.6s)
+  ✓  18 [desktop] › e2e\daily-journey.spec.ts:239:7 › all done › states there is nothing left, neutrally, with the plan still open (4.3s)
+  ✓  19 [desktop] › e2e\daily-journey.spec.ts:260:7 › payment needs attention › says history is readable and gives one route to billing (3.5s)
+  ✓  20 [desktop] › e2e\daily-journey.spec.ts:286:7 › subscription ended › keeps history readable and offers plans without pressure (4.4s)
+  ✓  21 [desktop] › e2e\daily-journey.spec.ts:302:7 › trial set not to renew › shows one notice, not a trial countdown as well (3.7s)
+  ✓  22 [desktop] › e2e\daily-journey.spec.ts:313:7 › invalid stored timezone › offers timezone repair instead of a wrong day (4.0s)
+  ✓  23 [mobile-320] › e2e\daily-journey.spec.ts:118:7 › no plan yet › offers exactly one way forward, reachable by keyboard (4.8s)
+  ✓  24 [mobile-320] › e2e\daily-journey.spec.ts:145:7 › plan ready › shows one Now action; the full plan stays reachable (4.1s)
+  ✓  25 [mobile-320] › e2e\daily-journey.spec.ts:163:7 › plan ready › a double tap on Done completes once and reads as done once (5.1s)
+  ✓  26 [mobile-320] › e2e\daily-journey.spec.ts:187:7 › plan ready › Undo reverses the completion and says nothing about success (3.6s)
+  ✓  27 [mobile-320] › e2e\daily-journey.spec.ts:196:7 › plan ready › no celebration, streak or adherence language anywhere on Today (3.3s)
+  ✓  28 [mobile-320] › e2e\daily-journey.spec.ts:221:7 › partly done › skips the completed item without hiding it from the full plan (4.6s)
+  ✓  29 [mobile-320] › e2e\daily-journey.spec.ts:239:7 › all done › states there is nothing left, neutrally, with the plan still open (4.2s)
+  ✓  30 [mobile-320] › e2e\daily-journey.spec.ts:260:7 › payment needs attention › says history is readable and gives one route to billing (4.6s)
+  ✓  31 [mobile-320] › e2e\daily-journey.spec.ts:286:7 › subscription ended › keeps history readable and offers plans without pressure (4.1s)
+  ✓  32 [mobile-320] › e2e\daily-journey.spec.ts:302:7 › trial set not to renew › shows one notice, not a trial countdown as well (4.0s)
+  ✓  33 [mobile-320] › e2e\daily-journey.spec.ts:313:7 › invalid stored timezone › offers timezone repair instead of a wrong day (3.7s)
+
+  33 passed (2.9m)
