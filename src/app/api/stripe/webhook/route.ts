@@ -205,8 +205,39 @@ export async function POST(request: Request) {
       targetUserId = data?.user_id ?? null;
     }
     if (!targetUserId) {
-      // Cannot map to a user — do NOT ack. Retryable so a race (webhook before
-      // the checkout row is written) resolves on Stripe's retry.
+      /*
+       * Two very different situations reach this point, and treating them the
+       * same is dangerous.
+       *
+       * 1. A race: our checkout row has not been written yet. Retryable — the
+       *    next delivery resolves it. This is what the throw below is for.
+       *
+       * 2. The subscription belongs to a DIFFERENT PRODUCT on the same Stripe
+       *    account. This account also serves Scalvya and Frost, and Stripe
+       *    broadcasts every event to every enabled endpoint — it has no notion
+       *    of which product an event "belongs" to. Retrying those forever is
+       *    actively harmful: Stripe disables endpoints that keep failing, and a
+       *    disabled Mellowa endpoint means paying users silently never get
+       *    access. That is the "paid but no access" failure v10 fixed, arriving
+       *    through a different door.
+       *
+       * Every subscription we create carries `metadata.supabase_user_id`
+       * (set in the checkout route), so its absence — combined with no matching
+       * stored customer — means the subscription is provably not ours. Ack it
+       * and move on. The race in case 1 still throws, because a Mellowa
+       * subscription always has that metadata from the moment it is created.
+       *
+       * The real fix is a separate Stripe account per product. This keeps one
+       * product's traffic from disabling another's webhook until then.
+       */
+      if (!userId) {
+        console.info("[stripe] ignoring subscription from another product", {
+          subscription: subscription.id,
+          reason: "no supabase_user_id metadata and no matching customer",
+        });
+        return { ignored: true as const };
+      }
+      // Ours by metadata, but the row is not written yet — retry.
       throw new RetryableError(`unmapped subscription ${subscription.id}`);
     }
 
@@ -306,7 +337,7 @@ export async function POST(request: Request) {
               ? session.subscription
               : session.subscription.id
           );
-          await syncSubscription(subscription);
+          if ((await syncSubscription(subscription))?.ignored) break;
           const uid = await userIdForCustomerId(
             typeof subscription.customer === "string"
               ? subscription.customer
@@ -321,7 +352,9 @@ export async function POST(request: Request) {
       }
       case "customer.subscription.created": {
         const subscription = event.data.object;
-        await syncSubscription(subscription);
+        // Not ours (another product on this shared Stripe account): stop here
+        // rather than tracking analytics or acting on someone else's customer.
+        if ((await syncSubscription(subscription))?.ignored) break;
         if (subscription.status === "trialing") {
           trackEvent("trial_started", {
             userId: await userIdForCustomerId(
@@ -359,7 +392,9 @@ export async function POST(request: Request) {
       }
       case "customer.subscription.updated": {
         const subscription = event.data.object;
-        await syncSubscription(subscription);
+        // Not ours (another product on this shared Stripe account): stop here
+        // rather than tracking analytics or acting on someone else's customer.
+        if ((await syncSubscription(subscription))?.ignored) break;
         const prev = event.data.previous_attributes as
           | Partial<Stripe.Subscription>
           | undefined;
@@ -388,7 +423,9 @@ export async function POST(request: Request) {
       }
       case "customer.subscription.deleted": {
         const subscription = event.data.object;
-        await syncSubscription(subscription);
+        // Not ours (another product on this shared Stripe account): stop here
+        // rather than tracking analytics or acting on someone else's customer.
+        if ((await syncSubscription(subscription))?.ignored) break;
         // Voluntary vs involuntary churn (Prompt 18): a subscription the user
         // set to cancel ended voluntarily; one Stripe ended after failed
         // payment retries (past_due/unpaid) ended involuntarily.
