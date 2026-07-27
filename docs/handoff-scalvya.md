@@ -183,7 +183,35 @@ every test asserted what a signed-in user can *do* and none asserted they can
 
 **Check:** can you sign out of Scalvya on a phone?
 
-### 6. Webfonts loaded and never rendered
+### 6. 100% of lifecycle email failing, silently, for weeks
+
+Mellowa had **never successfully sent a single email**. Every attempt — welcome,
+verification, trial started, trial ending, cancellation, account deleted —
+returned `provider 422` and was marked `failed_permanent`. Fifteen attempts,
+fifteen failures.
+
+Cause: production ran `EMAIL_FROM=<hello@mellowa.app>`. Angle brackets, no
+display name. Providers accept `user@domain` or `Name <user@domain>`; a bare
+`<user@domain>` is malformed. The committed default was correctly formed, so it
+existed only in the deployed environment and no test could see it.
+
+Two things made it invisible for weeks:
+
+- **Nothing alerted on a 100% failure rate.** The rows were all sitting in the
+  outbox marked failed; no one was looking.
+- **The provider's explanation was discarded.** The 422 body said what was
+  wrong, was logged, and was then dropped before reaching the delivery table —
+  so the admin view showed a wall of identical `provider 422` with nothing
+  actionable in it.
+
+It surfaced only because the owner noticed he was receiving mail from *Scalvya*
+about a Mellowa trial and none from Mellowa.
+
+**Check in Scalvya:** query the delivery/outbox table grouped by status. If
+anything is at or near a 100% failure rate, nobody is watching. Then check that
+whatever the provider says on failure is actually *stored*, not just logged.
+
+### 7. Webfonts loaded and never rendered
 
 `layout.tsx` loaded two Google fonts and exposed them as CSS variables, but no
 component used `font-sans` and `globals.css` set `body { font-family: Arial }`,
