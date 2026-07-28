@@ -260,6 +260,165 @@ describe("open P0 and unfrozen candidates", () => {
   });
 });
 
+describe("accepted risks make shipping over a blocker attributable", () => {
+  /** A well-formed acceptance of the fixture's open P0 against public paid. */
+  const acceptance = () => ({
+    blockerId: "P0-LIVE",
+    acceptedBy: "Primoz Cerar",
+    acceptedOnUtc: "2026-07-28T09:00:00Z",
+    tiers: ["public_paid" as const],
+    rationale:
+      "Launching to a small invited cohort before the live transaction " +
+      "rehearsal. Nobody can reach checkout in this cohort, so the untested " +
+      "path is unreachable; it will be rehearsed before the paid tier opens.",
+  });
+
+  it("lets a signed acceptance lift a blocked tier off NO-GO", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.verdicts.public_paid = "CONDITIONAL GO";
+    // Without the acceptance this is an unsigned way to ship over a P0.
+    expect(rules(validateReleaseManifest(m))).toContain("open_p0");
+
+    m.acceptedRisks = [acceptance()];
+    expect(validateReleaseManifest(m)).toEqual([]);
+  });
+
+  it("still refuses GO — an acceptance is not a resolution", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.verdicts.public_paid = "GO";
+    m.acceptedRisks = [acceptance()];
+    const v = validateReleaseManifest(m);
+    expect(rules(v)).toContain("open_p0");
+    expect(v[0].message).toContain("never GO");
+  });
+
+  it("leaves the blocker open and the owner evidence unrun", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.verdicts.public_paid = "CONDITIONAL GO";
+    m.acceptedRisks = [acceptance()];
+    expect(validateReleaseManifest(m)).toEqual([]);
+    // The whole point: accepting changes who is accountable, not what is true.
+    expect(m.blockers.map((b) => b.id)).toContain("P0-LIVE");
+    expect(m.closedBlockers ?? []).toHaveLength(0);
+    expect(m.ownerEvidence[0].status).toBe("not_run");
+  });
+
+  it("flips the verdict back to NO-GO when the acceptances are removed", () => {
+    // The property that stops this becoming a rubber stamp: the document
+    // cannot stay valid if the signature is quietly deleted.
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.verdicts.public_paid = "CONDITIONAL GO";
+    m.acceptedRisks = [acceptance()];
+    expect(validateReleaseManifest(m)).toEqual([]);
+
+    delete m.acceptedRisks;
+    expect(rules(validateReleaseManifest(m))).toContain("open_p0");
+  });
+
+  it("rejects a role or a placeholder in place of a person", () => {
+    for (const name of ["Owner", "Eng", "TBD", "team", "  "]) {
+      const m = validManifest();
+      m.rcSha = SHA;
+      m.verdicts.public_paid = "CONDITIONAL GO";
+      m.acceptedRisks = [{ ...acceptance(), acceptedBy: name }];
+      const v = validateReleaseManifest(m);
+      expect(rules(v), `"${name}" should not sign an acceptance`).toContain(
+        "invalid_acceptance",
+      );
+      // And the acceptance must not have counted for anything.
+      expect(rules(v)).toContain("open_p0");
+    }
+  });
+
+  it("rejects a rationale too short to have required thought", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.verdicts.public_paid = "CONDITIONAL GO";
+    m.acceptedRisks = [{ ...acceptance(), rationale: "fine, ship it" }];
+    const v = validateReleaseManifest(m);
+    expect(rules(v)).toContain("invalid_acceptance");
+    expect(rules(v)).toContain("open_p0");
+  });
+
+  it("rejects a placeholder rationale regardless of length rules", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.acceptedRisks = [{ ...acceptance(), rationale: "TODO" }];
+    expect(rules(validateReleaseManifest(m))).toContain("invalid_acceptance");
+  });
+
+  it("rejects an undated acceptance", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.acceptedRisks = [{ ...acceptance(), acceptedOnUtc: "soon" }];
+    expect(rules(validateReleaseManifest(m))).toContain("invalid_acceptance");
+  });
+
+  it("rejects an acceptance for a tier the blocker does not block", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.acceptedRisks = [{ ...acceptance(), tiers: ["capped_beta"] }];
+    const v = validateReleaseManifest(m);
+    expect(rules(v)).toContain("invalid_acceptance");
+    expect(v[0].message).toContain("does not block");
+  });
+
+  it("rejects an acceptance that covers no tiers", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.acceptedRisks = [{ ...acceptance(), tiers: [] }];
+    expect(rules(validateReleaseManifest(m))).toContain("invalid_acceptance");
+  });
+
+  it("rejects an acceptance naming a blocker that does not exist", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.acceptedRisks = [{ ...acceptance(), blockerId: "P0-IMAGINARY" }];
+    expect(rules(validateReleaseManifest(m))).toContain("invalid_acceptance");
+  });
+
+  it("rejects an acceptance left behind after the blocker was closed", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.blockers = [];
+    m.closedBlockers = [
+      {
+        id: "P0-LIVE",
+        level: "P0",
+        title: "No live transaction.",
+        owner: "Owner",
+        blocks: ["public_paid"],
+        acceptance: "Recorded owner evidence.",
+        closedBy: "MW-V11-09",
+        evidence: "docs/release/evidence/v11/rc/live-transaction.txt",
+      },
+    ];
+    m.acceptedRisks = [acceptance()];
+    const v = validateReleaseManifest(m);
+    expect(rules(v)).toContain("invalid_acceptance");
+    expect(v[0].message).toContain("already closed");
+  });
+
+  it("scans the rationale for sensitive content like every other free field", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.acceptedRisks = [
+      {
+        ...acceptance(),
+        rationale:
+          "Accepted because the rehearsal inbox owner@example.com already " +
+          "confirmed delivery by hand, so the automated path adds nothing " +
+          "we do not already know from that manual check.",
+      },
+    ];
+    expect(rules(validateReleaseManifest(m))).toContain("sensitive_reference");
+  });
+});
+
 describe("closed blockers keep their history", () => {
   const closed = () => ({
     id: "P1-COPY",

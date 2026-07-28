@@ -125,6 +125,54 @@ export interface ClosedBlocker extends Blocker {
   evidence: string;
 }
 
+/**
+ * A decision to ship over a blocker that is still open.
+ *
+ * The point is not to make a blocker go away — it stays in `blockers`, its
+ * owner evidence keeps reading `not_run`, and every document generated from
+ * this manifest keeps saying so. What an acceptance changes is that shipping
+ * over it becomes *attributable*: a named person, a date, the tiers it covers
+ * and a rationale long enough to have required thought.
+ *
+ * That distinction is the whole mechanism. The failure it exists to prevent is
+ * a release record quietly edited until it agrees with a decision somebody had
+ * already made — at which point the gate stops carrying information. Here the
+ * record keeps telling the truth and the signature sits next to it.
+ *
+ * An acceptance can lift a tier from NO-GO to CONDITIONAL GO. It can never
+ * produce a GO: GO means nothing is outstanding, and something is.
+ */
+export interface AcceptedRisk {
+  /** The still-open blocker this accepts. Must exist in `blockers`. */
+  blockerId: string;
+  /**
+   * The human accountable for the decision. A role ("Owner", "Eng") is not a
+   * person and is rejected — the point is that a name is attached to it.
+   */
+  acceptedBy: string;
+  /** Date of the decision, ISO 8601 UTC ending in Z. */
+  acceptedOnUtc: string;
+  /** Which tiers this acceptance covers. Must be tiers the blocker blocks. */
+  tiers: ("capped_beta" | "public_paid")[];
+  /**
+   * Why shipping over this is acceptable, and what the user-visible
+   * consequence is if the risk lands. Length-checked: a placeholder cannot
+   * satisfy it, which is deliberate — the cost of accepting a risk should be
+   * having to articulate it.
+   */
+  rationale: string;
+}
+
+/** Minimum rationale length. Roughly two real sentences. */
+export const MIN_RATIONALE_LENGTH = 120;
+
+/**
+ * Values that look like a person or an explanation but are not. Checked
+ * case-insensitively against the whole trimmed field.
+ */
+const PLACEHOLDER_RE =
+  /^(tbd|todo|n\/?a|none|xxx+|test|owner|eng|engineering|me|myself|team|placeholder|-+|\?+)$/i;
+
 export interface ReleaseManifest {
   /** Manifest schema version, so a reader knows how to interpret the fields. */
   schema: 1;
@@ -148,6 +196,11 @@ export interface ReleaseManifest {
   /** Open blockers only. A closed one moves to `closedBlockers`. */
   blockers: Blocker[];
   closedBlockers?: ClosedBlocker[];
+  /**
+   * Decisions to ship over open blockers. Never rewrites the blocker — see
+   * {@link AcceptedRisk}.
+   */
+  acceptedRisks?: AcceptedRisk[];
   verdicts: {
     automated_code_gate: Verdict;
     capped_beta: Verdict;
@@ -167,6 +220,7 @@ export interface ManifestViolation {
     | "impossible_count"
     | "skipped_required_suite"
     | "open_p0"
+    | "invalid_acceptance"
     | "unfrozen_candidate"
     | "sensitive_reference"
     | "malformed";
@@ -321,16 +375,104 @@ export function validateReleaseManifest(
   const openP0 = manifest.blockers.filter((b) => b.level === "P0");
   const openP1 = manifest.blockers.filter((b) => b.level === "P1");
 
+  // ---- accepted risks ---------------------------------------------------
+  // Validated before they are consulted, so a malformed acceptance can never
+  // be the thing that lets a tier ship.
+  const blockerById = new Map(manifest.blockers.map((b) => [b.id, b]));
+  const closedById = new Map((manifest.closedBlockers ?? []).map((b) => [b.id, b]));
+  /** `${blockerId}::${tier}` pairs covered by a well-formed acceptance. */
+  const accepted = new Set<string>();
+
+  for (const risk of manifest.acceptedRisks ?? []) {
+    const at = `accepted risk for "${risk.blockerId}"`;
+    const blocker = blockerById.get(risk.blockerId);
+
+    if (!blocker) {
+      fail(
+        "invalid_acceptance",
+        closedById.has(risk.blockerId)
+          ? `${at} names a blocker that is already closed — delete the ` +
+              "acceptance rather than carrying it alongside the closure"
+          : `${at} names a blocker that does not exist`,
+      );
+      continue;
+    }
+
+    let wellFormed = true;
+    const reject = (why: string) => {
+      wellFormed = false;
+      fail("invalid_acceptance", `${at} ${why}`);
+    };
+
+    const by = risk.acceptedBy.trim();
+    if (!by) reject("has no accepting person");
+    else if (PLACEHOLDER_RE.test(by)) {
+      reject(
+        `names "${by}", which is a role or a placeholder rather than a person — ` +
+          "an acceptance exists to attach a name to the decision",
+      );
+    }
+
+    if (!UTC_RE.test(risk.acceptedOnUtc)) {
+      reject(`has no valid ISO 8601 UTC date: ${risk.acceptedOnUtc}`);
+    }
+
+    const rationale = risk.rationale.trim();
+    if (PLACEHOLDER_RE.test(rationale)) {
+      reject("has a placeholder rationale");
+    } else if (rationale.length < MIN_RATIONALE_LENGTH) {
+      reject(
+        `has a ${rationale.length}-character rationale; at least ` +
+          `${MIN_RATIONALE_LENGTH} are required, because the cost of accepting ` +
+          "a risk should be having to articulate it",
+      );
+    }
+
+    if (risk.tiers.length === 0) {
+      reject("covers no tiers, so it accepts nothing");
+    }
+    for (const tier of risk.tiers) {
+      if (!blocker.blocks.includes(tier)) {
+        reject(`covers ${tier}, which "${blocker.id}" does not block`);
+      }
+    }
+
+    if (wellFormed) {
+      for (const tier of risk.tiers) accepted.add(`${risk.blockerId}::${tier}`);
+    }
+  }
+
   for (const blocker of [...openP0, ...openP1]) {
     if (!blocker.owner.trim()) {
       fail("malformed", `blocker "${blocker.id}" has no owner`);
     }
     for (const tier of blocker.blocks) {
-      if (manifest.verdicts[tier] === "GO") {
+      const verdict = manifest.verdicts[tier];
+
+      // GO means nothing is outstanding. Something is — and an acceptance is
+      // a decision to ship *knowing* it is outstanding, not a claim that it
+      // was resolved. So no acceptance can ever produce a GO.
+      if (verdict === "GO") {
         fail(
           "open_p0",
           `blocker "${blocker.id}" (${blocker.level}) is open against ${tier}, ` +
-            "which is marked GO",
+            "which is marked GO" +
+            (accepted.has(`${blocker.id}::${tier}`)
+              ? " — an accepted risk permits CONDITIONAL GO, never GO"
+              : ""),
+        );
+        continue;
+      }
+
+      // Anything short of NO-GO over an open blocker needs a signature. This
+      // is the rule that makes the mechanism worth having: without it,
+      // "CONDITIONAL GO" would be an unsigned way to ship over anything.
+      if (verdict !== "NO-GO" && !accepted.has(`${blocker.id}::${tier}`)) {
+        fail(
+          "open_p0",
+          `blocker "${blocker.id}" (${blocker.level}) is open against ${tier}, ` +
+            `which is marked ${verdict} with no accepted risk recorded — ` +
+            "either set the tier to NO-GO or record who is accepting it",
         );
       }
     }
@@ -393,6 +535,13 @@ export function validateReleaseManifest(
     ...(manifest.closedBlockers ?? []).map((b): [string, string | undefined] => [
       `closed blocker "${b.id}" evidence`,
       b.evidence,
+    ]),
+    // A rationale is the longest free-text field in the manifest and is written
+    // under pressure, at the moment someone wants to ship — exactly when a real
+    // inbox or a key gets pasted in as justification.
+    ...(manifest.acceptedRisks ?? []).map((r): [string, string | undefined] => [
+      `accepted risk for "${r.blockerId}" rationale`,
+      r.rationale,
     ]),
     ["rollback", manifest.rollback],
   ];
