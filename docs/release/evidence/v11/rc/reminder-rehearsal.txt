@@ -1,0 +1,116 @@
+P1-REMINDER-REHEARSAL — live rehearsal, 2026-07-28
+Owner-run against production (mellowa.app). Times UTC.
+
+PARTIAL. Five of seven acceptance items evidenced. Two outstanding, named at
+the bottom. This file is deliberately not a closure.
+
+Read from the email_deliveries ledger and wellbeing_profiles, not from an
+inbox. Account ids truncated; no addresses or message bodies recorded.
+
+--------------------------------------------------------------------------
+0 · SENDER FIX — PASS
+--------------------------------------------------------------------------
+Ledger before/after the EMAIL_FROM correction:
+
+  last failure   2026-07-27 10:46:10   failed_permanent, "provider 422"
+  first success  2026-07-27 11:59:39   account_deleted, sent, provider id set
+
+Every send attempted before 10:46 failed; every send after 11:59 succeeded.
+Cause was EMAIL_FROM=<hello@mellowa.app> in Vercel — bare angle brackets, not
+a valid address. 15 attempts, 15 permanent failures, zero delivered mail in
+the product's history until this fix.
+
+--------------------------------------------------------------------------
+1 · WELCOME EMAIL — PASS
+--------------------------------------------------------------------------
+  welcome:6d5ea45e…   sent   provider ef753e9a…   2026-07-27 12:00:46
+
+Note: this required a SECOND fix. The Supabase "Confirm signup" template used
+the default {{ .ConfirmationURL }}, which confirms the email via Supabase's
+own /auth/v1/verify BEFORE redirecting to /auth/callback with ?code=. When the
+PKCE exchange failed (different browser/device/cleared cookies) the callback
+returned at its link_expired branch — above both the welcome send and the
+consent write. Result: accounts confirmed in auth.users with null
+last_sign_in_at, no welcome mail, no consent row, and a page claiming the link
+had expired. Users 266ba450… and 5b261b9a… were both in that state.
+
+Template changed to the token_hash form on 2026-07-28; verifyOtp needs no
+browser cookie, so cross-device confirmation now works. Recorded in the
+callback route because it is dashboard config with no repo representation.
+
+--------------------------------------------------------------------------
+2 · UNSUBSCRIBE WRITES THE CONSENT STATE — PASS
+--------------------------------------------------------------------------
+Reminder mail delivered via a manual cron trigger:
+
+  POST /api/cron/daily-reminders → 200
+  {"ok":true,"sent":1,"nudged":2,"scanned":1,"invalid_timezones":0,
+   "skipped":{...all zero},"truncated":false}
+
+Clicked "Turn reminder emails off" in the delivered mail. Profile after:
+
+  user 2e560d26…   reminders_opt_in false   reminders_paused true
+                   reminder_time null       timezone Europe/Ljubljana
+
+This is the first time one-click unsubscribe has ever worked. Until commit
+dc46c70 the route updated `profiles` keyed by `id` — a table that does not
+have reminders_opt_in, reminders_paused or reminder_time at all. PostgREST
+rejected the write, the user got the failure page, and the scheduler's view
+was untouched. No test caught it because none asserted that the write lands
+where the scheduler reads.
+
+--------------------------------------------------------------------------
+3 · SUPPRESSION IS ENFORCED, NOT MERELY RECORDED — PASS
+--------------------------------------------------------------------------
+The cron's own filter, run as a query:
+
+  reminders_opt_in = true AND reminder_time IS NOT NULL
+    AND reminders_paused = false          →  0 rows
+
+Confirmed live by re-firing the cron after the unsubscribe:
+
+  {"ok":true,"sent":0,"nudged":0,"scanned":0,...}
+
+scanned:0 is the load-bearing number. The account is excluded at the database
+query level, not filtered out downstream. Item 2 alone would only have proven
+that a row changed.
+
+--------------------------------------------------------------------------
+4 · TRANSACTIONAL MAIL SURVIVES THE UNSUBSCRIBE — PASS
+--------------------------------------------------------------------------
+Account deleted after the unsubscribe:
+
+  account_deleted    sent   2026-07-28 21:16:53
+  onboarding_nudge   sent   2026-07-28 21:11:06
+  onboarding_nudge   sent   2026-07-28 21:11:06
+
+account_deleted was created AFTER the opt-out and delivered. Suppression is
+scoped to the two reminder categories only. Withholding an account or billing
+notice from someone entitled to it is the opposite failure and is not present.
+
+--------------------------------------------------------------------------
+6 · TIMEZONE — PASS (incidental)
+--------------------------------------------------------------------------
+reminder_time was stored as local wall-clock with timezone Europe/Ljubljana
+and resolved through instantForLocalTime rather than server UTC. The send
+window behaved against the stored zone.
+
+--------------------------------------------------------------------------
+STILL OUTSTANDING — this blocker does NOT close on this file
+--------------------------------------------------------------------------
+5 · DUPLICATE CRON RUN — NOT TESTED.
+    The cron was fired twice, but the second run returned scanned:0 because
+    the account had unsubscribed, not because the dedupe key held. That is a
+    different mechanism and proves nothing about it. A real test fires twice
+    while opted in and asserts exactly one delivery for the day
+    (event_key uniqueness + last_reminder_sent_date). Covered by unit tests
+    only.
+
+7 · DELIBERATE PROVIDER FAILURE — NOT TESTED.
+    No send was forced to fail, so the retry/backoff path and the
+    failed_transient → failed_permanent transition were not observed live.
+    The 422 era exercised failed_permanent by accident, not by design, and
+    never exercised recovery.
+
+The manifest acceptance names both. Until they are run, P1-REMINDER-REHEARSAL
+stays open.
