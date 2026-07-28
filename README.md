@@ -5,6 +5,41 @@ realistic plan for food, energy, mood and habits — adapted to how the day
 actually feels. Not a diet app, macro tracker, therapy tool or medical
 service.
 
+## Status — v11, 2026-07-28
+
+| Tier | Verdict |
+| --- | --- |
+| Automated code gate | **CONDITIONAL GO** |
+| Capped private beta (≤50 invites) | **CONDITIONAL GO** |
+| Unrestricted public paid launch | **CONDITIONAL GO** — signed, see below |
+
+Live at **[mellowa.app](https://mellowa.app)**. 1126 unit tests across 92 files,
+typecheck and lint clean.
+
+**`CONDITIONAL GO` is not `GO`.** One P0 and three P1s are still open, each
+carrying a recorded `accepted_risk` — a named person, a date, the tier it
+covers, and a rationale stating what is unverified and what happens if it is
+wrong. An acceptance never closes a blocker and can never produce a `GO`;
+deleting the acceptances returns the tier to `NO-GO` on its own, which
+[`tests/release-manifest.test.ts`](tests/release-manifest.test.ts) asserts.
+
+Open and accepted:
+
+- `P0-LIVE-TRANSACTION` — no charge captured or refunded against the live
+  €9.99 plan. Mitigated only by cohort size.
+- `P1-REMINDER-REHEARSAL` — 5 of 7 items evidenced live; duplicate cron run and
+  deliberate provider failure untested.
+- `P1-ROTATION-RESTORE` — key rotation and restore never rehearsed; recovery
+  time unmeasured.
+- `P1-AUTH-E2E-AT-HEAD` — matrix passes, but never in one unattended sweep.
+
+Closed on evidence: `P0-PRICE-CURRENCY` — live prices verified at
+`999 eur/month` and `5999 eur/year`
+([evidence](docs/release/evidence/v11/rc/verify-prices.txt)).
+
+Full record: [`docs/launch-go-no-go-v11.md`](docs/launch-go-no-go-v11.md) ·
+machine-readable: [`docs/release/manifest.v11.json`](docs/release/manifest.v11.json)
+
 ## Project state
 
 **Before scoping new work, read [`docs/BUILD_STATE.md`](docs/BUILD_STATE.md).**

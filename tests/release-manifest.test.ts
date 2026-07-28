@@ -518,7 +518,11 @@ describe("the real v11 manifest", () => {
       expect(manifest.rcSha).toMatch(/^[0-9a-f]{40}$/);
       expect(manifest.rcSha).not.toBe(manifest.baselineSha);
     }
-    expect(manifest.verdicts.public_paid).toBe("NO-GO");
+    // Public paid may not be GO while anything is open. It reached
+    // CONDITIONAL GO on 2026-07-28 by accepting the four remaining blockers,
+    // not by closing them — so the assertion is "never GO", which holds
+    // whether the tier is NO-GO or conditionally accepted.
+    expect(manifest.verdicts.public_paid).not.toBe("GO");
   });
 
   it("keeps every passing claim tied to a raw artifact that exists", () => {
@@ -620,8 +624,14 @@ describe("the human launch documents agree with the manifest", () => {
   });
 
   it("the v11 scorecard states the same three verdicts", () => {
-    expect(doc).toMatch(/Public paid launch:\s*\*{0,2}NO-GO/i);
-    expect(manifest.verdicts.public_paid).toBe("NO-GO");
+    // Derived from the manifest rather than hardcoded, so changing a verdict
+    // in one place and not the other fails instead of quietly disagreeing —
+    // which is the exact defect this whole file exists to prevent.
+    const verdict = manifest.verdicts.public_paid;
+    expect(doc).toMatch(
+      new RegExp(`Public paid launch:\\s*\\*{0,2}${verdict}`, "i"),
+    );
+    expect(verdict).not.toBe("GO");
   });
 
   it("every blocker in the manifest appears in the scorecard, and none is invented", () => {

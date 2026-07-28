@@ -361,13 +361,40 @@
       "tiers": [
         "public_paid"
       ],
-      "rationale": "Neither the key-rotation drill nor the isolated restore has been rehearsed, and this ships without them. The reason it is acceptable on day one is that its absence harms no user directly: nothing in the product is degraded by a drill not having been run. What is unknown is recovery time. If a key leaks or the database needs restoring, the first attempt will be the rehearsal, under pressure, at an unmeasured duration. That exposure is accepted in exchange for launching, and it is the only launch item accepted on this basis. The mitigations that do exist: every migration is additive and re-runnable, Supabase retains automated backups, and the rollback path is flag-based rather than data-dependent. Reviewed before the paid tier scales beyond the initial cohort."
+      "rationale": "Neither the key-rotation drill nor the isolated restore has been rehearsed, and this ships without them. The reason it is acceptable on day one is that its absence harms no user directly: nothing in the product is degraded by a drill not having been run. What is unknown is recovery time. If a key leaks or the database needs restoring, the first attempt will be the rehearsal, under pressure, at an unmeasured duration. That exposure is accepted in exchange for launching. The mitigations that do exist: every migration is additive and re-runnable, Supabase retains automated backups, and the rollback path is flag-based rather than data-dependent. Reviewed before the paid tier scales beyond the initial cohort."
+    },
+    {
+      "blockerId": "P0-LIVE-TRANSACTION",
+      "acceptedBy": "Primoz Cerar",
+      "acceptedOnUtc": "2026-07-28T00:00:00Z",
+      "tiers": [
+        "public_paid"
+      ],
+      "rationale": "No charge has been captured against the live 9.99 EUR plan, and cancel, reactivate, portal and refund have never been exercised live. What has been verified is narrower: the live prices read back 999 and 5999 eur from Stripe, and live trial checkout now completes and starts a trial where it previously failed, which is consistent with the USD-versus-EUR diagnosis recorded against P0-PRICE-CURRENCY. The owner judges the remaining risk acceptable because the first paying customers will be a small known cohort he can refund by hand, and because the currency defect that made this dangerous is closed and evidenced. The residual exposure is real and specific: an out-of-order or late payment_failed webhook arriving after a recovery could silently remove access from a paying customer, and nothing has proven the refund path end to end. Accepted deliberately rather than closed, so the gap stays visible in this record. To be rehearsed before the cohort grows beyond people the owner can contact directly."
+    },
+    {
+      "blockerId": "P1-AUTH-E2E-AT-HEAD",
+      "acceptedBy": "Primoz Cerar",
+      "acceptedOnUtc": "2026-07-28T00:00:00Z",
+      "tiers": [
+        "public_paid"
+      ],
+      "rationale": "The authenticated matrix runs and passes at the candidate, with raw artifacts recorded for the public suite, the trial-eligible and trial-used journeys and the daily-journey states. What keeps this open is that the eight-state matrix requires the service-role seed script to be run once per state by hand, so the full sweep has never executed unattended in one pass at a single SHA. The gap is coverage completeness, not a known failure: no authenticated journey is red. Two structural weaknesses are accepted with it. The runner exits zero when the environment is absent, so a missing seed reads as a skip rather than a block, and the seed script has no marker-table guard proving it is pointed at a non-production database. The second matters less than it would elsewhere because there is a single live Supabase project by design and RLS isolates the synthetic account, but both should be repaired before anyone other than the owner runs the suite."
+    },
+    {
+      "blockerId": "P1-REMINDER-REHEARSAL",
+      "acceptedBy": "Primoz Cerar",
+      "acceptedOnUtc": "2026-07-28T00:00:00Z",
+      "tiers": [
+        "public_paid"
+      ],
+      "rationale": "Five of the seven acceptance items were evidenced live against production on 2026-07-28 and are recorded in rc/reminder-rehearsal.txt: sender configuration, welcome delivery, unsubscribe writing the consent state, suppression enforced at the database query level rather than merely recorded, transactional mail surviving the opt-out, and timezone resolution against the stored zone. The rehearsal also found and closed two live defects no test had caught. Two items remain unproven: a duplicate cron run, where the second firing returned zero scanned because the account had unsubscribed rather than because the dedupe key held, and a deliberate provider failure, so retry and backoff were never observed live. Both are covered by unit tests and by a unique constraint on event_key. The consequence if either is wrong is a duplicate or a missing reminder email, not a loss of access or money, which is why this is accepted where the untested paths are narrow and the blast radius is one email."
     }
   ],
   "verdicts": {
     "automated_code_gate": "CONDITIONAL GO",
     "capped_beta": "CONDITIONAL GO",
-    "public_paid": "NO-GO"
+    "public_paid": "CONDITIONAL GO"
   },
   "rollback": "Flag-based and data-safe. FLAG_MONTHLY_FAIR_USE=0, FLAG_PLAN_REPAIR=0, FLAG_WEEKLY_REFLECTION=0, FLAG_EMPHASIZE_YEARLY unset, FLAG_TRIAL_LENGTH_EXPERIMENT=0 (pinned trials complete exactly as disclosed; no subscription is touched), plus per-surface UI reverts. Every migration in the repository is additive and re-runnable, so no migration reversal is required to roll back any behaviour.",
   "documents": [

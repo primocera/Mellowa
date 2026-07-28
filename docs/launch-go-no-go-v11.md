@@ -143,10 +143,43 @@ Open, with an owner:
       — 16 steps with expected *and* observed columns, six abort conditions,
       alert thresholds, cleanup and rollback.
       (`P0-LIVE-TRANSACTION`) Evidence: __
-- [ ] **Reminder / cron / email rehearsal** of the v10 behaviour, including the
+
+      *Progress on 2026-07-28:* the EUR price fix (`P0-PRICE-CURRENCY`) made
+      live trial checkout work — it now completes and starts the trial, where
+      it previously failed. That is consistent with the diagnosis recorded
+      against the currency blocker: an EU card asked to authorise a USD charge
+      from an EU merchant is the shape issuers refuse after 3DS.
+      This is real progress and it is **not** this blocker. A EUR 0 trial start
+      authorises a card; the money moves later through
+      `invoice.payment_succeeded`, and cancel, reactivate, portal and refund
+      remain unexercised. The acceptance names a charge against the live
+      9.99 EUR plan.
+- [~] **Reminder / cron / email rehearsal** of the v10 behaviour, including the
       native one-click unsubscribe path and a deliberate provider break.
       Worksheet at the end of [`ops-cron.md`](ops-cron.md).
-      (`P1-REMINDER-REHEARSAL`) Evidence: __
+      (`P1-REMINDER-REHEARSAL`)
+      Evidence: [`rc/reminder-rehearsal.txt`](release/evidence/v11/rc/reminder-rehearsal.txt)
+
+      **Rehearsed live on 2026-07-28 — 5 of 7 items evidenced against
+      production.** Passed: sender fix (clean cutover, last failure 10:46, first
+      success 11:59), welcome delivery, unsubscribe writing the consent state,
+      suppression enforced at the query level (`scanned:0`, not merely
+      filtered), transactional mail surviving the opt-out, and timezone
+      resolution against `Europe/Ljubljana`.
+
+      The rehearsal found and closed **two live defects that no test caught**:
+      one-click unsubscribe wrote to `profiles`/`id`, a table with none of the
+      reminder columns, so it had never worked once (`dc46c70`); and the
+      Supabase confirm-signup template used `{{ .ConfirmationURL }}`, leaving
+      accounts confirmed with no session, no welcome mail and no consent row
+      (`6d9dccd`). Both fixes are deployed and verified in production.
+
+      Still open, and the only reason this is not `[x]`: **duplicate cron run**
+      and **deliberate provider failure**. The cron was fired twice, but the
+      second run returned `scanned:0` because the account had unsubscribed, not
+      because the dedupe key held — a different mechanism. No send was forced to
+      fail, so retry/backoff and the `failed_transient` → `failed_permanent`
+      transition were never observed live.
 
       *Closed by data on 2026-07-26:* a read-only check of `wellbeing_profiles`
       found **0 accounts with `reminders_opt_in` set**, so the fail-closed
@@ -159,7 +192,10 @@ Open, with an owner:
       now with a restore-verification table (counts, ownership, consent,
       allergy fields, Stripe mapping, deletion tombstones), tested-versus-desired
       RTO/RPO, and what a restore does *not* bring back.
-      (`P1-ROTATION-RESTORE`) Evidence: __
+      (`P1-ROTATION-RESTORE`) Evidence: __ — **accepted risk recorded**
+      (Primoz Cerar, 2026-07-28, `public_paid`). Deliberately still `[ ]`: an
+      acceptance is a decision to ship knowing this is outstanding, not a claim
+      that it was done. See §3.1 and `acceptedRisks` in the manifest.
 
 **Capped beta.** Predeclared thresholds for the repeat-value question live in
 [`beta-scorecard.md`](beta-scorecard.md): day-2/day-3 return, Adjust
@@ -285,17 +321,36 @@ Every command below was run at `0025a502`. Nothing here is inferred.
   authenticated product daily, the eight states it covers should be green at
   this SHA. That is one seeded run away, not a code change.
 
-- **Unrestricted public paid launch: NO-GO.**
+- **Unrestricted public paid launch: CONDITIONAL GO.** *(2026-07-28. Was NO-GO;
+  the change is signed, not earned.)*
 
-  One P0 and four P1s are open. Three are owner-run and cannot be closed from
-  any development environment — a real €9.99 transaction through to refund,
-  reminder/cron/email delivery observed in a real inbox, and a key-rotation plus
-  isolated-restore drill with a measured recovery time. The fourth is the
-  authenticated matrix above.
+  One P0 and three P1s remain **open** — a real €9.99 transaction through to
+  refund, the last two items of the reminder/cron/email rehearsal, a
+  key-rotation plus isolated-restore drill, and the full authenticated matrix
+  in one unattended pass. None of them is closed. Every one carries a recorded
+  `accepted_risk` naming Primoz Cerar, dated, scoped to `public_paid`, with a
+  rationale stating what is unverified and what happens if it is wrong.
 
-  Under the standing rule that no GO may be marked with an open transaction,
-  safety, allergen, privacy, billing or authenticated-E2E P0/P1, this verdict
-  cannot be anything else.
+  That is what moved this tier, and the distinction is the point. An acceptance
+  does not rewrite a status: the blockers stay in `blockers`, their owner
+  evidence still reads `not_run`, and the list in §3 still shows unticked
+  boxes. What changed is that shipping over them is now attributable to a
+  person on a date, rather than to a document that was quietly edited until it
+  agreed with the decision.
+
+  The standing rule still holds: **no `GO` may be marked with an open
+  transaction, safety, allergen, privacy, billing or authenticated-E2E P0/P1.**
+  The validator enforces it — an acceptance can lift a tier to CONDITIONAL GO
+  and can never produce a `GO`, because `GO` means nothing is outstanding and
+  something is. Delete the acceptances and this tier returns to NO-GO on its
+  own, which `tests/release-manifest.test.ts` asserts.
+
+  The most material of the four is the live transaction. Nothing has proven
+  that a charge can be captured and refunded against the live plan, and a late
+  or out-of-order `payment_failed` after a recovery could silently remove
+  access from a paying customer. The accepted mitigation is cohort size: the
+  first paying customers are people the owner can contact and refund by hand.
+  That mitigation expires as the cohort grows.
 
 ### What this candidate changed, and why the rule keeps earning its place
 
