@@ -40,10 +40,23 @@ async function unsubscribe(
   // Both reminder categories are gated by the same consent switch: turning
   // reminders off pauses scheduling and clears the send time, so the planner
   // has nothing to act on regardless of which mail prompted the click.
+  //
+  // The reminder columns live on `wellbeing_profiles`, keyed by `user_id`.
+  // This wrote to `profiles`/`id` — a table whose only columns are id, email,
+  // full_name and the timestamps. So the update named columns that do not
+  // exist, PostgREST rejected it, and one-click unsubscribe had never once
+  // worked: the recipient got the failure page and the scheduler kept every
+  // reminder exactly as it was. Clearing `reminders_opt_in` too, so the
+  // consent switch the cron filters on is the thing that actually flips,
+  // rather than relying on `reminder_time` being null to exclude them.
   const { error } = await admin
-    .from("profiles")
-    .update({ reminders_paused: true, reminder_time: null })
-    .eq("id", userId);
+    .from("wellbeing_profiles")
+    .update({
+      reminders_opt_in: false,
+      reminders_paused: true,
+      reminder_time: null,
+    })
+    .eq("user_id", userId);
   if (error) {
     console.error("[email] unsubscribe write failed", {
       category,
