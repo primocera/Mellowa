@@ -129,11 +129,12 @@ Recorded as done (so it stops being re-asked):
 
 Open, with an owner:
 
-- [ ] **Fix the price currency before any other billing step.** Create EUR
-      prices (999 and 5999), repoint `STRIPE_PRICE_PRO_MONTHLY` and
-      `STRIPE_PRICE_PRO_YEARLY` in Vercel production, archive the USD prices,
-      and run `npm run verify-prices` against the production env until it is
-      green. (`P0-PRICE-CURRENCY`) Evidence: __
+- [x] ~~**Fix the price currency before any other billing step.**~~ **Closed
+      2026-07-28.** New EUR prices created and repointed in Vercel production;
+      `verify-stripe-prices.mjs` run in LIVE mode against the pulled production
+      env reads back 999 eur / month and 5999 eur / year, exit 0.
+      (`P0-PRICE-CURRENCY`)
+      Evidence: [`rc/verify-prices.txt`](release/evidence/v11/rc/verify-prices.txt)
 
 - [ ] **One real low-value transaction** end to end: signup → sample → sample
       adjustment → live trial checkout → exact charge disclosure → daily repair
@@ -167,8 +168,14 @@ support cost — each with its numerator, denominator, window and the action to
 take if it lands short. Cohorts under five report "—" rather than 0%, and the
 expansion verdict defaults to BLOCKED.
 
-That is **4 owner-run items**. The count is derived from the manifest and
+That is **3 owner-run items**. The count is derived from the manifest and
 asserted by a test, so it can no longer disagree with the list beneath it.
+
+`P1-ROTATION-RESTORE` carries a recorded **accepted risk** for `public_paid`
+(Primoz Cerar, 2026-07-28). An acceptance does not close it: the blocker stays
+open above, its owner evidence still reads `not_run`, and the tier it covers can
+reach `CONDITIONAL GO` but never `GO`. Deleting the acceptance returns the
+verdict to NO-GO on its own — asserted in `tests/release-manifest.test.ts`.
 
 ## 4. Open blockers
 

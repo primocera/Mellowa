@@ -226,17 +226,6 @@
   ],
   "blockers": [
     {
-      "id": "P0-PRICE-CURRENCY",
-      "level": "P0",
-      "title": "The live Stripe prices are in USD while every customer surface promises EUR. price_1TvRDS is 999 usd/month and price_1TvREH is 5999 usd/year, on an account whose default currency is eur.",
-      "owner": "Owner",
-      "blocks": [
-        "capped_beta",
-        "public_paid"
-      ],
-      "acceptance": "EUR prices created (999 and 5999), STRIPE_PRICE_PRO_MONTHLY and STRIPE_PRICE_PRO_YEARLY repointed in Vercel production, the USD prices archived rather than deleted, and `npm run verify-prices` green against the production env. Stripe does not convert, so until then a user who reads EUR 9.99 is charged USD 9.99 plus whatever their bank adds in FX. This is also the most likely cause of the rehearsal card declines: an EU card asked to authorise a USD charge from an EU merchant is the shape issuers refuse after 3DS."
-    },
-    {
       "id": "P0-LIVE-TRANSACTION",
       "level": "P0",
       "title": "No real transaction has been put through live Stripe end to end.",
@@ -349,6 +338,30 @@
       "acceptance": "The exemption is removed and replaced with explicit target-size and layout assertions across breakpoints.",
       "closedBy": "MW-V11-02",
       "evidence": "docs/release/evidence/v11/e2e-public-mw-v11-02.txt — 72 browser journeys green with no header exemption. Every header target measured at 320, 360, 375, 768, 1024 and 1440 plus a 200% zoom case; disclosure keyboard and focus-return behaviour asserted."
+    },
+    {
+      "id": "P0-PRICE-CURRENCY",
+      "level": "P0",
+      "title": "The live Stripe prices were in USD while every customer surface promised EUR. price_1TvRDS was 999 usd/month and price_1TvREH was 5999 usd/year, on an account whose default currency is eur.",
+      "owner": "Owner",
+      "blocks": [
+        "capped_beta",
+        "public_paid"
+      ],
+      "acceptance": "EUR prices created (999 and 5999), STRIPE_PRICE_PRO_MONTHLY and STRIPE_PRICE_PRO_YEARLY repointed in Vercel production, the USD prices archived rather than deleted, and `npm run verify-prices` green against the production env. Stripe does not convert, so until then a user who reads EUR 9.99 is charged USD 9.99 plus whatever their bank adds in FX.",
+      "closedBy": "MW-V11-09",
+      "evidence": "docs/release/evidence/v11/rc/verify-prices.txt — verify-stripe-prices.mjs run in LIVE mode against the production env pulled from Vercel on 2026-07-28, exit 0. Both configured prices resolve to new ids and read back 999 eur / month and 5999 eur / year on an account whose default currency is eur. This closes on what the prices charge, not on the ids being set: the original defect passed a presence check, so presence was never going to close it."
+    }
+  ],
+  "acceptedRisks": [
+    {
+      "blockerId": "P1-ROTATION-RESTORE",
+      "acceptedBy": "Primoz Cerar",
+      "acceptedOnUtc": "2026-07-28T00:00:00Z",
+      "tiers": [
+        "public_paid"
+      ],
+      "rationale": "Neither the key-rotation drill nor the isolated restore has been rehearsed, and this ships without them. The reason it is acceptable on day one is that its absence harms no user directly: nothing in the product is degraded by a drill not having been run. What is unknown is recovery time. If a key leaks or the database needs restoring, the first attempt will be the rehearsal, under pressure, at an unmeasured duration. That exposure is accepted in exchange for launching, and it is the only launch item accepted on this basis. The mitigations that do exist: every migration is additive and re-runnable, Supabase retains automated backups, and the rollback path is flag-based rather than data-dependent. Reviewed before the paid tier scales beyond the initial cohort."
     }
   ],
   "verdicts": {

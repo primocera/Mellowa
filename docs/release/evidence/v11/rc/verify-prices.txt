@@ -1,0 +1,7 @@
+Verifying Stripe prices (LIVE mode, env: .env.production.local)
+
+Account acct_1TQcF60YzvSNMCpN · default currency eur
+OK  monthly  price_1TxjJI0YzvSNMCpN3nWPw01Y  999 eur / month
+OK  yearly   price_1TxjNa0YzvSNMCpN8H7bU79j  5999 eur / year
+
+All configured prices match the product's stated pricing.
