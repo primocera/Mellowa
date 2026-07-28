@@ -35,6 +35,26 @@ function parseOtpType(raw: string | null): EmailOtpType | null {
  *     cookie set by the browser that started the flow, so a cross-device open
  *     cannot succeed and must fall back to resend rather than look "expired".
  *
+ * REQUIRED SUPABASE CONFIG — the "Confirm signup" email template must link to
+ * the `token_hash` form, not the default `{{ .ConfirmationURL }}`:
+ *
+ *   {{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=signup
+ *
+ * The default sends the user through Supabase's own /auth/v1/verify, which
+ * sets `email_confirmed_at` BEFORE redirecting here with `?code=`. If the PKCE
+ * exchange then fails — a different browser, a phone, cleared cookies — this
+ * route returns at the `link_expired` branch below, which is above the welcome
+ * email and the consent write. The result is an account that is confirmed in
+ * `auth.users` but has a null `last_sign_in_at`, no welcome mail and no
+ * consent row, while the page claims the link expired. Users 266ba450 and
+ * 5b261b9a both landed in exactly that state before the template was changed
+ * on 2026-07-28.
+ *
+ * This is dashboard configuration with no representation in the repository, so
+ * resetting that template silently reintroduces the bug and it presents as an
+ * email-provider fault. `verifyOtp` needs no browser cookie, so the token_hash
+ * form also makes cross-device confirmation work.
+ *
  * Then performs the trusted post-verification steps server-side: records the
  * consents captured at signup and sends the welcome email (idempotent via its
  * event key). Redirects only to allow-listed relative paths.
