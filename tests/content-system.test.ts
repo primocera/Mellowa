@@ -27,6 +27,22 @@ const surfaces = UI_ROOTS.flatMap((root) => {
   }
 }).filter((f) => !f.includes("terminology"));
 
+/**
+ * Compiled once, not once per file.
+ *
+ * These were being rebuilt inside the per-file loop — every banned phrase
+ * escaped and `new RegExp`'d again for each surface — so the work grew with
+ * the file count, which grows every release. Hoisting is a straight win
+ * regardless of the timeout question (see vitest.config.ts for that).
+ */
+const BANNED_PATTERNS = BANNED_CUSTOMER_PHRASES.map(
+  (phrase) =>
+    [
+      phrase,
+      new RegExp(`\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i"),
+    ] as const,
+);
+
 describe("content system (v6 CE Prompt 1)", () => {
   it("scans a real surface set", () => {
     expect(surfaces.length).toBeGreaterThan(20);
@@ -36,8 +52,7 @@ describe("content system (v6 CE Prompt 1)", () => {
     const offenders: string[] = [];
     for (const file of surfaces) {
       const lines = readFileSync(file, "utf8").split("\n");
-      for (const phrase of BANNED_CUSTOMER_PHRASES) {
-        const re = new RegExp(`\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      for (const [phrase, re] of BANNED_PATTERNS) {
         for (const line of lines) {
           if (!re.test(line)) continue;
           // Safety prohibitions ("never diagnose", "can't diagnose", …) are
