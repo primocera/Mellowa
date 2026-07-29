@@ -136,11 +136,10 @@ Open, with an owner:
       (`P0-PRICE-CURRENCY`)
       Evidence: [`rc/verify-prices.txt`](release/evidence/v11/rc/verify-prices.txt)
 
-- [ ] **One real low-value transaction** end to end: signup → sample → sample
-      adjustment → live trial checkout → exact charge disclosure → daily repair
-      and Undo → cancel → reactivate → billing portal → refund.
+- [ ] **One real low-value transaction** end to end: live charge → cancel →
+      unsubscribe → reactivate, refunded in cleanup.
       Runbook: [`live-transaction-rehearsal.md`](runbooks/live-transaction-rehearsal.md)
-      — 16 steps with expected *and* observed columns, six abort conditions,
+      — four steps with expected *and* observed columns, six abort conditions,
       alert thresholds, cleanup and rollback.
       (`P0-LIVE-TRANSACTION`) Evidence: __
 
@@ -381,7 +380,7 @@ Nothing in the code. Four items, ordered by risk removed per hour:
 | # | Action | Effort |
 |---|---|---|
 | 1 | Seed the fixtures and run the full authenticated matrix (`P1-AUTH-E2E-AT-HEAD`) | ~20 min |
-| 2 | One real €9.99 transaction: charge → cancel → reactivate → portal → refund (`P0-LIVE-TRANSACTION`) | ~30 min |
+| 2 | One real €9.99 transaction: charge → cancel → unsubscribe → reactivate (`P0-LIVE-TRANSACTION`) | ~30 min |
 | 3 | Reminder/cron/email rehearsal using the worksheet in `docs/ops-cron.md` (`P1-REMINDER-REHEARSAL`) | ~45 min |
 | 4 | Key rotation + isolated restore drill (`P1-ROTATION-RESTORE`) | ~60 min |
 

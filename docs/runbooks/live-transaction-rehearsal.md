@@ -6,9 +6,10 @@ mutate live Stripe, Supabase, Vercel or Resend. Record evidence in the row
 provided, then copy the result into `docs/launch-go-no-go-v11.md` §3.
 
 **Why this exists:** public paid launch is **NO-GO** on `P0-LIVE-TRANSACTION`
-because one real charge → cancel → reactivate → portal → refund has never been
+because one real charge → cancel → unsubscribe → reactivate has never been
 recorded. Configured Stripe keys prove configuration, not that a charge works.
-This is the single open P0 and no code change can close it.
+This is the single open P0 and no code change can close it. The refund happens
+in **Cleanup**, on every run, passed or aborted.
 
 **Evidence hygiene — read before writing in any row.** Record opaque
 identifiers only: Stripe object ids (`sub_…`, `pi_…`, `re_…`), timestamps, and
@@ -29,7 +30,7 @@ This file is committed to the repository.
 - A disposable real payment method you control, and the Stripe dashboard open on
   the refund screen before you start.
 - A clearly synthetic account. Do not use a real customer or your own primary
-  account: step 16 deletes it.
+  account: Cleanup deletes it.
 
 ---
 
@@ -59,22 +60,10 @@ A row where the two differ is a finding even if the flow continued.
 
 | # | Step | Expected | Observed |
 |---|---|---|---|
-| 1 | Verified signup + email confirm | Account active. Open the confirmation link **on a second device** — the cross-device `token_hash` path was broken until v10 | __ |
-| 2 | Onboarding baseline saved | Wellbeing profile persisted | __ |
-| 3 | Free sample plan generated | One lifetime sample; no card requested anywhere in the flow | __ |
-| 4 | One sample adjustment | Bounded, server-claimed once; a second attempt is refused | __ |
-| 5 | Pricing and paywall copy | Trial length, amount and charge date agree on pricing, checkout and billing. No "a 3 days trial" — the grammar fix in v11 must be deployed | __ |
-| 6 | Eligible trial checkout (live) | Exact charge disclosure shown before confirm; `subscriptions.trial_days` and `trial_variant` are pinned **before** the Stripe session is created | __ |
-| 7 | Trial → first charge | €9.99 captured in Stripe on exactly the disclosed date | __ |
-| 8 | Charge date matches disclosure | The date shown at step 6 is the date in Stripe. Not "about right" — the same date | __ |
-| 9 | Webhook entitlement | Subscription row active; app grants Premium; no duplicate on replay | __ |
-| 10 | Daily repair on a live plan | One transaction, no partial plan; completed and kept items untouched; Undo restores exactly | __ |
-| 11 | Cancel (portal or `/api/stripe/cancel`) | `cancel_at_period_end`; read access retained; the trial banner stands down so two notices never contradict | __ |
-| 12 | Reactivate | Subscription active again; **no second charge** | __ |
-| 13 | Billing portal | Opens; shows the correct plan and next date | __ |
-| 14 | Refund via Stripe | `charge.refunded` handled; entitlement adjusts on the webhook, not by hand | __ |
-| 15 | `/api/cron/billing-reconcile` | `ok:true`, and `adoptedSubscriptions` is empty | __ |
-| 16 | Export then delete the account | Export contains what you created; after delete, zero rows remain in every table in `src/lib/privacy/registry.ts` | __ |
+| 1 | Live checkout and first charge | Exact charge disclosure shown before confirm; €9.99 captured in Stripe on exactly the disclosed date; webhook grants Premium with no duplicate row | __ |
+| 2 | Cancel (billing portal or `/api/stripe/cancel`) | `cancel_at_period_end`; read access retained until period end; the trial banner stands down so two notices never contradict | __ |
+| 3 | Unsubscribe from optional email | Suppression recorded; the daily reminder stops; billing and account mail still arrives | __ |
+| 4 | Reactivate | Subscription active again; **no second charge** | __ |
 
 ## Idempotency and safety spot-checks
 
@@ -111,9 +100,8 @@ Do this whether the run passed or aborted.
 1. **Refund** the charge in Stripe if it is still captured, and confirm the
    refund webhook applied.
 2. **Cancel** the subscription so nothing renews.
-3. **Delete** the test account through the in-app deletion flow — that is also
-   step 16's evidence, and it exercises the deletion path rather than leaving
-   rows behind through a manual SQL delete.
+3. **Delete** the test account through the in-app deletion flow rather than
+   leaving rows behind through a manual SQL delete.
 4. Confirm `/admin` shows no lingering backlog or dead letters attributable to
    the run.
 

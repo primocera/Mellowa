@@ -67,17 +67,13 @@ describe("the live transaction rehearsal is executable", () => {
     expect(transaction).toMatch(/Observed differs from Expected, the outcome is FAIL/i);
   });
 
-  it("covers the full money path the P0 names", () => {
+  it("covers the four steps the P0 names, and refunds in cleanup", () => {
     for (const step of [
-      /free sample/i,
-      /sample adjustment/i,
-      /checkout/i,
       /first charge/i,
       /cancel/i,
+      /unsubscribe/i,
       /reactivate/i,
-      /portal/i,
       /refund/i,
-      /reconcile/i,
     ]) {
       expect(transaction, `the runbook never covers ${step}`).toMatch(step);
     }

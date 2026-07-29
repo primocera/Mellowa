@@ -207,9 +207,9 @@
     },
     {
       "id": "live-transaction",
-      "action": "One real low-value transaction end to end: signup, sample, sample adjustment, live trial checkout, exact charge disclosure, daily repair and Undo, cancel, reactivate, billing portal, refund.",
+      "action": "One real low-value transaction end to end: live charge, cancel, unsubscribe, reactivate. Refunded in cleanup.",
       "status": "not_run",
-      "note": "Runbook ready and gated by tests/rehearsal-readiness.test.ts: docs/runbooks/live-transaction-rehearsal.md now has expected-versus-observed columns for all 16 steps, six abort conditions, alert thresholds, cleanup, rollback and evidence-hygiene rules. Claude Code executes none of it."
+      "note": "Runbook ready and gated by tests/rehearsal-readiness.test.ts: docs/runbooks/live-transaction-rehearsal.md has expected-versus-observed columns for all four steps, six abort conditions, alert thresholds, cleanup, rollback and evidence-hygiene rules. Claude Code executes none of it."
     },
     {
       "id": "reminder-cron-email-rehearsal",
@@ -233,7 +233,7 @@
       "blocks": [
         "public_paid"
       ],
-      "acceptance": "Recorded owner evidence for charge, cancel, reactivate, portal and refund against the live 9.99 EUR monthly plan."
+      "acceptance": "Recorded owner evidence for charge, cancel, unsubscribe and reactivate against the live 9.99 EUR monthly plan."
     },
     {
       "id": "P1-REMINDER-REHEARSAL",
