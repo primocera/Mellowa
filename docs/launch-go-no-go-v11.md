@@ -1,8 +1,30 @@
-# Launch go/no-go scorecard — v11 (FROZEN)
+# Launch go/no-go scorecard — v11 (SUPERSEDED)
 
-**Status: FROZEN (MW-V11-08).** This is the release-candidate verdict for v11.
-Every line is either a measured result, an explicitly unrun check, or an owner
-action with an owner and an acceptance test. Nothing here is a plan.
+> ## ⛔ SUPERSEDED — this verdict is not current (MW-V12-01)
+>
+> RC `0025a502` was frozen and reached CONDITIONAL GO on 2026-07-28. **Product
+> code changed afterwards** — 30 product-code files between the freeze and HEAD
+> (mobile sign-out, paywall hydration, the USD→EUR billing contracts,
+> checkout/webhook/auth/email/unsubscribe fixes and more; the full
+> classification is `changedSinceRc` in
+> [`release/manifest.v11.json`](release/manifest.v11.json), raw at
+> [`release/evidence/v11/rc/rc-drift-classification.json`](release/evidence/v11/rc/rc-drift-classification.json)).
+>
+> A candidate whose code has moved can carry **no verdict**. Current state,
+> until a new candidate is cut and every gate is re-run (MW-V12-09):
+>
+> - Automated code gate: UNASSESSED
+> - Capped private beta: UNASSESSED
+> - Public paid launch: UNASSESSED
+>
+> Everything below the line is the **frozen-RC record**, preserved as history.
+> Read it as "what was true at `0025a502`", **never** as the launch decision for
+> current HEAD. Do not quote the CONDITIONAL GO below as current.
+
+**Status: SUPERSEDED (was FROZEN at MW-V11-08).** This was the release-candidate
+verdict for v11 at RC `0025a502`. Every line is either a measured result, an
+explicitly unrun check, or an owner action with an owner and an acceptance test.
+Nothing here is a plan.
 
 **RC SHA:** `0025a5021f921800d08edee1c86f3c33c62185da` — the last functional
 commit. MW-V11-08 adds no product code: only this freeze and the manifest
@@ -306,13 +328,19 @@ Every command below was run at `0025a502`. Nothing here is inferred.
 
 ### The two verdicts
 
-- **Automated code gate: CONDITIONAL GO.** Everything runnable from this
-  environment is green at the candidate. It is *conditional*, not GO, because
+> The three verdicts in this section are the **frozen-RC record** at `0025a502`,
+> now SUPERSEDED. The current verdict for every tier is **UNASSESSED** (see the
+> banner at the top). They are kept verbatim as history.
+
+- **Automated code gate (frozen RC, superseded): CONDITIONAL GO.** Everything
+  runnable from this environment is green at the candidate. It is *conditional*,
+  not GO, because
   the eight-state daily-journey matrix has not run at all and six authenticated
   journeys are skipped for want of a seeded fixture. A gate that has not
   executed is not a gate.
 
-- **Capped private beta (≤50 invites, no card for the sample): CONDITIONAL GO.**
+- **Capped private beta (frozen RC, superseded; ≤50 invites, no card for the
+  sample): CONDITIONAL GO.**
   The cap is a database trigger rather than a sentence in a document, the safety
   and allergen gates are fail-closed and tested, the sample needs no card, and
   `docs/beta-scorecard.md` now has thresholds predeclared before the data
@@ -320,8 +348,9 @@ Every command below was run at `0025a502`. Nothing here is inferred.
   authenticated product daily, the eight states it covers should be green at
   this SHA. That is one seeded run away, not a code change.
 
-- **Unrestricted public paid launch: CONDITIONAL GO.** *(2026-07-28. Was NO-GO;
-  the change is signed, not earned.)*
+- **Unrestricted public paid launch (frozen RC, superseded): CONDITIONAL GO.**
+  *(2026-07-28. Was NO-GO; the change is signed, not earned. Superseded by
+  MW-V12-01 — current verdict is UNASSESSED.)*
 
   One P0 and three P1s remain **open** — a real €9.99 transaction through to
   refund, the last two items of the reminder/cron/email rehearsal, a

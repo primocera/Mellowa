@@ -260,6 +260,106 @@ describe("open P0 and unfrozen candidates", () => {
   });
 });
 
+describe("candidate lifecycle and supersession (MW-V12-01)", () => {
+  it("fails a supersededNote presented alongside an active verdict", () => {
+    // The exact contradiction MW-V12-01 removes: the manifest says the
+    // candidate is superseded at the bottom while still reading CONDITIONAL GO.
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.candidateLifecycle = "superseded";
+    m.supersededNote = "RC superseded; product code changed after the freeze.";
+    m.verdicts.capped_beta = "CONDITIONAL GO";
+    const v = validateReleaseManifest(m);
+    expect(rules(v)).toContain("superseded_active_verdict");
+  });
+
+  it("fails a GO on any tier while superseded", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.blockers = [];
+    m.candidateLifecycle = "superseded";
+    m.supersededNote = "superseded by later product code, awaiting a new candidate";
+    m.verdicts.capped_beta = "GO";
+    expect(rules(validateReleaseManifest(m))).toContain("superseded_active_verdict");
+  });
+
+  it("accepts a superseded candidate whose tiers are all UNASSESSED", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.candidateLifecycle = "superseded";
+    m.supersededNote = "superseded by later product code, awaiting a new candidate";
+    m.verdicts.automated_code_gate = "UNASSESSED";
+    m.verdicts.capped_beta = "UNASSESSED";
+    m.verdicts.public_paid = "UNASSESSED";
+    expect(validateReleaseManifest(m)).toEqual([]);
+  });
+
+  it("treats UNASSESSED like NO-GO over an open blocker — no acceptance needed", () => {
+    // The fixture has an open P0 against public_paid. UNASSESSED makes no claim
+    // to ship, so it must not demand an accepted risk the way CONDITIONAL GO does.
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.verdicts.public_paid = "UNASSESSED";
+    expect(validateReleaseManifest(m)).toEqual([]);
+  });
+
+  it("requires the note and the lifecycle to agree", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.supersededNote = "superseded, but lifecycle still says frozen";
+    m.verdicts.public_paid = "UNASSESSED";
+    m.verdicts.capped_beta = "UNASSESSED";
+    m.verdicts.automated_code_gate = "UNASSESSED";
+    // A note without candidateLifecycle: "superseded" is itself malformed.
+    expect(rules(validateReleaseManifest(m))).toContain("malformed");
+  });
+
+  it("fails HEAD drift past the RC when it is not marked superseded", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.productHeadSha = OTHER_SHA;
+    m.verdicts.public_paid = "NO-GO";
+    // HEAD moved, no supersession, no documentation-only classification.
+    expect(rules(validateReleaseManifest(m))).toContain("candidate_drift");
+  });
+
+  it("allows documentation-only drift to leave the candidate intact", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.productHeadSha = OTHER_SHA;
+    m.verdicts.public_paid = "NO-GO";
+    m.changedSinceRc = {
+      fromRcSha: SHA,
+      toSha: OTHER_SHA,
+      classification: "documentation_only",
+      totals: { changed: 1, productCode: 0, documentation: 1 },
+      productCodeFiles: [],
+      documentationFiles: ["M docs/notes.md"],
+    };
+    expect(validateReleaseManifest(m)).toEqual([]);
+  });
+
+  it("fails a drift classification whose SHAs do not match the manifest", () => {
+    const m = validManifest();
+    m.rcSha = SHA;
+    m.candidateLifecycle = "superseded";
+    m.supersededNote = "superseded by later product code, awaiting a new candidate";
+    m.verdicts.automated_code_gate = "UNASSESSED";
+    m.verdicts.capped_beta = "UNASSESSED";
+    m.verdicts.public_paid = "UNASSESSED";
+    m.productHeadSha = OTHER_SHA;
+    m.changedSinceRc = {
+      fromRcSha: OTHER_SHA, // wrong: should be rcSha
+      toSha: OTHER_SHA,
+      classification: "product_code_changed",
+      totals: { changed: 1, productCode: 1, documentation: 0 },
+      productCodeFiles: ["M src/app/page.tsx"],
+      documentationFiles: [],
+    };
+    expect(rules(validateReleaseManifest(m))).toContain("candidate_drift");
+  });
+});
+
 describe("accepted risks make shipping over a blocker attributable", () => {
   /** A well-formed acceptance of the fixture's open P0 against public paid. */
   const acceptance = () => ({
@@ -617,10 +717,35 @@ describe("the real v11 manifest", () => {
 describe("the human launch documents agree with the manifest", () => {
   const manifest = JSON.parse(readFileSync(REAL_MANIFEST_PATH, "utf8")) as ReleaseManifest;
   const doc = readFileSync("docs/launch-go-no-go-v11.md", "utf8");
+  const readme = readFileSync("README.md", "utf8");
   const buildState = readFileSync("docs/BUILD_STATE.md", "utf8");
+
+  const isSuperseded =
+    manifest.candidateLifecycle === "superseded" || Boolean(manifest.supersededNote);
 
   it("the v11 scorecard names the same baseline commit", () => {
     expect(doc).toContain(manifest.baselineSha);
+  });
+
+  it("no current document omits the superseded state while the manifest is superseded", () => {
+    // MW-V12-01: while the candidate is superseded, a reader must not be able to
+    // find a document that still presents the old verdict as current. Every
+    // verdict-bearing human document must say so, in as many words.
+    if (!isSuperseded) return;
+    for (const [name, text] of [
+      ["launch-go-no-go-v11.md", doc],
+      ["README.md", readme],
+    ] as const) {
+      expect(text, `${name} does not mark the candidate SUPERSEDED`).toMatch(/SUPERSEDED/i);
+      expect(text, `${name} does not carry the UNASSESSED verdict`).toMatch(/UNASSESSED/);
+    }
+  });
+
+  it("the README states the same three verdicts as the manifest", () => {
+    for (const tier of ["automated_code_gate", "capped_beta", "public_paid"] as const) {
+      expect(readme).toContain(manifest.verdicts[tier]);
+    }
+    expect(manifest.verdicts.public_paid).not.toBe("GO");
   });
 
   it("the v11 scorecard states the same three verdicts", () => {

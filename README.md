@@ -5,40 +5,45 @@ realistic plan for food, energy, mood and habits — adapted to how the day
 actually feels. Not a diet app, macro tracker, therapy tool or medical
 service.
 
-## Status — v11, 2026-07-28
+## Status — v12 in progress (RC 0025a502 superseded)
 
 | Tier | Verdict |
 | --- | --- |
-| Automated code gate | **CONDITIONAL GO** |
-| Capped private beta (≤50 invites) | **CONDITIONAL GO** |
-| Unrestricted public paid launch | **CONDITIONAL GO** — signed, see below |
+| Automated code gate | **UNASSESSED** |
+| Capped private beta (≤50 invites) | **UNASSESSED** |
+| Unrestricted public paid launch | **UNASSESSED** |
 
-Live at **[mellowa.app](https://mellowa.app)**. 1126 unit tests across 92 files,
-typecheck and lint clean.
+Live at **[mellowa.app](https://mellowa.app)**.
 
-**`CONDITIONAL GO` is not `GO`.** One P0 and three P1s are still open, each
-carrying a recorded `accepted_risk` — a named person, a date, the tier it
-covers, and a rationale stating what is unverified and what happens if it is
-wrong. An acceptance never closes a blocker and can never produce a `GO`;
-deleting the acceptances returns the tier to `NO-GO` on its own, which
-[`tests/release-manifest.test.ts`](tests/release-manifest.test.ts) asserts.
+**The v11 candidate `0025a502` is SUPERSEDED.** It was frozen and reached
+CONDITIONAL GO on 2026-07-28, but 30 product-code files changed afterwards
+(mobile sign-out, paywall hydration, the USD→EUR billing contracts and more —
+full classification in [`changedSinceRc`](docs/release/manifest.v11.json)). A
+candidate whose code has moved certifies nothing, so **every tier is `UNASSESSED`
+until a new candidate is cut and every gate is re-run** (v12 pack, MW-V12-09).
+The old CONDITIONAL GO is history and must not be quoted as current.
 
-Open and accepted:
+Candidate lifecycle: `draft/unfrozen → frozen → superseded`. `0025a502` is at
+`superseded`; HEAD is `draft` (not yet frozen).
+
+Carried into v12 as still-open blockers (were accepted risks at the frozen RC):
 
 - `P0-LIVE-TRANSACTION` — no charge captured or refunded against the live
-  €9.99 plan. Mitigated only by cohort size.
+  €9.99 plan.
 - `P1-REMINDER-REHEARSAL` — 5 of 7 items evidenced live; duplicate cron run and
   deliberate provider failure untested.
 - `P1-ROTATION-RESTORE` — key rotation and restore never rehearsed; recovery
   time unmeasured.
 - `P1-AUTH-E2E-AT-HEAD` — matrix passes, but never in one unattended sweep.
 
-Closed on evidence: `P0-PRICE-CURRENCY` — live prices verified at
-`999 eur/month` and `5999 eur/year`
+Closed on evidence at the frozen RC: `P0-PRICE-CURRENCY` — live prices verified
+at `999 eur/month` and `5999 eur/year`
 ([evidence](docs/release/evidence/v11/rc/verify-prices.txt)).
 
-Full record: [`docs/launch-go-no-go-v11.md`](docs/launch-go-no-go-v11.md) ·
-machine-readable: [`docs/release/manifest.v11.json`](docs/release/manifest.v11.json)
+Full record: [`docs/launch-go-no-go-v11.md`](docs/launch-go-no-go-v11.md)
+(superseded) · machine-readable:
+[`docs/release/manifest.v11.json`](docs/release/manifest.v11.json) · v12 plan:
+[`docs/release/v12/00-ORCHESTRATION-PLAN.md`](docs/release/v12/00-ORCHESTRATION-PLAN.md)
 
 ## Project state
 

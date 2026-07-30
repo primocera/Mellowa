@@ -38,8 +38,8 @@ First execution step: review + run these tests, then commit them as the opening 
 
 | # | Prompt | File | Purpose | Status |
 |---|--------|------|---------|--------|
-| 0 | Pre-work | — | Review/commit uncommitted trial-reminder work | ☐ |
-| 1 | MW-V12-01 | `MW-V12-01.md` | Reconcile HEAD vs superseded RC 0025a502; manifest truth | ☐ |
+| 0 | Pre-work | — | Review/commit uncommitted trial-reminder work | ✅ 878f851 |
+| 1 | MW-V12-01 | `MW-V12-01.md` | Reconcile HEAD vs superseded RC 0025a502; manifest truth | ✅ |
 | 2 | MW-V12-02 | `MW-V12-02.md` | Full authenticated/daily-state E2E matrix, no silent skips | ☐ |
 | 3 | MW-V12-03 | `MW-V12-03.md` | Billing hardening + EUR live-transaction rehearsal runbook | ☐ |
 | 4 | MW-V12-04 | `MW-V12-04.md` | Reminder/cron dedupe + email failure-path tests & worksheet | ☐ |

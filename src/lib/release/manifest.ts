@@ -60,7 +60,58 @@ export const PASSING_STATUSES: readonly EvidenceStatus[] = [
 export const isPassing = (status: EvidenceStatus): boolean =>
   PASSING_STATUSES.includes(status);
 
-export type Verdict = "GO" | "NO-GO" | "CONDITIONAL GO";
+/**
+ * A launch verdict.
+ *
+ * `UNASSESSED` is not a weaker GO — it is the refusal to make any claim. It is
+ * the honest state of a tier whose candidate has been superseded or was never
+ * frozen: the gates that would justify GO / CONDITIONAL GO / NO-GO have not been
+ * run against the code that would ship, so no verdict can be read yet. Both GO
+ * and CONDITIONAL GO are *active* verdicts (a decision to ship, conditionally or
+ * not); `NO-GO` and `UNASSESSED` are not.
+ */
+export type Verdict = "GO" | "NO-GO" | "CONDITIONAL GO" | "UNASSESSED";
+
+/** The active verdicts — a decision to ship, whether or not conditions attach. */
+export const ACTIVE_VERDICTS: readonly Verdict[] = ["GO", "CONDITIONAL GO"];
+export const isActiveVerdict = (v: Verdict): boolean => ACTIVE_VERDICTS.includes(v);
+
+/**
+ * Where a release candidate sits in its life:
+ *   draft  — HEAD is moving; nothing is frozen; no verdict can be active.
+ *   frozen — a specific SHA is the candidate and gates run against it.
+ *   superseded — product code changed after the freeze, so the frozen
+ *                candidate's evidence no longer certifies HEAD. A superseded
+ *                candidate can carry no active verdict until a new one is cut.
+ */
+export type CandidateLifecycle = "draft" | "frozen" | "superseded";
+export const CANDIDATE_LIFECYCLES: readonly CandidateLifecycle[] = [
+  "draft",
+  "frozen",
+  "superseded",
+];
+
+/**
+ * The machine-readable record of what changed between the frozen candidate and
+ * current product HEAD. Produced by `scripts/classify-rc-drift.mjs`. A
+ * `documentation_only` drift is harmless to the candidate; `product_code_changed`
+ * supersedes it.
+ */
+export interface ChangedFileClassification {
+  fromRcSha: string;
+  toSha: string;
+  classification: "documentation_only" | "product_code_changed";
+  totals: { changed: number; productCode: number; documentation: number };
+  productCodeFiles: string[];
+  documentationFiles: string[];
+  /** When the classification was produced. */
+  generatedAtUtc?: string;
+  /** The script that produced it, so it can be regenerated. */
+  generatedBy?: string;
+  /** Path to the raw artifact. */
+  rawEvidence?: string;
+  note?: string;
+}
 
 export interface SuiteCounts {
   total: number;
@@ -185,6 +236,27 @@ export interface ReleaseManifest {
    * manifest with no RC cannot carry a GO verdict for any tier.
    */
   rcSha: string | null;
+  /**
+   * Where the candidate sits in its lifecycle. Optional; when absent it is
+   * inferred (`frozen` if an rcSha exists, else `draft`), so existing manifests
+   * keep working. Set to `superseded` once product code moves past the frozen
+   * RC — after which no tier may carry an active verdict until a new candidate
+   * is cut.
+   */
+  candidateLifecycle?: CandidateLifecycle;
+  /**
+   * Set when the frozen RC has been superseded by later product code. Its
+   * presence is a hard signal: every tier must read NO-GO or UNASSESSED. Kept as
+   * free text so it can name what changed.
+   */
+  supersededNote?: string;
+  /**
+   * Current product-code HEAD, recorded when it has drifted past the frozen RC.
+   * Distinct from rcSha precisely so a reader can see the candidate is stale.
+   */
+  productHeadSha?: string | null;
+  /** Classification of the drift between rcSha and productHeadSha. */
+  changedSinceRc?: ChangedFileClassification;
   /** UTC instant this manifest was last reconciled, ISO 8601 with Z. */
   reconciledAtUtc: string;
   /** Deploy/build identifier the evidence was produced against, if any. */
@@ -222,6 +294,8 @@ export interface ManifestViolation {
     | "open_p0"
     | "invalid_acceptance"
     | "unfrozen_candidate"
+    | "superseded_active_verdict"
+    | "candidate_drift"
     | "sensitive_reference"
     | "malformed";
   message: string;
@@ -271,6 +345,85 @@ export function validateReleaseManifest(
       "malformed",
       `reconciledAtUtc must be ISO 8601 UTC ending in Z: ${manifest.reconciledAtUtc}`,
     );
+  }
+
+  // ---- candidate lifecycle ----------------------------------------------
+  // A superseded candidate is one whose frozen SHA no longer describes the code
+  // that would ship. It is signalled either explicitly (candidateLifecycle) or
+  // by the presence of a supersededNote — and once superseded, no tier may
+  // present an active (GO / CONDITIONAL GO) verdict. That is the exact failure
+  // this reconciliation removes: a manifest that says "this candidate is
+  // superseded" at the bottom while still reading CONDITIONAL GO at the top.
+  const lifecycle: CandidateLifecycle =
+    manifest.candidateLifecycle ?? (manifest.rcSha ? "frozen" : "draft");
+  if (
+    manifest.candidateLifecycle &&
+    !CANDIDATE_LIFECYCLES.includes(manifest.candidateLifecycle)
+  ) {
+    fail("malformed", `unknown candidateLifecycle "${manifest.candidateLifecycle}"`);
+  }
+  const isSuperseded = lifecycle === "superseded" || !!manifest.supersededNote?.trim();
+
+  if (isSuperseded) {
+    // Lifecycle and note must agree — one saying superseded while the other is
+    // silent is the drift this is meant to catch.
+    if (lifecycle !== "superseded") {
+      fail(
+        "malformed",
+        "a supersededNote is present but candidateLifecycle is not \"superseded\"",
+      );
+    }
+    for (const [tier, verdict] of Object.entries(manifest.verdicts)) {
+      if (isActiveVerdict(verdict)) {
+        fail(
+          "superseded_active_verdict",
+          `${tier} presents an active "${verdict}" verdict while the candidate ` +
+            "is superseded — no verdict can be read from a superseded candidate " +
+            "until a new one is cut; set the tier to NO-GO or UNASSESSED",
+        );
+      }
+    }
+  }
+
+  // Drift between the frozen RC and current product HEAD. If HEAD has moved and
+  // the change is not documentation-only, the candidate must be marked
+  // superseded — otherwise a stale RC keeps carrying a live verdict.
+  if (
+    manifest.productHeadSha &&
+    manifest.rcSha &&
+    manifest.productHeadSha !== manifest.rcSha
+  ) {
+    if (!SHA_RE.test(manifest.productHeadSha)) {
+      fail("malformed", `productHeadSha is not a full 40-character SHA: ${manifest.productHeadSha}`);
+    }
+    const docOnly = manifest.changedSinceRc?.classification === "documentation_only";
+    if (!isSuperseded && !docOnly) {
+      fail(
+        "candidate_drift",
+        `productHeadSha ${manifest.productHeadSha.slice(0, 7)} differs from the ` +
+          `frozen rcSha ${manifest.rcSha.slice(0, 7)} with product-code changes, ` +
+          "but the candidate is not marked superseded — a moved HEAD invalidates " +
+          "the RC's evidence unless the drift is documentation-only",
+      );
+    }
+    // If a classification is attached, it must describe this exact range.
+    const drift = manifest.changedSinceRc;
+    if (drift) {
+      if (drift.fromRcSha !== manifest.rcSha) {
+        fail(
+          "candidate_drift",
+          `changedSinceRc.fromRcSha ${drift.fromRcSha.slice(0, 7)} does not match ` +
+            `the frozen rcSha ${manifest.rcSha.slice(0, 7)}`,
+        );
+      }
+      if (drift.toSha !== manifest.productHeadSha) {
+        fail(
+          "candidate_drift",
+          `changedSinceRc.toSha ${drift.toSha.slice(0, 7)} does not match ` +
+            `productHeadSha ${manifest.productHeadSha.slice(0, 7)}`,
+        );
+      }
+    }
   }
 
   // ---- per-suite rules --------------------------------------------------
@@ -464,10 +617,16 @@ export function validateReleaseManifest(
         continue;
       }
 
-      // Anything short of NO-GO over an open blocker needs a signature. This
-      // is the rule that makes the mechanism worth having: without it,
-      // "CONDITIONAL GO" would be an unsigned way to ship over anything.
-      if (verdict !== "NO-GO" && !accepted.has(`${blocker.id}::${tier}`)) {
+      // Anything short of NO-GO / UNASSESSED over an open blocker needs a
+      // signature. This is the rule that makes the mechanism worth having:
+      // without it, "CONDITIONAL GO" would be an unsigned way to ship over
+      // anything. UNASSESSED is treated like NO-GO here — it makes no claim to
+      // ship, so it needs no acceptance.
+      if (
+        verdict !== "NO-GO" &&
+        verdict !== "UNASSESSED" &&
+        !accepted.has(`${blocker.id}::${tier}`)
+      ) {
         fail(
           "open_p0",
           `blocker "${blocker.id}" (${blocker.level}) is open against ${tier}, ` +
@@ -567,9 +726,14 @@ export function summarizeManifest(manifest: ReleaseManifest): string {
   if (violations.length > 0) {
     return `INVALID — ${violations.length} violation(s); no verdict can be trusted.`;
   }
-  const candidate = manifest.rcSha
-    ? `RC ${manifest.rcSha.slice(0, 7)}`
-    : `no frozen candidate (baseline ${manifest.baselineSha.slice(0, 7)})`;
+  const superseded =
+    manifest.candidateLifecycle === "superseded" || !!manifest.supersededNote?.trim();
+  const candidate = superseded
+    ? `RC ${manifest.rcSha?.slice(0, 7) ?? "?"} SUPERSEDED, HEAD ` +
+      `${manifest.productHeadSha?.slice(0, 7) ?? manifest.baselineSha.slice(0, 7)} not frozen`
+    : manifest.rcSha
+      ? `RC ${manifest.rcSha.slice(0, 7)}`
+      : `no frozen candidate (baseline ${manifest.baselineSha.slice(0, 7)})`;
   return (
     `${manifest.release} @ ${candidate} — ` +
     `code gate ${manifest.verdicts.automated_code_gate}, ` +
