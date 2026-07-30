@@ -5,11 +5,20 @@ project.** Claude Code never runs any of them: it must not move real money or
 mutate live Stripe, Supabase, Vercel or Resend. Record evidence in the row
 provided, then copy the result into `docs/launch-go-no-go-v11.md` §3.
 
-**Why this exists:** public paid launch is **NO-GO** on `P0-LIVE-TRANSACTION`
-because one real charge → cancel → unsubscribe → reactivate has never been
-recorded. Configured Stripe keys prove configuration, not that a charge works.
-This is the single open P0 and no code change can close it. The refund happens
-in **Cleanup**, on every run, passed or aborted.
+**Why this exists:** `P0-LIVE-TRANSACTION` is open because one real charge →
+cancel → reactivate → recovery → refund has never been recorded. Configured
+Stripe keys prove configuration, not that a charge works, and no code change can
+close it. The refund also happens in **Cleanup**, on every run, passed or
+aborted.
+
+> **v12 note (MW-V12-01/03):** RC `0025a502` is **superseded** and every tier
+> now reads **UNASSESSED** in `docs/release/manifest.v11.json`. The billing
+> hardening in MW-V12-03 (order-resilient invoice handling, foreign-product
+> isolation) makes the failure→recovery→late-failure path safe *in code*, but a
+> contract test does not close owner evidence: this rehearsal stays required.
+> Record the result against `P0-LIVE-TRANSACTION` in the manifest's
+> `ownerEvidence` when the new candidate is cut (MW-V12-09). The
+> `launch-go-no-go-v11.md` §3 rows below are the superseded record.
 
 **Evidence hygiene — read before writing in any row.** Record opaque
 identifiers only: Stripe object ids (`sub_…`, `pi_…`, `re_…`), timestamps, and
@@ -41,9 +50,13 @@ also a rollback trigger in `launch-go-no-go-v11.md` §5.
 
 | Condition | Why it stops the rehearsal |
 |---|---|
+| A charge in any currency other than EUR | Stripe does not convert; a EUR-promised, USD-charged customer is the exact P0-PRICE-CURRENCY defect. Verify with `npm run verify-prices` before starting |
 | Any charge on a date or of an amount the user was not shown | The disclosure contract is broken; this is also an immediate stop for the trial-length experiment |
+| An amount that is not €9.99 (monthly) or €59.99 (yearly) | The charged price disagrees with the billing contract |
 | Two charges for one checkout | Idempotency has failed; a live launch would double-bill real people |
 | The app grants Premium with no subscription row, or the reverse | Entitlement is not pinned to billing state |
+| A Scalvya/Frost (foreign-product) event mutating a Mellowa row, sending Mellowa mail, or appearing in Mellowa analytics | Cross-product isolation has failed on the shared Stripe account |
+| Any email the flow did not expect — a second welcome, a reminder after unsubscribe, a lifecycle mail for someone else | Delivery is not pinned to the event that should trigger it |
 | A reconcile report containing `adoptedSubscriptions` | Webhooks are being dropped and users are paying without access |
 | Any plan, meal, check-in or journal text appearing in an email subject or preview | Privacy gate failure |
 | A safety-blocked input producing a plan, consuming entitlement, or showing an upsell | Safety gate failure — the hardest stop on this list |
@@ -64,6 +77,15 @@ A row where the two differ is a finding even if the flow continued.
 | 2 | Cancel (billing portal or `/api/stripe/cancel`) | `cancel_at_period_end`; read access retained until period end; the trial banner stands down so two notices never contradict | __ |
 | 3 | Unsubscribe from optional email | Suppression recorded; the daily reminder stops; billing and account mail still arrives | __ |
 | 4 | Reactivate | Subscription active again; **no second charge** | __ |
+| 5 | Payment failure then recovery (Stripe test clock, or a card set to fail then succeed) | `invoice.payment_failed` sets `past_due` and sends the failure mail; the recovery `invoice.payment_succeeded` returns the row to `active` and sends the recovery mail; entitlement follows Stripe, not arrival order | __ |
+| 6 | Late failure after recovery — redeliver the step-5 `payment_failed` from the Stripe dashboard **after** the recovery | The redelivered older event is dropped by `event.created` order; the account stays `active`; no failure mail is re-sent | __ |
+| 7 | Refund (Stripe dashboard) | Full refund captured; `charge.refunded` webhook applied; `payment_refunded` recorded for this user only; entitlement unchanged until Stripe emits its own subscription event | __ |
+
+Step 6 is the one people skip, and it is the residual risk recorded against
+`P0-LIVE-TRANSACTION`. The ordering guard that makes it safe is
+`src/lib/stripe/event-order.ts` (`shouldApplyStripeEvent`), unit-tested in
+`tests/billing-lifecycle-order.test.ts`. The live step confirms the guard holds
+against a real redelivery, which a test cannot.
 
 ## Idempotency and safety spot-checks
 

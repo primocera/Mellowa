@@ -22,6 +22,7 @@ import {
   trialDaysFromDates,
   type TrialVariant,
 } from "@/lib/stripe/trial-experiment";
+import { shouldApplyStripeEvent } from "@/lib/stripe/event-order";
 
 /**
  * Stripe webhook — keeps the subscriptions table in sync (Prompt 14).
@@ -176,15 +177,9 @@ export async function POST(request: Request) {
     };
   }
 
-  async function emailForCustomerId(customerId: string): Promise<string | null> {
-    const { data } = await admin
-      .from("subscriptions")
-      .select("user_id")
-      .eq("stripe_customer_id", customerId)
-      .maybeSingle();
-    if (!data?.user_id) return null;
-    const { data: userData } = await admin.auth.admin.getUserById(data.user_id);
-    return userData.user?.email ?? null;
+  async function emailForUserId(userId: string): Promise<string | null> {
+    const { data } = await admin.auth.admin.getUserById(userId);
+    return data.user?.email ?? null;
   }
 
   async function syncSubscription(subscription: Stripe.Subscription) {
@@ -274,10 +269,7 @@ export async function POST(request: Request) {
     // An event older than the last applied one is ignored for every state
     // transition — period_end comparison alone is not sufficient.
     const nextPeriodEnd = toIso(periodEnd);
-    if (
-      typeof existing?.last_stripe_event_created === "number" &&
-      event.created < existing.last_stripe_event_created
-    ) {
+    if (!shouldApplyStripeEvent(event.created, existing?.last_stripe_event_created)) {
       return;
     }
 
@@ -454,26 +446,42 @@ export async function POST(request: Request) {
             ? invoice.customer
             : invoice.customer?.id;
         if (customerId) {
-          await admin
+          // Read the row FIRST. Two things fall out of it:
+          //  - Isolation: a foreign customer (another product on this shared
+          //    Stripe account) has no row here, so we mutate nothing, email
+          //    nothing and fire no analytics for it.
+          //  - Ordering: apply the failure only if this event is not older
+          //    than the newest one already applied. A payment_failed that
+          //    Stripe redelivered after the recovery must not drag a paying
+          //    customer back to past_due — entitlement follows event-created
+          //    order, never arrival order.
+          const { data: row } = await admin
             .from("subscriptions")
-            .update({ status: "past_due" })
-            .eq("stripe_customer_id", customerId);
-          trackEvent("payment_failed", {
-            userId: await userIdForCustomerId(customerId),
-            properties: { surface: "billing", outcome: "failure" },
-          });
-          const email = await emailForCustomerId(customerId);
-          if (email) {
-            const { subject, html } = paymentFailedEmail(
-              factsFromInvoice(invoice)
-            );
-            await deliverEmail({
-              eventKey: `payment_failed:${invoice.id}`,
-              template: "payment_failed",
-              to: email,
-              subject,
-              html,
+            .select("user_id, status, last_stripe_event_created")
+            .eq("stripe_customer_id", customerId)
+            .maybeSingle();
+          if (row && shouldApplyStripeEvent(event.created, row.last_stripe_event_created)) {
+            await admin
+              .from("subscriptions")
+              .update({ status: "past_due", last_stripe_event_created: event.created })
+              .eq("stripe_customer_id", customerId);
+            trackEvent("payment_failed", {
+              userId: row.user_id,
+              properties: { surface: "billing", outcome: "failure" },
             });
+            const email = row.user_id ? await emailForUserId(row.user_id) : null;
+            if (email) {
+              const { subject, html } = paymentFailedEmail(
+                factsFromInvoice(invoice)
+              );
+              await deliverEmail({
+                eventKey: `payment_failed:${invoice.id}`,
+                template: "payment_failed",
+                to: email,
+                subject,
+                html,
+              });
+            }
           }
         }
         break;
@@ -485,21 +493,35 @@ export async function POST(request: Request) {
             ? invoice.customer
             : invoice.customer?.id;
         if (customerId) {
-          const { data: recovered } = await admin
+          // Read-first, for the same isolation + ordering reasons as the
+          // failure branch. A foreign customer has no row and is ignored.
+          const { data: row } = await admin
             .from("subscriptions")
-            .update({ status: "active" })
+            .select("user_id, status, last_stripe_event_created")
             .eq("stripe_customer_id", customerId)
-            .eq("status", "past_due")
-            .select("user_id");
-          const uid = await userIdForCustomerId(customerId);
-          // A past_due row that just went active is a dunning recovery; a
-          // clean paid invoice is a renewal. Distinguish the two truthfully.
-          if (recovered && recovered.length > 0) {
+            .maybeSingle();
+          if (!row) break;
+
+          const isCurrent = shouldApplyStripeEvent(event.created, row.last_stripe_event_created);
+          const wasPastDue = row.status === "past_due";
+          const uid = row.user_id;
+
+          // A past_due row that just went active is a dunning recovery; a clean
+          // paid invoice is a renewal. Only the recovery changes entitlement,
+          // and only when this event is not superseded by a newer one — so a
+          // stale success cannot silently reactivate a since-canceled account.
+          // The $0 trial-creation invoice is neither: status stays trialing and
+          // the subscription.updated event owns the trial→active transition.
+          if (wasPastDue && isCurrent) {
+            await admin
+              .from("subscriptions")
+              .update({ status: "active", last_stripe_event_created: event.created })
+              .eq("stripe_customer_id", customerId);
             trackEvent("payment_recovered", {
               userId: uid,
               properties: { surface: "billing", outcome: "success" },
             });
-            const email = await emailForCustomerId(customerId);
+            const email = uid ? await emailForUserId(uid) : null;
             if (email) {
               const { subject, html } = paymentRecoveredEmail();
               await deliverEmail({
@@ -511,7 +533,7 @@ export async function POST(request: Request) {
                 html,
               });
             }
-          } else if (invoice.billing_reason === "subscription_cycle") {
+          } else if (isCurrent && invoice.billing_reason === "subscription_cycle") {
             trackEvent("subscription_renewed", {
               userId: uid,
               properties: {
@@ -536,9 +558,15 @@ export async function POST(request: Request) {
           typeof charge.customer === "string"
             ? charge.customer
             : charge.customer?.id;
-        if (customerId) {
+        // Isolation: only record a refund for a customer that maps to one of
+        // our users. A foreign charge on the shared account must not appear in
+        // Mellowa's billing analytics.
+        const refundUserId = customerId
+          ? await userIdForCustomerId(customerId)
+          : null;
+        if (refundUserId) {
           trackEvent("payment_refunded", {
-            userId: await userIdForCustomerId(customerId),
+            userId: refundUserId,
             // The refund itself succeeded either way; the taxonomy has no
             // "partial" outcome and inventing one would break the contract.
             // Amounts stay in Stripe, which is the source of truth for money.
@@ -553,12 +581,29 @@ export async function POST(request: Request) {
         const dispute = event.data.object;
         const charge =
           typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
-        console.warn("[stripe] dispute opened — owner action required", {
-          charge,
-        });
-        trackEvent("payment_disputed", {
-          properties: { surface: "billing", outcome: "failure" },
-        });
+        // Isolation: resolve the customer to one of our users before alerting.
+        // A dispute on a foreign charge is another product's incident.
+        const disputeCustomerId =
+          typeof dispute.charge !== "string" && dispute.charge
+            ? typeof dispute.charge.customer === "string"
+              ? dispute.charge.customer
+              : (dispute.charge.customer?.id ?? null)
+            : null;
+        const disputeUserId = disputeCustomerId
+          ? await userIdForCustomerId(disputeCustomerId)
+          : null;
+        if (disputeUserId || !disputeCustomerId) {
+          // Alert when it is ours, or when we cannot tell from the event shape
+          // (charge id only) — a possible dispute on our account still needs an
+          // owner's eyes rather than being dropped silently.
+          console.warn("[stripe] dispute opened — owner action required", {
+            charge,
+          });
+          trackEvent("payment_disputed", {
+            userId: disputeUserId,
+            properties: { surface: "billing", outcome: "failure" },
+          });
+        }
         break;
       }
       default:

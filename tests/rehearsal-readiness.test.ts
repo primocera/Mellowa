@@ -99,6 +99,23 @@ describe("the live transaction rehearsal is executable", () => {
     expect(transaction).toMatch(/no double charge|no double bill/i);
   });
 
+  it("rehearses the failure → recovery → late-failure → refund path (MW-V12-03)", () => {
+    // The four steps the v11 P0 named were charge/cancel/unsubscribe/reactivate.
+    // MW-V12-03 adds the real-money lifecycle the accepted-risk called out: a
+    // payment failure and recovery, a LATE failure redelivered after recovery,
+    // and an explicit refund step — not only the cleanup refund.
+    expect(transaction).toMatch(/Payment failure then recovery/i);
+    expect(transaction).toMatch(/Late failure after recovery/i);
+    expect(transaction).toMatch(/event\.created order|follows Stripe, not arrival order/i);
+    expect(transaction).toMatch(/event-order\.ts|shouldApplyStripeEvent/);
+  });
+
+  it("aborts on the isolation and currency failures MW-V12-03 hardened", () => {
+    expect(transaction).toMatch(/currency other than EUR/i);
+    expect(transaction).toMatch(/foreign-product\) event mutating a Mellowa row/i);
+    expect(transaction).toMatch(/email the flow did not expect/i);
+  });
+
   it("requires a safety-blocked input to produce no upsell", () => {
     expect(transaction).toMatch(/no generation, no entitlement consumed, \*\*no upsell/i);
   });
