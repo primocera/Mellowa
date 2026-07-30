@@ -146,7 +146,25 @@ export function trialStartedEmail(
   };
 }
 
-export function trialEndingEmail(facts: BillingFacts = {}): Email {
+/**
+ * MW-V11: the subject states WHEN the trial ends, computed from the real
+ * trial_end in the user's own timezone by the caller. The old copy hard-coded
+ * "ends tomorrow" for everyone the daily cron caught within 24h — so a trial
+ * ending later today, or one whose mail landed after a delivery lag, arrived
+ * announcing a day that had already passed. `daysUntilEnd` is 0 for today,
+ * 1 for tomorrow, N for further out; null keeps the length-neutral wording.
+ */
+function trialEndingSubject(daysUntilEnd: number | null): string {
+  if (daysUntilEnd === null) return "Your Mellowa trial ends soon";
+  if (daysUntilEnd <= 0) return "Your Mellowa trial ends today";
+  if (daysUntilEnd === 1) return "Your Mellowa trial ends tomorrow";
+  return `Your Mellowa trial ends in ${daysUntilEnd} days`;
+}
+
+export function trialEndingEmail(
+  facts: BillingFacts = {},
+  daysUntilEnd: number | null = null
+): Email {
   const body = hasExact(facts)
     ? p(
         `Your ${facts.plan} trial ends on ${facts.date}. You'll be charged ${facts.price} on that date unless you cancel first.`
@@ -155,7 +173,7 @@ export function trialEndingEmail(facts: BillingFacts = {}): Email {
         "Your Mellowa trial ends soon. You'll be charged on that date unless you cancel first — see billing for the exact price and date."
       );
   return {
-    subject: "Your Mellowa trial ends tomorrow",
+    subject: trialEndingSubject(daysUntilEnd),
     html: shell(
       `${body}
        <p style="margin:24px 0;">${button("Manage membership", `${appUrl()}/billing`)}</p>`,

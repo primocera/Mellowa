@@ -25,6 +25,25 @@ export function localDateFor(tz: string, at: Date = new Date()): string {
   }).format(at);
 }
 
+/**
+ * Whole calendar days from `now`'s local date to `target`'s local date, both
+ * resolved in `tz`. 0 = same local day ("today"), 1 = the next local day
+ * ("tomorrow"), negative = already past. Compares local calendar dates rather
+ * than raw millisecond gaps, so a trial ending 20h from now that lands on the
+ * next local date is honestly "tomorrow", not "today".
+ */
+export function localCalendarDaysUntil(
+  tz: string,
+  target: Date,
+  now: Date = new Date()
+): number {
+  // localDateFor returns YYYY-MM-DD; Date.parse reads that as UTC midnight, so
+  // the difference is a clean count of whole days free of any offset drift.
+  const from = Date.parse(localDateFor(tz, now));
+  const to = Date.parse(localDateFor(tz, target));
+  return Math.round((to - from) / 86_400_000);
+}
+
 /** Minutes since local midnight for a given instant. */
 export function localMinutesFor(tz: string, at: Date = new Date()): number {
   const parts = new Intl.DateTimeFormat("en-CA", {

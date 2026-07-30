@@ -50,6 +50,19 @@ describe("lifecycle emails (CE-17)", () => {
     for (const e of ALL) expect(e.subject, e.subject).not.toMatch(EMOJI);
   });
 
+  it("trial-ending subject names the real day, not a hard-coded 'tomorrow'", () => {
+    // MW-V11: the daily cron catches trials ending within 48h, so the subject
+    // must reflect how far off the end actually is — an email that says
+    // "tomorrow" the day the trial already ended is exactly the bug this fixes.
+    expect(trialEndingEmail({}, 0).subject).toBe("Your Mellowa trial ends today");
+    expect(trialEndingEmail({}, 1).subject).toBe("Your Mellowa trial ends tomorrow");
+    expect(trialEndingEmail({}, 2).subject).toBe("Your Mellowa trial ends in 2 days");
+    // A past/negative value never claims a future day.
+    expect(trialEndingEmail({}, -1).subject).toBe("Your Mellowa trial ends today");
+    // Length-neutral fallback when the caller has no day count.
+    expect(trialEndingEmail().subject).toBe("Your Mellowa trial ends soon");
+  });
+
   it("never includes sensitive wellbeing details", () => {
     for (const e of ALL) {
       // strip the fixed safety footer, which legitimately mentions wellbeing

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   isValidTimeZone,
+  localCalendarDaysUntil,
   localDateFor,
   localMinutesFor,
   resolvePlanDate,
@@ -60,6 +61,38 @@ describe("local-day service (Prompt 9)", { timeout: 20_000 }, () => {
     expect(
       resolvePlanDate({ storedTimezone: null, clientDate: "junk", now })
     ).toBe("2026-07-16");
+  });
+
+  it("counts whole local calendar days until a target instant", () => {
+    // Ljubljana is CEST (UTC+2) in July. now = 30 Jul 07:00 local.
+    const now = new Date("2026-07-30T05:00:00Z");
+    // Trial ends 30 Jul 09:00 local — same local day → 0 ("today").
+    expect(
+      localCalendarDaysUntil("Europe/Ljubljana", new Date("2026-07-30T07:00:00Z"), now)
+    ).toBe(0);
+    // Trial ends 31 Jul 08:00 local — next local day → 1 ("tomorrow"),
+    // even though it is only ~25h away.
+    expect(
+      localCalendarDaysUntil("Europe/Ljubljana", new Date("2026-07-31T06:00:00Z"), now)
+    ).toBe(1);
+    // Trial ends 1 Aug local → 2 ("in 2 days").
+    expect(
+      localCalendarDaysUntil("Europe/Ljubljana", new Date("2026-08-01T06:00:00Z"), now)
+    ).toBe(2);
+    // Already past → negative.
+    expect(
+      localCalendarDaysUntil("Europe/Ljubljana", new Date("2026-07-29T06:00:00Z"), now)
+    ).toBe(-1);
+  });
+
+  it("resolves the day count in the user's zone, not the server's UTC", () => {
+    // 30 Jul 22:30 UTC is already 31 Jul in Ljubljana (UTC+2), so a trial
+    // ending 31 Jul 00:30 local is "today" there — while a naive UTC reading
+    // would call it "tomorrow".
+    const now = new Date("2026-07-30T22:30:00Z"); // 31 Jul 00:30 local
+    expect(
+      localCalendarDaysUntil("Europe/Ljubljana", new Date("2026-07-30T23:00:00Z"), now)
+    ).toBe(0);
   });
 
   it("instantForLocalTime handles normal and DST-transition days", () => {
