@@ -177,3 +177,65 @@ test("a user who already used their trial sees pay-today copy only", async ({
   expect(body).not.toMatch(/\d+ days? free/i);
   expect(body).not.toMatch(/\d+-day trial/i);
 });
+
+/**
+ * MW-V12-02: sign out ends the session from the account hub.
+ *
+ * State-independent — the SignOutButton lives on /you and behaves the same for
+ * any subscription state, so this runs under whatever fixture is loaded.
+ */
+test("sign out ends the session and returns to login", async ({ page }) => {
+  await login(page);
+  await page.goto("/you");
+  await assertIdentity(page, { route: /\/you/ });
+
+  await page.getByRole("button", { name: /^Sign out$/ }).click();
+  await page.waitForURL(/\/login/, { timeout: 15_000 });
+  expect(page.url(), "sign out did not return to /login").toMatch(/\/login/);
+
+  // The session is really gone: an authenticated route bounces back to login
+  // rather than rendering from a stale cache.
+  await page.goto("/today");
+  await expect(page).toHaveURL(/\/login/);
+});
+
+/**
+ * MW-V12-02: an expired/absent session must redirect an authenticated route to
+ * login, not render a partial page. This is the failure assertIdentity was
+ * built to catch — a test that only checks for an element's absence passes on
+ * the login page forever.
+ */
+test("an expired session redirects to login instead of rendering", async ({ page }) => {
+  await login(page);
+  // Drop every cookie: the server session is now gone from the browser's view.
+  await page.context().clearCookies();
+  await page.goto("/today");
+  await expect(page).toHaveURL(/\/login/);
+});
+
+/**
+ * MW-V12-02: a user who has consumed their one free sample must be told Premium
+ * is needed to generate again — not offered a second sample. Gated on the
+ * `sample-used` fixture, following the same fixture-driven skip contract as the
+ * trial tests above (never a guess read off the page).
+ */
+test("sample-used check-in points to Premium, not another free sample", async ({
+  page,
+}) => {
+  test.skip(SEEDED_STATE !== "sample-used", needsState("sample-used"));
+
+  await login(page);
+  await page.goto("/check-in");
+  await assertIdentity(page, { route: /\/check-in/ });
+
+  const body = await page.locator("body").innerText();
+  // The consumed-sample gate copy (src/app/(app)/check-in/page.tsx).
+  expect(body, "sample-used fixture is not showing the consumed-sample gate").toMatch(
+    /used your free sample plan/i
+  );
+  expect(body, "a consumed sample must not offer another free sample").not.toMatch(
+    /creates your one free sample plan/i
+  );
+  // One route onward to Premium, via Billing.
+  await expect(page.getByRole("link", { name: /^Billing$/ })).toBeVisible();
+});

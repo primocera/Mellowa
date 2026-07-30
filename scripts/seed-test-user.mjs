@@ -16,6 +16,8 @@
 //   bad-timezone  an invalid stored IANA zone → the timezone repair prompt
 //   trial-eligible  no subscription row at all → checkout may offer a trial
 //   trial-used      trial spent, subscription ended → pay-today copy only
+//   active          converted paid subscription (status active) → premium, no trial banner
+//   sample-used     sample tier with the one free sample plan consumed → "needs Premium" gate
 //
 // Every state is written for the SAME synthetic user, so switching states never
 // leaves rows from a previous state behind: the plan and its completions are
@@ -67,6 +69,13 @@ const VALID_STATES = [
   // were written. A skip reads as a decision, so nothing ever reported it.
   "trial-eligible",
   "trial-used",
+  // MW-V12-02: the two states the canonical matrix named that no fixture
+  // produced. `active` is a converted paid subscription (entitlement differs
+  // from `trialing`: no trial banner), and `sample-used` is a sample-tier user
+  // who has consumed their one lifetime free sample, so the check-in page tells
+  // them Premium is needed rather than offering another sample.
+  "active",
+  "sample-used",
 ];
 const STATE =
   process.argv.find((a) => a.startsWith("--state="))?.split("=")[1] ??
@@ -82,6 +91,43 @@ if (!VALID_STATES.includes(STATE)) {
 const admin = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
+
+// MW-V12-02: opt-in isolation guard.
+//
+// The seed script writes real auth users and rows. Mellowa runs on a single
+// live Supabase project by design (RLS isolates the synthetic account), so a
+// hard guard is off by default to keep that workflow working. But an
+// RC-grade matrix run must be pointed at a NON-production project, and the
+// release runner sets E2E_REQUIRE_SEED_MARKER=1. When set, this refuses to seed
+// unless a marker table the environment cannot fake reads back — failing closed
+// on a missing table or any read error, so a mis-set SUPABASE_URL cannot
+// silently seed production.
+if (env.E2E_REQUIRE_SEED_MARKER === "1" || process.env.E2E_REQUIRE_SEED_MARKER === "1") {
+  const { data: marker, error: markerErr } = await admin
+    .from("e2e_seed_marker")
+    .select("note")
+    .limit(1)
+    .maybeSingle();
+  if (markerErr || !marker?.note) {
+    console.error(
+      "BLOCKED: E2E_REQUIRE_SEED_MARKER=1 but the e2e_seed_marker table did not " +
+        "confirm a non-production database" +
+        (markerErr ? ` (${markerErr.message})` : " (no marker row)") +
+        ".\nCreate it against the NON-PRODUCTION project ONLY:\n" +
+        "  create table if not exists public.e2e_seed_marker (\n" +
+        "    id boolean primary key default true,\n" +
+        "    note text not null,\n" +
+        "    created_at timestamptz not null default now(),\n" +
+        "    constraint e2e_seed_marker_single check (id)\n" +
+        "  );\n" +
+        "  insert into public.e2e_seed_marker (id, note)\n" +
+        "  values (true, 'This database may be seeded and wiped. It is NOT production.')\n" +
+        "  on conflict (id) do nothing;"
+    );
+    process.exit(1);
+  }
+  console.log(`Seed marker OK: ${marker.note}`);
+}
 
 // 1. Create (or find) the confirmed user.
 let userId;
@@ -163,17 +209,25 @@ const SUBSCRIPTION_STATES = {
   "past-due": { status: "past_due", cancel_at_period_end: false },
   canceled: { status: "canceled", cancel_at_period_end: false },
   ending: { status: "trialing", cancel_at_period_end: true },
+  // MW-V12-02: a converted paid subscription. status "active" grants generation
+  // like "trialing" but shows no trial banner (shouldShowTrialBanner keys on
+  // status === "trialing"), which is the distinction this fixture exists to test.
+  active: { status: "active", cancel_at_period_end: false },
 };
 const subState = SUBSCRIPTION_STATES[STATE] ?? {
   status: "trialing",
   cancel_at_period_end: false,
 };
 
-if (STATE === "trial-eligible") {
-  // No subscription row at all: this is a signed-up user who has never paid and
-  // has never started a trial, so checkout must offer one. `trialEligible` in
-  // the checkout route is `!sub?.trial_used_at`, and the pricing page shows the
-  // trial CTA only in this state.
+if (STATE === "trial-eligible" || STATE === "sample-used") {
+  // No subscription row at all → sample tier. For `trial-eligible` this is a
+  // signed-up user who has never paid and never started a trial, so checkout
+  // must offer one (`trialEligible` = `!sub?.trial_used_at`, and pricing shows
+  // the trial CTA only in this state). For `sample-used` the same sample tier
+  // applies, and because a daily plan is seeded below the one lifetime sample
+  // is consumed, so the check-in page shows the "needs Premium" gate instead of
+  // offering another sample. The two share a DB shape but assert different
+  // surfaces — see e2e/support/matrix.ts.
   const { error: delErr } = await admin
     .from("subscriptions")
     .delete()
@@ -386,9 +440,11 @@ console.log("   State:    " + STATE);
 const reportedStatus =
   STATE === "trial-eligible"
     ? "no subscription row — trial-eligible"
-    : STATE === "trial-used"
-      ? "canceled, trial_used_at set — pay-today only"
-      : subState.status + (subState.cancel_at_period_end ? " (set not to renew)" : "");
+    : STATE === "sample-used"
+      ? "no subscription row, sample plan consumed — needs Premium to generate"
+      : STATE === "trial-used"
+        ? "canceled, trial_used_at set — pay-today only"
+        : subState.status + (subState.cancel_at_period_end ? " (set not to renew)" : "");
 
 console.log(
   "   Status:   " +

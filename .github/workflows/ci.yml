@@ -95,6 +95,10 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
           npm run test:e2e
+          # MW-V12-02: the matrix runner seeds every fixture and blocks if any
+          # required journey never ran. Under RC_GATE it fails closed; on an
+          # ordinary push it is advisory. It writes SHA-pinned evidence.
+          RC_GATE="${{ vars.RC_GATE }}" npm run test:e2e:matrix
 
       # The release-candidate gate. On an ordinary push a missing seeded env is
       # tolerated so day-to-day CI stays usable; when the owner sets the

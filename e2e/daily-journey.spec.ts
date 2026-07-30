@@ -215,6 +215,20 @@ test.describe("plan ready", () => {
   });
 });
 
+test.describe("active subscription", () => {
+  test.beforeEach(() => seed("active"));
+
+  test("active subscription reaches Today without a trial banner", async ({ page }) => {
+    // A converted paid user (status "active", not "trialing") has full access,
+    // but the trial banner keys on status === "trialing" — so it must be absent
+    // here. This is the distinction the `active` fixture exists to prove.
+    await arriveAtToday(page, "active", /now · one next step/i);
+    await expect(page.getByText(/trial is active/i)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Done$/ })).toHaveCount(1);
+    await assertNoHorizontalOverflow(page);
+  });
+});
+
 test.describe("partly done", () => {
   test.beforeEach(() => seed("partly-done"));
 

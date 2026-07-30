@@ -1,5 +1,8 @@
 import { expect, type Page, type TestInfo } from "@playwright/test";
 import { execFileSync } from "node:child_process";
+import { type SeedState } from "./matrix";
+
+export { type SeedState } from "./matrix";
 
 /**
  * Shared authenticated-journey harness (MW-V11-04).
@@ -30,19 +33,6 @@ export const E2E_CONFIGURED =
 export const NOT_CONFIGURED_REASON =
   "BLOCKED: seeded test environment absent (E2E_SUPABASE_TEST, E2E_TEST_EMAIL, " +
   "E2E_TEST_PASSWORD). This suite did not run — that is not a pass.";
-
-/** Seed states the fixture script can produce. */
-export type SeedState =
-  | "no-plan"
-  | "plan-ready"
-  | "partly-done"
-  | "all-done"
-  | "past-due"
-  | "canceled"
-  | "ending"
-  | "bad-timezone"
-  | "trial-eligible"
-  | "trial-used";
 
 /**
  * The state the fixture was last seeded into, if the runner was told.
