@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Check } from "lucide-react";
-import { PRICING } from "@/lib/stripe/plans";
+import { PRICING, premiumProblemFor } from "@/lib/stripe/plans";
 import { UpgradeButton } from "@/components/dailyflow/upgrade-button";
 import { isYearlyEmphasisEnabled } from "@/lib/flags";
 import { trialDisclosureForViewer } from "@/lib/stripe/trial-disclosure";
@@ -18,13 +18,23 @@ export const metadata: Metadata = {
 
 function FeatureList({ features }: { features: readonly string[] }) {
   return (
-    <ul className="mt-4 space-y-2">
-      {features.map((f) => (
-        <li key={f} className="flex items-start gap-2 text-sm text-[#1F2937]">
-          <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#7C9A92]" />
-          {f}
-        </li>
-      ))}
+    <ul className="mt-4 space-y-3">
+      {features.map((f) => {
+        // MW-V12-06: name the problem each capability solves, so the paywall
+        // reads as reasons to want Premium rather than a list of features.
+        const problem = premiumProblemFor(f);
+        return (
+          <li key={f} className="flex items-start gap-2 text-sm text-[#1F2937]">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#7C9A92]" />
+            <span>
+              {f}
+              {problem && (
+                <span className="mt-0.5 block text-xs text-[#6B7280]">{problem}</span>
+              )}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }

@@ -95,19 +95,71 @@ export function entitlementFor(status: string | null | undefined): Entitlement {
  * are named; no outcome claims (calm, health, adherence, productivity) and
  * never "unlimited".
  */
-export const PREMIUM_FEATURES: readonly string[] = [
-  // Adapt today
-  "Ongoing daily plans, with fair-use safeguards",
-  "Adjust the rest of today in one pass, with free Undo",
-  "Make-today-lighter mode",
-  // Reuse what works
-  "Preference learning you can see, edit and remove",
-  "Saved meals, leftovers and shopping drafts that reuse what you liked",
-  // Carry into next week
-  "Weekly plans with a reflection that carries your choices forward",
-  "Journal reflections",
-  "Progress insights",
-];
+/**
+ * MW-V12-06: the recurring-value contract. Each Premium capability is paired
+ * with the user PROBLEM it solves and the loop phase it belongs to, so the
+ * paywall can connect a paid feature to a reason to want it rather than listing
+ * an abstract feature. The free sample proves one realistic day; Premium
+ * continues the loop across changing days and weeks — that difference is what
+ * `problem` makes explicit.
+ *
+ * Boundaries this list must keep (asserted in tests/premium-value-contract.test.ts):
+ * only implemented capabilities; no outcome claims (calm, health, adherence,
+ * productivity), no "AI knows you", no therapy, no streaks or calorie targets,
+ * never "unlimited".
+ */
+export const PREMIUM_VALUE = [
+  {
+    phase: "adapt today",
+    capability: "Ongoing daily plans, with fair-use safeguards",
+    problem: "The sample is one day. Some days you want a fresh plan, not last week's.",
+  },
+  {
+    phase: "adapt today",
+    capability: "Adjust the rest of today in one pass, with free Undo",
+    problem: "When the day changes, reshape what's left without starting over.",
+  },
+  {
+    phase: "adapt today",
+    capability: "Make-today-lighter mode",
+    problem: "On a low-capacity day, get less to do — not another task.",
+  },
+  {
+    phase: "reuse what works",
+    capability: "Preference learning you can see, edit and remove",
+    problem: "The plan reuses what fit before, and you stay in control of what it learned.",
+  },
+  {
+    phase: "reuse what works",
+    capability: "Saved meals, leftovers and shopping drafts that reuse what you liked",
+    problem: "Stop re-deciding meals you already know work, and use up what you have.",
+  },
+  {
+    phase: "carry into next week",
+    capability: "Weekly plans with a reflection that carries your choices forward",
+    problem: "Next week starts from what worked this week, not from scratch.",
+  },
+  {
+    phase: "carry into next week",
+    capability: "Journal reflections",
+    problem: "A gentle place to notice what helped, without it becoming homework.",
+  },
+  {
+    phase: "carry into next week",
+    capability: "Progress insights",
+    problem: "See how your days are going over time — described, never scored.",
+  },
+] as const;
+
+/** The rendered capability strings — derived, so the two can never drift. */
+export const PREMIUM_FEATURES: readonly string[] = PREMIUM_VALUE.map(
+  (v) => v.capability
+);
+
+/** The user problem a Premium capability solves, for the paywall. */
+export function premiumProblemFor(capability: string): string | null {
+  return PREMIUM_VALUE.find((v) => v.capability === capability)?.problem ?? null;
+}
 
 /**
  * MW-V10-02: PRICING deliberately carries no trial length. The length is
