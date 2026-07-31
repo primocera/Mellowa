@@ -47,8 +47,8 @@ First execution step: review + run these tests, then commit them as the opening 
 | 6 | MW-V12-06 | `MW-V12-06.md` | Premium recurring-value product/content pass | ✅ |
 | 7 | MW-V12-07 | `MW-V12-07.md` | Real-user performance (cold-start, RUM vitals, budgets) | ✅ (cold/field owner-run) |
 | 8 | MW-V12-08 | `MW-V12-08.md` | Willingness-to-pay beta measurement + scorecard | ✅ (data accrues in prod) |
-| 9 | MW-V12-09 | `MW-V12-09.md` | Cut new RC, replace superseded verdict (NO product changes) | ☐ |
-| 10 | XAPP-V12-01 | `XAPP-V12-01.md` | Cross-app isolation review (needs LaunchBloom frozen too) | ☐ |
+| 9 | MW-V12-09 | `MW-V12-09.md` | Cut new RC, replace superseded verdict (NO product changes) | ✅ RC 745b4a4, CONDITIONAL GO |
+| 10 | XAPP-V12-01 | `XAPP-V12-01.md` | Cross-app isolation review (needs LaunchBloom frozen too) | ✅ Mellowa side (Scalvya owner-run) |
 
 Rules between prompts:
 - Do not merge two prompts into one commit.
