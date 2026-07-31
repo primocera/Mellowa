@@ -26,6 +26,19 @@ import { mkdirSync, writeFileSync } from "node:fs";
  * projects. Not running it is recorded as not-run, never as a pass.
  */
 
+/**
+ * MW-V12-07: warm vs cold are measured and labelled separately.
+ *
+ * `PERF_MODE=cold` skips the warm-up request so the measured navigation pays
+ * server start-up — the first-visit experience on a cold serverless function.
+ * Run it against a deployed preview (E2E_BASE_URL=https://<preview>) — a local
+ * `next start` has no cold serverless start, so a local cold run is not
+ * representative. Warm is the release gate; cold is recorded and advisory, so
+ * one flaky cold run can never be the only thing standing between a candidate
+ * and a verdict.
+ */
+const MODE: "warm" | "cold" = process.env.PERF_MODE === "cold" ? "cold" : "warm";
+
 /** Launch budgets, with the reasoning that picked them. */
 const BUDGETS = {
   // Google's "good" threshold. A daily consumer product that hesitates on the
@@ -40,6 +53,7 @@ const BUDGETS = {
 
 interface VitalsReport {
   route: string;
+  mode: "warm" | "cold";
   ttfbMs: number;
   fcpMs: number | null;
   lcpMs: number | null;
@@ -125,9 +139,12 @@ async function collect(page: Page, route: string): Promise<VitalsReport> {
    * `page.request` shares cookies but not the page's HTTP cache, so this warms
    * the server only and the measured navigation is still a cold-cache load.
    */
-  await page.request.get(route).catch(() => {
-    /* a warm-up failure is not a result; the measured load below is */
-  });
+  // Cold mode deliberately skips the warm-up so server start-up is included.
+  if (MODE === "warm") {
+    await page.request.get(route).catch(() => {
+      /* a warm-up failure is not a result; the measured load below is */
+    });
+  }
 
   await page.goto(route, { waitUntil: "load" });
   // Let LCP settle: it is only final once the page stops changing.
@@ -170,6 +187,7 @@ async function collect(page: Page, route: string): Promise<VitalsReport> {
 
   return {
     route,
+    mode: MODE,
     ttfbMs: Math.round(measured.ttfbMs),
     fcpMs: measured.fcpMs === null ? null : Math.round(measured.fcpMs),
     lcpMs: measured.lcpMs === null ? null : Math.round(measured.lcpMs),
@@ -188,13 +206,19 @@ const reports: VitalsReport[] = [];
 test.afterAll(() => {
   if (reports.length === 0) return;
   mkdirSync(REPORT_DIR, { recursive: true });
+  // Warm keeps the canonical filename the release manifest pins; cold is a
+  // separate, clearly-labelled artifact so the two are never conflated.
   writeFileSync(
-    `${REPORT_DIR}/vitals.json`,
+    `${REPORT_DIR}/${MODE === "warm" ? "vitals.json" : "vitals-cold.json"}`,
     JSON.stringify(
       {
         collectedAtUtc: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
+        mode: MODE,
         conditions:
-          "headless Chromium, 4x CPU throttle, ~Slow 4G (1.6Mbps/150ms), route warmed once before measuring",
+          `headless Chromium, 4x CPU throttle, ~Slow 4G (1.6Mbps/150ms), ${MODE} run ` +
+          (MODE === "warm"
+            ? "(route warmed once before measuring)"
+            : "(no warm-up — server start-up is included; run against a deployed preview)"),
         caveat:
           "Lab measurement on one machine, steady state after a warm-up request. Not real-user p75. " +
           "Cold-start is deliberately excluded and is a separate risk: the first request to a cold " +
@@ -220,15 +244,21 @@ for (const route of ["/", "/pricing", "/signup"]) {
     console.log(`PERF ${route}`, JSON.stringify(report));
 
     expect(report.lcpMs, `${route}: LCP was never reported`).not.toBeNull();
-    expect(report.lcpMs!, `${route}: LCP ${report.lcpMs}ms exceeds ${BUDGETS.lcpMs}ms`).
-      toBeLessThanOrEqual(BUDGETS.lcpMs);
-    expect(report.cls, `${route}: CLS ${report.cls} exceeds ${BUDGETS.cls}`).toBeLessThanOrEqual(
-      BUDGETS.cls
-    );
-    expect(
-      report.ttfbMs,
-      `${route}: TTFB ${report.ttfbMs}ms exceeds ${BUDGETS.ttfbMs}ms`
-    ).toBeLessThanOrEqual(BUDGETS.ttfbMs);
+
+    // Warm is the gate. Cold is recorded and advisory — a single cold run pays
+    // server start-up and is too noisy to fail a release on by itself; it is
+    // labelled `cold` in the artifact and read as a separate signal.
+    if (MODE === "warm") {
+      expect(report.lcpMs!, `${route}: LCP ${report.lcpMs}ms exceeds ${BUDGETS.lcpMs}ms`).
+        toBeLessThanOrEqual(BUDGETS.lcpMs);
+      expect(report.cls, `${route}: CLS ${report.cls} exceeds ${BUDGETS.cls}`).toBeLessThanOrEqual(
+        BUDGETS.cls
+      );
+      expect(
+        report.ttfbMs,
+        `${route}: TTFB ${report.ttfbMs}ms exceeds ${BUDGETS.ttfbMs}ms`
+      ).toBeLessThanOrEqual(BUDGETS.ttfbMs);
+    }
   });
 }
 

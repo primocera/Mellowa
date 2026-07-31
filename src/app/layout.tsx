@@ -1,6 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { SITE_URL } from "@/lib/seo/site";
+import { WebVitals } from "@/components/dailyflow/web-vitals";
+
+/** The deploy's commit sha (Vercel), truncated, for field-vitals build tagging. */
+function buildId(): string {
+  const sha = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.NEXT_PUBLIC_BUILD_ID;
+  return sha ? sha.slice(0, 12) : "dev";
+}
 
 /*
  * MW-V11-05: both webfonts were removed, because measurement showed nothing
@@ -83,6 +90,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-[#FAF7F2] text-[#1F2937]">
         {children}
+        {/* MW-V12-07: anonymous real-user Web Vitals (LCP/CLS/INP). Build id is
+            the deploy commit, truncated; never a user identifier. */}
+        <WebVitals buildId={buildId()} />
       </body>
     </html>
   );
