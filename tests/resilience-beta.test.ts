@@ -97,6 +97,108 @@ describe("the rotation and restore drill is executable", () => {
   });
 });
 
+describe("every secret has its own rotation procedure (MW-V12-05)", () => {
+  it("names all of them, including the two the v11 runbook lumped together", () => {
+    for (const secret of [
+      "CRON_SECRET",
+      "ADMIN_STATS_SECRET",
+      "RESEND_API_KEY",
+      "AI_PROVIDER_API_KEY",
+      // Split apart: the Stripe API key and the webhook signing secret rotate
+      // differently and break different things.
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      // The application signing secret the v11 runbook omitted entirely.
+      "EMAIL_UNSUBSCRIBE_SECRET",
+    ]) {
+      expect(rotation, `no rotation procedure for ${secret}`).toContain(secret);
+    }
+  });
+
+  it("gives each secret an owner and a stated overlap window", () => {
+    expect(rotation).toMatch(/\| Owner \|/);
+    expect(rotation).toMatch(/can old \+ new both be valid\?/i);
+    // The no-overlap secrets must be called out as such, not silently rotated.
+    expect(rotation).toMatch(/HMAC verifies one key/i);
+  });
+
+  it("states preconditions and a rollback for every rotation", () => {
+    expect(rotation).toMatch(/Preconditions for every rotation/i);
+    expect(rotation).toMatch(/roll back by reverting the Vercel variable/i);
+  });
+});
+
+describe("rotation is verifiable without printing a secret (MW-V12-05)", () => {
+  const script = readFileSync("scripts/secret-fingerprint.mjs", "utf8");
+
+  it("the runbook verifies IDENTITY via a fingerprint, not just presence", () => {
+    expect(rotation).toMatch(/secret-fingerprint\.mjs/);
+    expect(rotation).toMatch(/fingerprint.*changed.*after the rotation/i);
+  });
+
+  it("the fingerprint is one-way and truncated", () => {
+    expect(script).toMatch(/createHash\("sha256"\)/);
+    // 12 hex = 48 bits: enough to compare, not enough to attack.
+    expect(script).toContain("FINGERPRINT_HEX = 12");
+    expect(script).toMatch(/\.slice\(0, FINGERPRINT_HEX\)/);
+  });
+
+  it("never prints the value, a prefix or a suffix", () => {
+    expect(script).toMatch(/never prints the value/i);
+    // No slice/substr of the raw secret — only the HASH is truncated.
+    expect(script).not.toMatch(/value\.slice\(/);
+    expect(script).not.toMatch(/value\.substr/);
+    // The leak vector in a template literal is interpolating the value itself.
+    // The only permitted interpolations are ${fingerprint(value)} and
+    // ${value.length}: a raw ${value} or any ${value.<other>} would expose it.
+    expect(script, "raw value is interpolated into output").not.toMatch(/\$\{value\}/);
+    expect(script, "a value property other than length is interpolated").not.toMatch(
+      /\$\{\s*value\.(?!length)/,
+    );
+  });
+});
+
+describe("the restore checklist is executable, not eyeballed (MW-V12-05)", () => {
+  const sqlRaw = readFileSync("docs/runbooks/restore-verification.sql", "utf8");
+  const sql = sqlRaw.toLowerCase();
+
+  it("the runbook points at the read-only verification script", () => {
+    expect(rotation).toMatch(/restore-verification\.sql/);
+  });
+
+  it("is strictly read-only — no statement can mutate the scratch database", () => {
+    for (const mutation of [
+      /\binsert\s+into\b/,
+      /\bupdate\s+\w+\s+set\b/,
+      /\bdelete\s+from\b/,
+      /\bdrop\s+/,
+      /\bcreate\s+/,
+      /\balter\s+/,
+      /\btruncate\b/,
+    ]) {
+      expect(sql, `the verification SQL contains a mutating statement ${mutation}`).not.toMatch(
+        mutation,
+      );
+    }
+    expect(sql).toContain("select");
+  });
+
+  it("covers every row of the restore-verification checklist", () => {
+    for (const check of [
+      /count\(\*\)/, // 1 row counts
+      /left join auth\.users/, // 2 orphaned owners
+      /reminder_consent_version/, // 3 consent
+      /allergies/, // 4 safety fields
+      /stripe_customer_id/, // 5 stripe mapping
+      /auth_users_in_restore/, // 6 tombstone/resurrection diff
+      /sections = '\{\}'::jsonb/, // 7 version snapshots
+    ]) {
+      expect(sql, `the verification SQL is missing ${check}`).toMatch(check);
+    }
+  });
+});
+
 describe("the beta scorecard can actually decide something", () => {
   it("caps the beta at 50 and says what enforces it", () => {
     expect(scorecard).toMatch(/Maximum beta accounts \| \*\*50\*\*/);

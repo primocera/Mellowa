@@ -26,29 +26,60 @@ exposure as a full data-access incident, not a config change.
 Rotate one credential per pass and verify before starting the next. Doing them
 together makes it impossible to tell which one broke a failure.
 
-| # | Secret | Where it lives | Blast radius if rotated wrong |
-|---|---|---|---|
-| 1 | `CRON_SECRET` | Vercel env + `vercel.json` cron headers | Reminders and reconciliation stop silently |
-| 2 | `ADMIN_STATS_SECRET` | Vercel env, uptime monitor | Readiness monitoring goes blind |
-| 3 | `RESEND_API_KEY` | Vercel env, Resend dashboard | All transactional mail stops |
-| 4 | `AI_PROVIDER_API_KEY` | Vercel env, provider console | All plan generation fails closed |
-| 5 | `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` | Vercel env, Stripe dashboard | Checkout and entitlement sync break |
-| 6 | `SUPABASE_SERVICE_ROLE_KEY` | Vercel env, Supabase dashboard | Everything server-side; rotate last, most carefully |
+Each secret has its own procedure below — they differ in how the overlap works
+and what a wrong rotation breaks. Rotate strictly in this order; the dependency
+order exists because a broken earlier rotation must not hide behind a later one.
 
-### Per-secret procedure
+| # | Secret | Owner | Where it lives | Overlap: can old + new both be valid? | Blast radius if rotated wrong |
+|---|---|---|---|---|---|
+| 1 | `CRON_SECRET` | Owner | Vercel env + `vercel.json` cron headers | Yes — accept either during the window by design, or accept brief 401s | Reminders and reconciliation stop silently |
+| 2 | `ADMIN_STATS_SECRET` | Owner | Vercel env, uptime monitor | Yes | Readiness monitoring goes blind |
+| 3 | `EMAIL_UNSUBSCRIBE_SECRET` (app signing secret) | Owner | Vercel env (HMAC key for one-click unsubscribe tokens; falls back to `CRON_SECRET`) | **No** — HMAC verifies one key, so rotation invalidates outstanding unsubscribe links | Previously-sent unsubscribe links stop verifying |
+| 4 | `RESEND_API_KEY` | Owner | Vercel env, Resend dashboard | Yes — create a second key before revoking | All transactional mail stops |
+| 5 | `AI_PROVIDER_API_KEY` | Owner | Vercel env, provider console | Yes | All plan generation fails closed |
+| 6 | `STRIPE_WEBHOOK_SECRET` | Owner | Vercel env, Stripe dashboard (endpoint signing secret) | **Partial** — Stripe issues a new signing secret per endpoint; roll the endpoint and update env together | Webhooks fail signature verification → entitlement sync stops |
+| 7 | `STRIPE_SECRET_KEY` (API key) | Owner | Vercel env, Stripe dashboard (API keys) | Yes — Stripe supports roll with an overlap window | Checkout and server-side Stripe calls break |
+| 8 | `SUPABASE_SERVICE_ROLE_KEY` | Owner | Vercel env, Supabase dashboard | Yes on legacy keys; JWT-signing-key rotation has its own overlap in Supabase | Everything server-side; rotate last, most carefully |
+
+**Preconditions for every rotation:** a green `npm run release-check` and
+`/api/health/ready` beforehand (so a pre-existing failure is not blamed on the
+rotation), the Vercel dashboard open on Production env, and the provider console
+open on the credential. Record the **fingerprint** of the current value first
+(section C) so the change is verifiable afterwards.
+
+### Per-secret procedure (the general shape)
 
 1. Create the **new** credential in the provider without deleting the old one.
-   Both must be valid at once — this is what makes the change reversible.
+   Both must be valid at once — this is what makes the change reversible. Where
+   overlap is not possible (the two **No/Partial** rows above), schedule the
+   rotation for a low-traffic window and expect the stated breakage until the
+   redeploy lands.
 2. Update the Vercel environment variable for Production.
 3. Redeploy. Vercel does not re-read env vars in a running deployment.
-4. Verify (section C) **before** revoking the old credential.
+4. Verify (section C), including a **fingerprint change**, **before** revoking
+   the old credential.
 5. Revoke the old credential in the provider.
-6. Record: date, secret name, who ran it, verification result. **Never record
-   the value, or any prefix or suffix of it.**
+6. Record: date, secret name, who ran it, verification result, and the
+   before/after fingerprints. **Never record the value, or any prefix or suffix
+   of it** — the fingerprint is the only identifier that is safe to write down.
 
 If verification fails at step 4, roll back by reverting the Vercel variable and
 redeploying. The old credential is still live, so this always works — which is
 the entire reason for the overlap.
+
+**The two no-overlap secrets need their own handling:**
+
+- `EMAIL_UNSUBSCRIBE_SECRET` — HMAC verifies exactly one key, so rotating it
+  makes every unsubscribe link already in someone's inbox fail. That is
+  tolerable because the links are re-minted on every reminder send, so the next
+  reminder carries a working link; but do it in a quiet window and note that a
+  user clicking an old link between rotation and their next reminder gets the
+  "this link didn't work" page, which still points them to Settings. Never
+  remove the `CRON_SECRET` fallback without first setting an explicit value.
+- `STRIPE_WEBHOOK_SECRET` — Stripe binds the signing secret to the endpoint.
+  Update the endpoint and the env var together; verify with a Stripe test event
+  (section C) before revoking anything. A wrong value here silently drops every
+  webhook, which is the "paid but no access" failure by another route.
 
 ## C. Verification after each rotation
 
@@ -56,10 +87,23 @@ the entire reason for the overlap.
 # Presence and shape only — never prints a value.
 npm run release-check
 
+# One-way fingerprint — confirms the DEPLOYED value is the NEW one, without
+# ever printing the secret (MW-V12-05). Run before and after the rotation and
+# compare; a changed fingerprint proves the new value is live. Pull the prod
+# env first (vercel env pull), then:
+node scripts/secret-fingerprint.mjs --env .env.production.local CRON_SECRET \
+  STRIPE_WEBHOOK_SECRET STRIPE_SECRET_KEY RESEND_API_KEY \
+  EMAIL_UNSUBSCRIBE_SECRET SUPABASE_SERVICE_ROLE_KEY
+
 # Deep readiness, including the v9 RPC overloads (MW-V10-00).
 curl -s -H "Authorization: Bearer $ADMIN_STATS_SECRET" \
   https://<app-domain>/api/health/ready | jq
 ```
+
+The fingerprint is presence *and identity*: presence alone (`release-check`)
+cannot tell a stale value from the intended one — exactly the class of gap that
+let a USD price pass an EUR presence check. Confirm the fingerprint **changed**
+after the rotation and **matches** the new value you generated.
 
 Expect every component `ok`. Specifically confirm
 `rpc_claim_ai_generation_v035` and `rpc_undo_plan_repair_v034` are `ok`: a
@@ -111,6 +155,11 @@ merely running. Compare against the production counts you noted at step 1.
 
 Use counts, hashes and ids for evidence. Do not paste plan contents, check-ins
 or journal text into this file.
+
+**Run these checks, don't eyeball them.** `docs/runbooks/restore-verification.sql`
+is a read-only script covering every row above — run it against the **scratch**
+project (never production) and paste the anonymized counts into the Result
+column. It only ever `SELECT`s; it creates and changes nothing.
 
 ### RTO and RPO — tested versus desired
 
