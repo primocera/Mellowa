@@ -97,6 +97,16 @@ describe("one-click unsubscribe reaches the scheduler's state", () => {
     });
   });
 
+  it("records WHEN the unsubscribe happened, so Settings can explain the state", async () => {
+    // MW-V12-04: the marker distinguishes "off because you unsubscribed" from
+    // "never turned on". It is a timestamp, set at unsubscribe time.
+    const token = unsubscribeToken(USER, "daily_reminder")!;
+    await POST(request("daily_reminder", token));
+    const patch = updateMock.mock.calls[0][0];
+    expect(typeof patch.reminders_unsubscribed_at).toBe("string");
+    expect(Number.isNaN(Date.parse(patch.reminders_unsubscribed_at as string))).toBe(false);
+  });
+
   it("only writes columns that exist on that table", async () => {
     const token = unsubscribeToken(USER, "daily_reminder")!;
     await POST(request("daily_reminder", token));
@@ -109,6 +119,7 @@ describe("one-click unsubscribe reaches the scheduler's state", () => {
       "reminder_time",
       "reminder_skip_date",
       "reminder_consent_version",
+      "reminders_unsubscribed_at",
     ]);
     for (const column of Object.keys(updateMock.mock.calls[0][0])) {
       expect(allowed, `"${column}" is not a wellbeing_profiles reminder column`)

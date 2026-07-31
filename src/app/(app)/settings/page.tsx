@@ -110,6 +110,7 @@ export default async function SettingsPage() {
             meal_variety_level: profile.meal_variety_level ?? "",
             pantry_items: profile.pantry_items ?? [],
             reminders_paused: profile.reminders_paused ?? false,
+            reminders_unsubscribed_at: profile.reminders_unsubscribed_at ?? null,
             skip_today:
               (profile.reminder_skip_date ?? "") ===
               new Date().toISOString().slice(0, 10),

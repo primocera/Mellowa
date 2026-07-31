@@ -38,6 +38,9 @@ type Prefs = {
   // v8 MW-S08: reminder controls.
   reminders_paused: boolean;
   skip_today: boolean;
+  // MW-V12-04: set when reminders were turned off by a one-click email
+  // unsubscribe, so the surface can explain the state and offer re-enable.
+  reminders_unsubscribed_at?: string | null;
 };
 
 // MW-V10-05: consent version and the timing disclosure come from the planner —
@@ -279,10 +282,21 @@ export function PlanPreferencesForm({
           .slice(0, 20),
         // MW-S08: pause/skip take effect before the next send; consent
         // version records that the example content was shown before opt-in.
-        reminders_paused: prefs.reminders_paused,
+        // MW-V12-04: re-enabling after an email unsubscribe clears the pause the
+        // unsubscribe set, so "turn back on" actually resumes rather than
+        // leaving the user opted-in-but-paused.
+        reminders_paused:
+          prefs.reminders_opt_in && initial.reminders_unsubscribed_at
+            ? false
+            : prefs.reminders_paused,
         reminder_skip_date: prefs.skip_today
           ? new Date().toISOString().slice(0, 10)
           : null,
+        // MW-V12-04: turning reminders on clears the unsubscribe marker; the
+        // notice must not linger once the user has explicitly re-enabled.
+        reminders_unsubscribed_at: prefs.reminders_opt_in
+          ? null
+          : (initial.reminders_unsubscribed_at ?? null),
         ...(prefs.reminders_opt_in && !initial.reminders_opt_in
           ? { reminder_consent_version: REMINDER_CONSENT_VERSION }
           : {}),
@@ -586,6 +600,34 @@ export function PlanPreferencesForm({
             />
             Send me a gentle daily reminder
           </label>
+          {/* MW-V12-04: when reminders are off BECAUSE the user unsubscribed
+              from an email, say so — and offer an explicit, safe way back on.
+              Distinct from "never turned on", which shows no notice. */}
+          {initial.reminders_unsubscribed_at && !prefs.reminders_opt_in && (
+            <div className="mt-2 rounded-xl bg-[#FEF3C7]/50 px-3 py-2.5 text-xs text-[#1F2937]">
+              <p>
+                Reminders are off because you unsubscribed from a reminder email
+                {(() => {
+                  const d = new Date(initial.reminders_unsubscribed_at as string);
+                  return Number.isNaN(d.getTime())
+                    ? ""
+                    : ` on ${d.toLocaleDateString(undefined, {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}`;
+                })()}
+                . Account and billing emails were never affected.
+              </p>
+              <button
+                type="button"
+                onClick={() => set("reminders_opt_in", true)}
+                className="mt-2 rounded-full border border-[#7C9A92] bg-white px-3 py-1.5 font-medium text-[#1F2937] transition hover:bg-[#7C9A92]/10"
+              >
+                Turn reminders back on
+              </button>
+            </div>
+          )}
           {/* MW-S08: the exact content is shown BEFORE consent — what you see
               is what is sent. Email only; one per day at most. */}
           <div className="mt-2 rounded-xl bg-[#FAF7F2] px-3 py-2.5 text-xs text-[#6B7280]">

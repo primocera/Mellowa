@@ -83,7 +83,13 @@ describe("migration rollback dry run", () => {
 
   it("every v10 migration is referenced by the release documentation", () => {
     const goNoGo = readFileSync("docs/launch-go-no-go-v10.md", "utf8");
-    for (const file of migrationFiles().filter((f) => Number(f.slice(0, 3)) >= 36)) {
+    // v10 introduced migrations 036–039. The bound is explicit rather than an
+    // open ">= 36": later releases add later migrations (MW-V12-04 added 040),
+    // and those belong to their own candidate's documentation, not the v10 doc.
+    for (const file of migrationFiles().filter((f) => {
+      const n = Number(f.slice(0, 3));
+      return n >= 36 && n <= 39;
+    })) {
       const number = file.slice(0, 3);
       expect(goNoGo, `migration ${number} is not mentioned in the go/no-go`).toContain(
         number

@@ -55,6 +55,10 @@ async function unsubscribe(
       reminders_opt_in: false,
       reminders_paused: true,
       reminder_time: null,
+      // MW-V12-04: record WHY reminders are now off, so Settings can say
+      // "off because you unsubscribed" rather than leaving the user unable to
+      // tell an opt-out from a setting they never touched. Cleared on re-enable.
+      reminders_unsubscribed_at: new Date().toISOString(),
     })
     .eq("user_id", userId);
   if (error) {

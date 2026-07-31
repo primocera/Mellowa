@@ -190,6 +190,19 @@ Fill this in, anonymize anything personal, and paste it into the go/no-go.
       duplicate. Evidence: __
 - [ ] Trigger again after the lease TTL (90 s): still exactly one email for the
       day. Evidence: __
+- [ ] **Isolate the dedupe KEY, not the lease or an empty scan (MW-V12-04).**
+      The v11 attempt was inconclusive because the second firing scanned zero
+      rows — the account had unsubscribed, so it proved nothing about the ledger
+      key. To prove the key: keep the account **eligible on both runs** and let
+      the lease expire between them, so the second run genuinely re-scans the
+      account and the planner would deliver again. Reset
+      `last_reminder_sent_date` to null before the second run (mimicking the
+      post-send write failing), fire again after the lease TTL, and confirm the
+      ledger event key — `daily_reminder:<user>:<local-date>` — reports the
+      second send as a **duplicate** while the scan was non-empty. Evidence: __
+      The deterministic form of this is `tests/reminder-reliability.test.ts`
+      ("two eligible cron runs send once — the DEDUPE KEY holds"); the live run
+      confirms it against the real ledger.
 
 ### 5. Unsubscribe — the path that was completely missing before v10
 
@@ -200,11 +213,29 @@ Fill this in, anonymize anything personal, and paste it into the go/no-go.
 
 ### 6. Failure and backlog
 
-- [ ] Break the provider key deliberately → confirm the row goes
-      `failed_transient`, then recovers on the outbox worker. Evidence: __
+Observe the full failure path in a **safe test account** — do not break the live
+provider for real users. Use a deliberately wrong `RESEND_API_KEY` (or a Resend
+test key that rejects) so the failures are yours alone.
+
+- [ ] **Transient failure → retry/backoff → final success (MW-V12-04).** With
+      the key broken, trigger a send: the row goes `failed_transient` with a
+      `next_attempt_at` in the future and a stored `last_error` (a redacted
+      provider reason, never the body). Fix the key; the outbox worker retries
+      on its backoff schedule (~5, 10, 20, 40, 80 min ±20%, capped 2 h) and the
+      row finalizes `sent`. Evidence: __
+- [ ] **Permanent failure → dead-letter.** Leave the key broken (or force a 4xx)
+      across `MAX_ATTEMPTS` (5): the row becomes `failed_permanent`, clears
+      `next_attempt_at`, and stops retrying. Evidence: __
+- [ ] Confirm the stored `last_error` carries the provider's reason with the
+      address redacted, and no message body, health input or secret. Evidence: __
 - [ ] Confirm `/admin` shows backlog and dead-letter counts **without** any
       recipient or content. Evidence: __
-- [ ] Confirm a dead letter (5 attempts) stops retrying and stays visible. __
+
+The deterministic forms of every transition above live in
+`tests/email-delivery.test.ts` and `tests/email-outbox.test.ts` (transient
+retry, bounded attempts, dead-letter, backoff, jitter); the live run confirms
+the same states against the real provider and ledger. Do not claim live success
+from the mocks.
 
 ### 7. Lifecycle alignment
 

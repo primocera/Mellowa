@@ -10,6 +10,7 @@ import {
 } from "@/lib/email/reminder-planner";
 import { emailHealth } from "@/lib/analytics/metrics";
 import { entitlementFor } from "@/lib/stripe/plans";
+import { deliverEmail, type DeliverDeps } from "@/lib/email/deliver";
 
 /**
  * MW-V10-05: reminder, timezone and lifecycle reliability.
@@ -256,6 +257,90 @@ describe("pause, skip and dedupe", () => {
     expect(reminderDedupeKey("u1", "2026-07-15")).not.toBe(
       reminderDedupeKey("u1", "2026-07-16")
     );
+  });
+
+  it("two eligible cron runs send once — the DEDUPE KEY holds, not unsubscribe or an empty scan", async () => {
+    /*
+     * MW-V12-04: the live rehearsal could not close the duplicate-cron item
+     * because the second firing returned zero scanned — the account had
+     * unsubscribed, so it was the SCAN being empty, not the dedupe key, that
+     * prevented the second send. This proves the dedupe key in isolation.
+     *
+     * Model the run where the post-send DB write failed, so the account is
+     * still eligible on the second run: the planner delivers on BOTH runs, and
+     * only the shared ledger event key stops the duplicate email.
+     */
+    const profile = eligible({ last_reminder_sent_date: null });
+    const run1 = planReminders([profile], SUMMER_MORNING);
+    const run2 = planReminders([profile], SUMMER_MORNING); // still eligible
+    expect(run1.toDeliver, "run 1 should deliver").toHaveLength(1);
+    expect(run2.toDeliver, "run 2 is still eligible — the scan is NOT empty").toHaveLength(1);
+    expect(run1.toDeliver[0].dedupeKey).toBe(run2.toDeliver[0].dedupeKey);
+
+    // One in-memory ledger shared across both runs, like the real table.
+    const rows = new Map<string, { id: string; status: string; attempts: number }>();
+    let sends = 0;
+    const deps: DeliverDeps = {
+      async claim({ eventKey }) {
+        if (!rows.has(eventKey)) rows.set(eventKey, { id: eventKey, status: "pending", attempts: 0 });
+        return rows.get(eventKey)!;
+      },
+      async finalize({ id, status, attempts }) {
+        const row = rows.get(id)!;
+        row.status = status;
+        row.attempts = attempts;
+      },
+      async send() {
+        sends += 1;
+        return { sent: true, providerId: `re_${sends}` };
+      },
+    };
+
+    const deliver = (key: string) =>
+      deliverEmail(
+        { eventKey: key, userId: "u1", template: "daily_reminder", to: "u@example.com", subject: "A gentle nudge from Mellowa", html: "<p>nudge</p>" },
+        deps
+      );
+
+    const first = await deliver(run1.toDeliver[0].dedupeKey);
+    const second = await deliver(run2.toDeliver[0].dedupeKey);
+    expect(first.status).toBe("sent");
+    expect(second.status, "the second eligible run must be blocked by the dedupe key").toBe(
+      "duplicate"
+    );
+    expect(sends, "exactly one email despite two eligible runs").toBe(1);
+  });
+});
+
+describe("the settings surface explains an email unsubscribe and offers re-enable (MW-V12-04)", () => {
+  const form = readFileSync(
+    "src/components/dailyflow/plan-preferences-form.tsx",
+    "utf8"
+  );
+  const route = readFileSync("src/app/api/email/unsubscribe/route.ts", "utf8");
+
+  it("distinguishes 'off because you unsubscribed' from 'never turned on'", () => {
+    // The notice renders only when the marker is set AND reminders are off, so
+    // a user who simply never opted in sees nothing.
+    expect(form).toMatch(/reminders_unsubscribed_at && !prefs\.reminders_opt_in/);
+    expect(form).toMatch(/unsubscribed from a reminder email/i);
+  });
+
+  it("offers an explicit, safe re-enable that clears the marker and the pause", () => {
+    expect(form).toMatch(/Turn reminders back on/i);
+    // Turning reminders on clears the unsubscribe marker so the notice cannot
+    // linger, and clears the pause the unsubscribe set so sending truly resumes.
+    expect(form).toMatch(/reminders_unsubscribed_at: prefs\.reminders_opt_in\s*\n?\s*\? null/);
+    expect(form).toMatch(/initial\.reminders_unsubscribed_at\s*\n?\s*\? false/);
+  });
+
+  it("the one-click route sets the marker it reads", () => {
+    expect(route).toContain("reminders_unsubscribed_at: new Date().toISOString()");
+  });
+
+  it("transactional mail is unaffected — the marker only governs reminders", () => {
+    // The unsubscribe copy still promises billing/account mail keeps coming.
+    expect(route).toMatch(/Account and billing emails still come through/i);
   });
 });
 

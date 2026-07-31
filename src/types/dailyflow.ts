@@ -60,6 +60,8 @@ export interface WellbeingProfile {
   reminders_paused?: boolean;
   reminder_skip_date?: string | null;
   reminder_consent_version?: string | null;
+  // MW-V12-04 (migration 040): when the user last unsubscribed via email link.
+  reminders_unsubscribed_at?: string | null;
   consent_version: string | null;
   consent_accepted_at: string | null;
   created_at: string;
