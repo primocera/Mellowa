@@ -36,6 +36,27 @@ export default async function AdminPage({
         Window: last {r.windowDays} days · Generated {new Date(r.generatedAt).toUTCString()}
         {r.release ? ` · Release ${r.release}` : ""} · Small cohorts (&lt;5) suppressed as “—”.
       </p>
+      {/* MW-V12-08: data freshness — "Generated" is always now, so it cannot
+          reveal a pipeline that has gone quiet. This can. */}
+      <p
+        style={{
+          fontSize: 14,
+          fontWeight: r.dataFreshness.stale ? 600 : 400,
+          color: r.dataFreshness.stale ? "#B45309" : "#6B7280",
+          background: r.dataFreshness.stale ? "#FEF3C7" : "transparent",
+          padding: r.dataFreshness.stale ? "6px 10px" : 0,
+          borderRadius: 8,
+          display: "inline-block",
+        }}
+      >
+        {r.dataFreshness.lastEventAt === null
+          ? "⚠ Data freshness: no events in this window — every rate below is over an empty set. Do not read this as a result."
+          : `Data freshness: last event ${r.dataFreshness.ageHours}h ago${
+              r.dataFreshness.stale
+                ? " — STALE (>48h). The pipeline may be broken; treat the numbers below with suspicion."
+                : "."
+            }`}
+      </p>
 
       <form style={{ display: "flex", gap: 8, margin: "12px 0" }}>
         {[7, 30, 90].map((d) => (

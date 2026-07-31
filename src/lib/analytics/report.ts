@@ -13,6 +13,8 @@ import {
   trialExperimentComparison,
   emailHealth,
   costPerOutcome,
+  dataFreshness,
+  type DataFreshness,
   type EmailDeliveryRow,
   type EventRow,
   type SubRow,
@@ -31,6 +33,12 @@ import { experimentConflicts, runningExperiments } from "@/lib/beta/experiments"
 
 export interface MetricsReport {
   generatedAt: string;
+  /**
+   * MW-V12-08: how recent the underlying data is. `generatedAt` is always now;
+   * this reveals a pipeline that has gone quiet, so no beta decision is made on
+   * stale numbers that still look fresh.
+   */
+  dataFreshness: DataFreshness;
   windowDays: number;
   release: string | null;
   funnels: Record<string, ReturnType<typeof funnelConversion>>;
@@ -151,6 +159,9 @@ export async function buildMetricsReport(
 
   return {
     generatedAt: new Date().toISOString(),
+    // Freshness comes from the events themselves, not the clock — an empty or
+    // quiet window reports stale rather than looking current.
+    dataFreshness: dataFreshness(eventRows, new Date(now)),
     windowDays,
     release,
     funnels,
@@ -197,6 +208,10 @@ export async function buildMetricsReport(
 export function reportToCsv(report: MetricsReport): string {
   const lines: string[] = ["metric,dimension,value"];
   const push = (m: string, d: string, v: unknown) => lines.push(`${m},${d},${csv(v)}`);
+  // MW-V12-08: freshness first — a reader must see the data is stale before any
+  // rate below persuades them of anything.
+  push("data_freshness", "last_event_age_hours", report.dataFreshness.ageHours);
+  push("data_freshness", "stale", report.dataFreshness.stale ? "yes" : "no");
   for (const [name, steps] of Object.entries(report.funnels)) {
     for (const s of steps) push(`funnel_${name}`, s.event, s.reached);
   }

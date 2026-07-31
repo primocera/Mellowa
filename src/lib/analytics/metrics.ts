@@ -20,6 +20,48 @@ export interface EventRow {
   created_at: string;
 }
 
+/**
+ * How recent the underlying DATA is (MW-V12-08).
+ *
+ * `generatedAt` on the report says when the numbers were computed, which is
+ * always "now" — so a scorecard sitting on top of a pipeline that stopped
+ * receiving events a week ago still looks fresh. That is the exact way a beta
+ * decision gets made on stale data. This reports the age of the most recent
+ * event instead, and flags staleness, so "the loop is fine" can be told apart
+ * from "nothing has reported in for two days".
+ */
+export interface DataFreshness {
+  /** ISO timestamp of the most recent event in the window, or null if none. */
+  lastEventAt: string | null;
+  /** Hours since that event, or null if there are no events. */
+  ageHours: number | null;
+  /** True when there is no recent data — an empty window is stale, not fresh. */
+  stale: boolean;
+}
+
+export const DATA_STALE_AFTER_HOURS = 48;
+
+export function dataFreshness(
+  eventRows: { created_at: string }[] | null | undefined,
+  now: Date = new Date(),
+  staleAfterHours = DATA_STALE_AFTER_HOURS,
+): DataFreshness {
+  let latest = 0;
+  for (const r of eventRows ?? []) {
+    const t = Date.parse(r.created_at);
+    if (Number.isFinite(t) && t > latest) latest = t;
+  }
+  // No events at all is the loudest staleness there is: the pipeline produced
+  // nothing, so every rate below is computed over an empty set.
+  if (latest === 0) return { lastEventAt: null, ageHours: null, stale: true };
+  const ageHours = (now.getTime() - latest) / 3_600_000;
+  return {
+    lastEventAt: new Date(latest).toISOString(),
+    ageHours: Math.round(ageHours * 10) / 10,
+    stale: ageHours > staleAfterHours,
+  };
+}
+
 export interface SubRow {
   user_id: string;
   status: string | null;
