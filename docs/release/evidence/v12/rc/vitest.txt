@@ -1,0 +1,9 @@
+
+ RUN  v4.1.10 C:/Users/primo/dailyflowai
+
+
+ Test Files  97 passed (97)
+      Tests  1234 passed (1234)
+   Start at  04:22:58
+   Duration  15.63s (transform 2.23s, setup 0ms, import 9.60s, tests 2.01s, environment 18ms)
+

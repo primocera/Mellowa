@@ -1,33 +1,42 @@
-# Launch go/no-go scorecard — v11 (SUPERSEDED)
+# Launch go/no-go scorecard — v11 (RE-CUT at v12, FROZEN)
 
-> ## ⛔ SUPERSEDED — this verdict is not current (MW-V12-01)
+> ## ✅ RE-CUT — current candidate `745b4a4` (MW-V12-09)
 >
-> RC `0025a502` was frozen and reached CONDITIONAL GO on 2026-07-28. **Product
-> code changed afterwards** — 30 product-code files between the freeze and HEAD
-> (mobile sign-out, paywall hydration, the USD→EUR billing contracts,
-> checkout/webhook/auth/email/unsubscribe fixes and more; the full
-> classification is `changedSinceRc` in
-> [`release/manifest.v11.json`](release/manifest.v11.json), raw at
-> [`release/evidence/v11/rc/rc-drift-classification.json`](release/evidence/v11/rc/rc-drift-classification.json)).
+> The superseded RC `0025a502` has been **replaced**. `745b4a4` carries the whole
+> v12 launch-hardening pass and every automated gate that runs without production
+> secrets was **re-run at this exact SHA**:
 >
-> A candidate whose code has moved can carry **no verdict**. Current state,
-> until a new candidate is cut and every gate is re-run (MW-V12-09):
+> - Automated code gate: CONDITIONAL GO
+> - Capped private beta: CONDITIONAL GO
+> - Public paid launch: CONDITIONAL GO
 >
-> - Automated code gate: UNASSESSED
-> - Capped private beta: UNASSESSED
-> - Public paid launch: UNASSESSED
+> **Current verdicts (derived from [`release/manifest.v11.json`](release/manifest.v11.json)):**
+> Automated code gate: CONDITIONAL GO · Capped private beta: CONDITIONAL GO ·
+> Public paid launch: CONDITIONAL GO.
 >
-> Everything below the line is the **frozen-RC record**, preserved as history.
-> Read it as "what was true at `0025a502`", **never** as the launch decision for
-> current HEAD. Do not quote the CONDITIONAL GO below as current.
+> Fresh gates at `745b4a4`: lint 0 errors, typecheck clean, unit/contract/safety
+> **1234 passed**, eval **81 passed**, build ✓, public E2E **75 passed** (desktop
+> / 375 / 320), perf warm LCP 828/656/676 ms, CLS 0. **Blocked/owner-run:** the
+> authenticated matrix, production release-check, the live EUR transaction, the
+> duplicate-cron + provider-failure observations, key rotation + isolated
+> restore, cold-start + field vitals, and applying migrations 040/041.
+>
+> `CONDITIONAL GO`, not `GO`: one P0 and three P1s remain **open** and carry the
+> owner's standing 2026-07-28 `accepted_risk`. v12 reduced several in code but a
+> code change does not close owner evidence — the owner must re-confirm the
+> acceptances and run the drills before public paid scales. Deleting the
+> acceptances returns the tier to `NO-GO`, which `tests/release-manifest.test.ts`
+> asserts. The `0025a502` record below is kept as history.
 
-**Status: SUPERSEDED (was FROZEN at MW-V11-08).** This was the release-candidate
-verdict for v11 at RC `0025a502`. Every line is either a measured result, an
-explicitly unrun check, or an owner action with an owner and an acceptance test.
-Nothing here is a plan.
+**Status: FROZEN at `745b4a4` (re-cut at MW-V12-09; was SUPERSEDED, originally
+FROZEN at MW-V11-08).** Every line is either a measured result, an explicitly
+unrun check, or an owner action with an owner and an acceptance test. Nothing
+here is a plan.
 
-**RC SHA:** `0025a5021f921800d08edee1c86f3c33c62185da` — the last functional
-commit. MW-V11-08 adds no product code: only this freeze and the manifest
+**RC SHA:** `745b4a45304c2a8b0eaa61fa6995b989ab60b12a`. The historical record
+below refers to the original v11 RC `0025a5021f921800d08edee1c86f3c33c62185da`,
+the last functional commit at the first freeze. MW-V11-08 adds no product code:
+only this freeze and the manifest
 update, because freezing the gate's own commit would mean the verdict described
 code the gate had not run against. Any later commit creates a new candidate and
 requires the affected evidence to be re-run.

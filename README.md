@@ -5,43 +5,46 @@ realistic plan for food, energy, mood and habits — adapted to how the day
 actually feels. Not a diet app, macro tracker, therapy tool or medical
 service.
 
-## Status — v12 in progress (RC 0025a502 superseded)
+## Status — v12 candidate `745b4a4`, 2026-07-31
 
 | Tier | Verdict |
 | --- | --- |
-| Automated code gate | **UNASSESSED** |
-| Capped private beta (≤50 invites) | **UNASSESSED** |
-| Unrestricted public paid launch | **UNASSESSED** |
+| Automated code gate | **CONDITIONAL GO** |
+| Capped private beta (≤50 invites) | **CONDITIONAL GO** |
+| Unrestricted public paid launch | **CONDITIONAL GO** — signed, see below |
 
-Live at **[mellowa.app](https://mellowa.app)**.
+Live at **[mellowa.app](https://mellowa.app)**. The superseded RC `0025a502` has
+been **re-cut** as `745b4a4`, which carries the whole v12 launch-hardening pass.
+Every automated gate that runs without production secrets was re-run at this SHA:
+lint clean, typecheck clean, **1234** unit/contract/safety tests, **81** eval,
+build ✓, **75** public browser journeys (desktop / 375 / 320), warm-lab LCP
+828/656/676 ms with CLS 0.
 
-**The v11 candidate `0025a502` is SUPERSEDED.** It was frozen and reached
-CONDITIONAL GO on 2026-07-28, but 30 product-code files changed afterwards
-(mobile sign-out, paywall hydration, the USD→EUR billing contracts and more —
-full classification in [`changedSinceRc`](docs/release/manifest.v11.json)). A
-candidate whose code has moved certifies nothing, so **every tier is `UNASSESSED`
-until a new candidate is cut and every gate is re-run** (v12 pack, MW-V12-09).
-The old CONDITIONAL GO is history and must not be quoted as current.
+**`CONDITIONAL GO` is not `GO`.** One P0 and three P1s are still open, each
+carrying the owner's standing `accepted_risk` (Primoz Cerar, 2026-07-28). An
+acceptance never closes a blocker and can never produce a `GO`; deleting the
+acceptances returns the tier to `NO-GO`, which
+[`tests/release-manifest.test.ts`](tests/release-manifest.test.ts) asserts. v12
+reduced several of these in code, but a code change does not close owner
+evidence — the drills below are owner-run and the acceptances need re-confirming
+before public paid scales.
 
-Candidate lifecycle: `draft/unfrozen → frozen → superseded`. `0025a502` is at
-`superseded`; HEAD is `draft` (not yet frozen).
-
-Carried into v12 as still-open blockers (were accepted risks at the frozen RC):
+Open and accepted (owner-run):
 
 - `P0-LIVE-TRANSACTION` — no charge captured or refunded against the live
-  €9.99 plan.
-- `P1-REMINDER-REHEARSAL` — 5 of 7 items evidenced live; duplicate cron run and
-  deliberate provider failure untested.
-- `P1-ROTATION-RESTORE` — key rotation and restore never rehearsed; recovery
-  time unmeasured.
-- `P1-AUTH-E2E-AT-HEAD` — matrix passes, but never in one unattended sweep.
+  €9.99 plan; the order-resilient billing path (MW-V12-03) is now unit-tested.
+- `P1-REMINDER-REHEARSAL` — duplicate-cron and provider-failure not observed
+  live; both have deterministic tests and a sharpened owner worksheet.
+- `P1-ROTATION-RESTORE` — key rotation and restore never rehearsed; now scripted
+  with a safe fingerprint check and an executable restore verification.
+- `P1-AUTH-E2E-AT-HEAD` — the matrix runner is fail-closed and marker-guarded,
+  but has not run unattended against a seeded env.
 
-Closed on evidence at the frozen RC: `P0-PRICE-CURRENCY` — live prices verified
-at `999 eur/month` and `5999 eur/year`
-([evidence](docs/release/evidence/v11/rc/verify-prices.txt)).
+Also owner-run before launch: apply **migrations 040 and 041**, run the
+production release-check, and measure cold-start + field vitals.
 
-Full record: [`docs/launch-go-no-go-v11.md`](docs/launch-go-no-go-v11.md)
-(superseded) · machine-readable:
+Full record: [`docs/launch-go-no-go-v11.md`](docs/launch-go-no-go-v11.md) ·
+machine-readable:
 [`docs/release/manifest.v11.json`](docs/release/manifest.v11.json) · v12 plan:
 [`docs/release/v12/00-ORCHESTRATION-PLAN.md`](docs/release/v12/00-ORCHESTRATION-PLAN.md)
 

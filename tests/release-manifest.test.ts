@@ -655,18 +655,29 @@ describe("the real v11 manifest", () => {
     }
   });
 
-  it("keeps skipped authenticated journeys visible in the counts", () => {
-    // A partial run is the easiest thing in this whole document to misread as
-    // a full one, so the skipped count must be present and non-zero while the
-    // fixtures that reach those journeys have not been seeded.
+  it("keeps a partial authenticated run's skipped journeys visible, or blocks honestly", () => {
+    // Two honest states for this suite: it ran partially (counts must be present
+    // so a partial run cannot be misread as a full one), or it did not run at
+    // all at this SHA (status blocked/not_run, no counts — the MW-V12-09 re-cut
+    // state, where the matrix is owner-run against a seeded env). What must never
+    // happen is a passing status with no counts.
     const auth = manifest.suites.find((s) => s.id === "e2e-authenticated");
-    expect(auth?.counts, "authenticated run records no counts").toBeDefined();
-    const { passed, skipped, total } = auth!.counts!;
-    expect(passed + skipped).toBe(total);
-    expect(
-      skipped === 0 || auth!.note,
-      "skipped authenticated journeys must be explained in the note",
-    ).toBeTruthy();
+    expect(auth, "e2e-authenticated suite is missing").toBeDefined();
+    if (auth!.counts) {
+      const { passed, skipped, total } = auth!.counts;
+      expect(passed + skipped).toBe(total);
+      expect(
+        skipped === 0 || auth!.note,
+        "skipped authenticated journeys must be explained in the note",
+      ).toBeTruthy();
+    } else {
+      // No counts is only honest if the suite did not run. A blocked/not_run
+      // suite must say why it is blocked.
+      expect(isPassing(auth!.status), "a passing authenticated run must record counts").toBe(
+        false,
+      );
+      expect(auth!.note, "a blocked authenticated suite must explain the blocker").toBeTruthy();
+    }
   });
 
   it("keeps the authenticated blocker open while any required journey is unrun", () => {

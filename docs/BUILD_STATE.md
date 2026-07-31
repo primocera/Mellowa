@@ -35,9 +35,14 @@ MW-V10-07 ✅ · MW-V10-08 ✅.
 
 **v10 is complete.** Its RC was frozen at
 `e817aa4f4bdc3f0a9eeed0d30e3210aa2c1d968f` and its scorecard is superseded.
-The current public-paid verdict is **NO-GO**, with the open blockers listed in
-`docs/launch-go-no-go-v11.md` §4 — **three owner-run**, three engineering.
-Nothing in the code changes the owner-run three.
+
+**v11/v12: candidate re-cut at `745b4a4` (MW-V12-09).** The current public-paid
+verdict is **CONDITIONAL GO** — one P0 and three P1s remain open under the
+owner's standing 2026-07-28 `accepted_risk`, with the open blockers listed in
+`docs/launch-go-no-go-v11.md` §4 (**three owner-run**, plus engineering P2s).
+Every automated gate was re-run at `745b4a4` (unit 1234, eval 81, public E2E 75,
+perf warm). Nothing in the code changes the owner-run drills; the manifest is
+the machine-readable source of truth.
 
 **Status vocabulary** (used strictly, same as the go/no-go docs):
 *tested* = automated in-repo · *configured* = infrastructure set but not

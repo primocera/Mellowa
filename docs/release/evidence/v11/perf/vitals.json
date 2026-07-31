@@ -1,6 +1,7 @@
 {
-  "collectedAtUtc": "2026-07-26T23:56:22Z",
-  "conditions": "headless Chromium, 4x CPU throttle, ~Slow 4G (1.6Mbps/150ms), route warmed once before measuring",
+  "collectedAtUtc": "2026-07-31T02:27:20Z",
+  "mode": "warm",
+  "conditions": "headless Chromium, 4x CPU throttle, ~Slow 4G (1.6Mbps/150ms), warm run (route warmed once before measuring)",
   "caveat": "Lab measurement on one machine, steady state after a warm-up request. Not real-user p75. Cold-start is deliberately excluded and is a separate risk: the first request to a cold route measured 4080ms LCP on the landing page versus 840ms warm, so a user unlucky enough to hit a cold serverless function sees materially worse than these numbers. INP is not measured; the interaction probe is a labelled proxy.",
   "budgets": {
     "lcpMs": 2500,
@@ -10,57 +11,60 @@
   "routes": [
     {
       "route": "/",
-      "ttfbMs": 7,
-      "fcpMs": 708,
-      "lcpMs": 708,
+      "mode": "warm",
+      "ttfbMs": 8,
+      "fcpMs": 828,
+      "lcpMs": 828,
       "lcpElement": "h1.mt-3",
       "cls": 0,
       "longTasks": 2,
-      "longTaskMsTotal": 157,
+      "longTaskMsTotal": 444,
       "transfer": {
-        "total": 192732,
-        "script": 159992,
-        "style": 7306,
+        "total": 194253,
+        "script": 161322,
+        "style": 7330,
         "font": 0,
         "image": 0
       },
-      "requestCount": 21
+      "requestCount": 22
     },
     {
       "route": "/pricing",
+      "mode": "warm",
       "ttfbMs": 16,
-      "fcpMs": 576,
-      "lcpMs": 576,
+      "fcpMs": 656,
+      "lcpMs": 656,
       "lcpElement": "h1.mt-6",
       "cls": 0,
-      "longTasks": 2,
-      "longTaskMsTotal": 138,
+      "longTasks": 3,
+      "longTaskMsTotal": 422,
       "transfer": {
-        "total": 190676,
-        "script": 166120,
-        "style": 7306,
+        "total": 193579,
+        "script": 167438,
+        "style": 7330,
         "font": 0,
         "image": 0
       },
-      "requestCount": 18
+      "requestCount": 19
     },
     {
       "route": "/signup",
-      "ttfbMs": 75,
-      "fcpMs": 600,
-      "lcpMs": 600,
+      "mode": "warm",
+      "ttfbMs": 82,
+      "fcpMs": 676,
+      "lcpMs": 676,
       "lcpElement": "p.mt-1",
       "cls": 0,
-      "longTasks": 1,
-      "longTaskMsTotal": 62,
+      "longTasks": 3,
+      "longTaskMsTotal": 414,
       "transfer": {
-        "total": 265619,
-        "script": 239438,
-        "style": 7306,
+        "total": 267127,
+        "script": 240755,
+        "style": 7330,
         "font": 0,
         "image": 0
       },
-      "requestCount": 26
+      "requestCount": 27
     }
   ]
 }

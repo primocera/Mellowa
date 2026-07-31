@@ -1,0 +1,13 @@
+
+> dailyflow-ai@0.1.0 eval
+> vitest run tests/eval-suite.test.ts tests/eval-golden.test.ts tests/prompt-versions.test.ts
+
+
+ RUN  v4.1.10 C:/Users/primo/dailyflowai
+
+
+ Test Files  3 passed (3)
+      Tests  81 passed (81)
+   Start at  04:23:15
+   Duration  905ms (transform 410ms, setup 0ms, import 993ms, tests 132ms, environment 1ms)
+

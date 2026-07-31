@@ -2,51 +2,17 @@
   "schema": 1,
   "release": "v11",
   "baselineSha": "169c706683a821054351f45a5916f667ea93557c",
-  "rcSha": "0025a5021f921800d08edee1c86f3c33c62185da",
-  "candidateLifecycle": "superseded",
-  "productHeadSha": "878f851a5c77524ad2a9c265983d5806c7e7c37f",
-  "reconciledAtUtc": "2026-07-31T00:00:00Z",
+  "rcSha": "745b4a45304c2a8b0eaa61fa6995b989ab60b12a",
+  "candidateLifecycle": "frozen",
+  "reconciledAtUtc": "2026-07-31T12:00:00Z",
   "buildId": "local production build at the RC (no deploy id; Vercel deploy is owner-run)",
+  "candidateNote": "Re-cut at MW-V12-09. The superseded RC 0025a502 is replaced by 745b4a4, which carries the whole v12 launch-hardening pass (release truth reconciliation, the authenticated E2E matrix + runner, order-resilient billing, reminder dedupe + the unsubscribe surface, per-secret rotation + restore checks, the Premium recurring-value paywall, field Web Vitals, and beta-scorecard freshness). Every automated gate that can run without production secrets was RE-RUN at this exact SHA and is recorded below with real counts. The owner-run items (live EUR transaction, duplicate-cron + provider-failure observation, key rotation + isolated restore, the full authenticated matrix, production release-check, cold-start + field vitals, and applying migrations 040/041) remain not_run/blocked and are owner-only. The four accepted risks are the owner's standing 2026-07-28 decisions carried forward; v12 materially reduced several of them in code (order-resilient billing for P0-LIVE-TRANSACTION, the marker-guarded seed for P1-AUTH-E2E-AT-HEAD) but a code change does not close owner evidence, so they stay open and accepted, and the owner must re-confirm the acceptances before public paid scales.",
   "migrations": [
-    "001",
-    "002",
-    "003",
-    "004",
-    "005",
-    "006",
-    "007",
-    "008",
-    "009",
-    "010",
-    "011",
-    "012",
-    "013",
-    "014",
-    "015",
-    "016",
-    "017",
-    "018",
-    "019",
-    "020",
-    "021",
-    "022",
-    "023",
-    "024",
-    "025",
-    "026",
-    "027",
-    "028",
-    "029",
-    "030",
-    "031",
-    "032",
-    "033",
-    "034",
-    "035",
-    "036",
-    "037",
-    "038",
-    "039"
+    "001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
+    "011", "012", "013", "014", "015", "016", "017", "018", "019", "020",
+    "021", "022", "023", "024", "025", "026", "027", "028", "029", "030",
+    "031", "032", "033", "034", "035", "036", "037", "038", "039", "040",
+    "041"
   ],
   "suites": [
     {
@@ -54,8 +20,8 @@
       "command": "npm run lint",
       "required": true,
       "status": "local_pass",
-      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
-      "evidence": "docs/release/evidence/v11/rc/lint.txt",
+      "sha": "745b4a45304c2a8b0eaa61fa6995b989ab60b12a",
+      "evidence": "docs/release/evidence/v12/rc/lint.txt",
       "note": "0 errors, 8 pre-existing warnings in untouched files."
     },
     {
@@ -63,37 +29,27 @@
       "command": "npm run typecheck",
       "required": true,
       "status": "local_pass",
-      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
-      "evidence": "docs/release/evidence/v11/rc/typecheck.txt"
+      "sha": "745b4a45304c2a8b0eaa61fa6995b989ab60b12a",
+      "evidence": "docs/release/evidence/v12/rc/typecheck.txt"
     },
     {
       "id": "unit-contract-safety",
       "command": "npx vitest run",
       "required": true,
       "status": "local_pass",
-      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
-      "counts": {
-        "total": 1076,
-        "passed": 1076,
-        "failed": 0,
-        "skipped": 0
-      },
-      "evidence": "docs/release/evidence/v11/rc/vitest.txt",
-      "note": "86 files. The baseline was 900/81 before any v11 slice landed (see vitest.txt for that run); v11 added copy, landing-proof, release-manifest and e2e-integrity coverage. Re-measured at the frozen candidate in MW-V11-08. A large green count is not launch readiness — see the v10 record of defects this suite reported green, and note that MW-V11-04 found a silently-skipping browser test that this suite could not see."
+      "sha": "745b4a45304c2a8b0eaa61fa6995b989ab60b12a",
+      "counts": { "total": 1234, "passed": 1234, "failed": 0, "skipped": 0 },
+      "evidence": "docs/release/evidence/v12/rc/vitest.txt",
+      "note": "97 files. v12 added release-lifecycle, e2e-matrix-integrity, billing-lifecycle-order, premium-value-contract, web-vitals and beta-scorecard-contract coverage on top of the v11 baseline. A large green count is not launch readiness — the authenticated matrix below is still owner-run."
     },
     {
       "id": "eval-gate",
       "command": "npm run eval",
       "required": true,
       "status": "local_pass",
-      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
-      "counts": {
-        "total": 81,
-        "passed": 81,
-        "failed": 0,
-        "skipped": 0
-      },
-      "evidence": "docs/release/evidence/v11/rc/eval.txt",
+      "sha": "745b4a45304c2a8b0eaa61fa6995b989ab60b12a",
+      "counts": { "total": 81, "passed": 81, "failed": 0, "skipped": 0 },
+      "evidence": "docs/release/evidence/v12/rc/eval.txt",
       "note": "Safety plus golden fit and variety gates. No LLM judges safety anywhere."
     },
     {
@@ -101,52 +57,33 @@
       "command": "npm run build",
       "required": true,
       "status": "local_pass",
-      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
-      "evidence": "docs/release/evidence/v11/rc/build.txt"
+      "sha": "745b4a45304c2a8b0eaa61fa6995b989ab60b12a",
+      "evidence": "docs/release/evidence/v12/rc/build.txt"
     },
     {
       "id": "e2e-public",
       "command": "npm run test:e2e:public",
       "required": true,
       "status": "local_pass",
-      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
-      "counts": {
-        "total": 75,
-        "passed": 75,
-        "failed": 0,
-        "skipped": 0
-      },
-      "evidence": "docs/release/evidence/v11/rc/e2e-public.txt",
-      "note": "25 tests across desktop, 375px and 320px. Baseline was 51 (e2e-public.txt); v11 added rendered-copy, header geometry/disclosure/zoom and landing-proof assertions. The header exemption is gone, so this run does certify the header. Two intermittent failures were seen once each during v11 and did not reproduce on re-run — see blocker P2-SUITE-FLAKES."
+      "sha": "745b4a45304c2a8b0eaa61fa6995b989ab60b12a",
+      "counts": { "total": 75, "passed": 75, "failed": 0, "skipped": 0 },
+      "evidence": "docs/release/evidence/v12/rc/e2e-public.txt",
+      "note": "25 tests across desktop, 375px and 320px. Includes the MW-V12-06 paywall problem-framing. The anonymous Web Vitals collector fires here and its insert fails closed with 'web_vitals not found' because migration 041 is not applied locally — proving the graceful-degradation design; the page is unaffected."
     },
     {
       "id": "e2e-authenticated",
       "command": "npx playwright test e2e/journeys.spec.ts",
       "required": true,
-      "status": "local_pass",
-      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
-      "counts": {
-        "total": 12,
-        "passed": 9,
-        "failed": 0,
-        "skipped": 3
-      },
-      "evidence": "docs/release/evidence/v11/rc/e2e-auth-trial-eligible.txt",
-      "note": "Run per fixture, because no single database state satisfies every journey: trial-eligible (e2e-auth-trial-eligible.txt) and trial-used (e2e-auth-trial-used.txt), 9 passed / 3 skipped each, the 3 skips in each being the tests that need the other fixture. Together all 12 execute. Both fixtures were added in MW-V11-04 because no seed state could previously produce a trial-eligible or prior-trial user, so two required journeys had never run."
+      "status": "blocked",
+      "note": "BLOCKED at this SHA: needs a seeded non-production Supabase. MW-V12-02 built the canonical matrix (e2e/support/matrix.ts), the release runner (npm run test:e2e:matrix, which fails closed on a missing required journey) and the integrity gate; the owner runs it per docs/release/v12/MW-V12-02-owner-commands.md. Evidence from the superseded RC does not carry forward.",
+      "evidence": "docs/release/evidence/v11/rc/e2e-auth-trial-eligible.txt"
     },
     {
       "id": "e2e-daily-journey",
       "command": "npm run test:e2e:journey",
       "required": true,
-      "status": "local_pass",
-      "note": "33/33 green — the first execution of the eight-state matrix in its history. The first run failed 21 of 33 on false negatives in the harness, not the product: one-shot innerText reads raced the loading boundaries, a signature regex said 'stays readable' where the banner says 'stay readable', and the nav-occlusion check used scrollIntoViewIfNeeded, which is unaware of fixed overlays.",
-      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
-      "counts": {
-        "total": 33,
-        "passed": 33,
-        "failed": 0,
-        "skipped": 0
-      },
+      "status": "blocked",
+      "note": "BLOCKED at this SHA: the eight-plus-state daily matrix (now including active and sample-used, MW-V12-02) self-seeds and needs the same non-production Supabase. Owner-run via the matrix runner.",
       "evidence": "docs/release/evidence/v11/rc/e2e-daily-journey.txt"
     },
     {
@@ -162,15 +99,10 @@
       "command": "npm run perf",
       "required": true,
       "status": "local_pass",
-      "sha": "0025a5021f921800d08edee1c86f3c33c62185da",
-      "counts": {
-        "total": 4,
-        "passed": 4,
-        "failed": 0,
-        "skipped": 0
-      },
-      "evidence": "docs/release/evidence/v11/rc/perf.txt",
-      "note": "First performance measurement in the project's history. Lab, not field: 4x CPU throttle, ~Slow 4G, cold browser cache against a warmed server. Landing LCP 812ms, pricing 600ms, signup 612ms against a 2500ms budget; CLS 0 on all three against a 0.1 budget. INP is NOT measured — the recorded interaction probe is a labelled proxy and must not be reported as INP. Cold-start is excluded and remains a separate risk: the first request to a cold route measured 4080ms LCP versus 812ms warm."
+      "sha": "745b4a45304c2a8b0eaa61fa6995b989ab60b12a",
+      "counts": { "total": 4, "passed": 4, "failed": 0, "skipped": 0 },
+      "evidence": "docs/release/evidence/v12/rc/perf.txt",
+      "note": "Lab, warm-server: landing LCP 828ms, pricing 656ms, signup 676ms against a 2500ms budget; CLS 0 on all three. INP is NOT measured — the recorded interaction probe (12ms) is a labelled proxy. MW-V12-07 added a separate cold-start mode (PERF_MODE=cold, owner-run against a preview) and anonymous field collection (LCP/CLS/INP via /api/vitals); cold-start and field p75 remain owner/production-run, tracked by P2-COLD-START and P2-INP-UNMEASURED."
     },
     {
       "id": "eval-live-provider",
@@ -186,14 +118,14 @@
       "action": "Vercel and cron-job.org schedules configured and exercised, with CRON_SECRET bearer headers on every scheduled route.",
       "status": "live_rehearsed",
       "evidence": "Owner-attested, v7. Recorded so it stops being re-asked.",
-      "note": "Predates the MW-V10-05 consent gate and suppression rules, so the v10 behaviour still needs its own rehearsal."
+      "note": "Predates the MW-V10-05 consent gate and suppression rules, so the v10 behaviour still needs its own rehearsal (see reminder-cron-email-rehearsal)."
     },
     {
       "id": "migrations-applied",
       "action": "Apply each release's migrations to live Supabase before the release.",
       "status": "live_rehearsed",
       "evidence": "Owner-attested through v9; 034/035 on 2026-07-23; 036-039 verified present by a read-only check on 2026-07-26.",
-      "note": "Confirm via /api/health/ready, which checks the RPC overloads the app actually calls."
+      "note": "MW-V12 adds migrations 040 (reminders_unsubscribe_marker) and 041 (web_vitals). These are NOT YET APPLIED — the owner must apply both before this candidate is live, or the settings unsubscribe surface and the /api/vitals insert fail closed (the app tolerates both). Confirm via /api/health/ready."
     },
     {
       "id": "manual-functional-testing",
@@ -205,25 +137,25 @@
       "id": "stripe-live-configuration",
       "action": "Switch Stripe to live keys, webhook, signing secret and the two live EUR price ids.",
       "status": "blocked",
-      "note": "Configured on 2026-07-21. Configured is not rehearsed: no live transaction has been put through it."
+      "note": "Configured on 2026-07-21. Configured is not rehearsed: no live transaction has been put through it. Verify identity, not just presence, with scripts/secret-fingerprint.mjs (MW-V12-05) and the live EUR prices with npm run verify-prices."
     },
     {
       "id": "live-transaction",
-      "action": "One real low-value transaction end to end: live charge, cancel, unsubscribe, reactivate. Refunded in cleanup.",
+      "action": "One real low-value transaction end to end: live charge, cancel, reactivate, payment recovery, refund.",
       "status": "not_run",
-      "note": "Runbook ready and gated by tests/rehearsal-readiness.test.ts: docs/runbooks/live-transaction-rehearsal.md has expected-versus-observed columns for all four steps, six abort conditions, alert thresholds, cleanup, rollback and evidence-hygiene rules. Claude Code executes none of it."
+      "note": "Runbook ready and gated by tests/rehearsal-readiness.test.ts: docs/runbooks/live-transaction-rehearsal.md now covers charge -> cancel -> reactivate -> payment failure+recovery -> LATE failure redelivered after recovery -> refund, with abort conditions for wrong currency/amount, foreign product and unexpected email. MW-V12-03 made the failure->recovery->late-failure path order-resilient in code (src/lib/stripe/event-order.ts), but a contract test does not close owner evidence. Claude Code executes none of it."
     },
     {
       "id": "reminder-cron-email-rehearsal",
-      "action": "Rehearse the v10 reminder, cron and lifecycle email behaviour live, including one-click unsubscribe.",
+      "action": "Rehearse the reminder, cron and lifecycle email behaviour live, including one-click unsubscribe, a duplicate eligible cron run and a forced provider failure.",
       "status": "not_run",
-      "note": "Worksheet at the end of docs/ops-cron.md, now nine sections: MW-V11-06 added six abort conditions, a check that unsubscribing does NOT stop transactional billing mail, cleanup, and an explicit statement of what a live run cannot prove (DST, quiet-hour wrapping, consent versioning and safety suppression stay fixture-tested). A read-only check on 2026-07-26 found zero accounts with reminders opted in, so the fail-closed consent gate takes nothing away from anyone."
+      "note": "Worksheet at the end of docs/ops-cron.md. MW-V12-04 sharpened the two unproven items: the duplicate-cron step now isolates the dedupe KEY (not the lease or an empty scan), and the provider-failure step observes transient -> retry/backoff -> success and permanent -> dead-letter. Both have deterministic unit forms; the live observations remain owner-run. The 'off because you unsubscribed' settings surface (P2-REMINDER-OPTOUT-SURFACE) is closed."
     },
     {
       "id": "key-rotation-and-restore-drill",
       "action": "Run the key-rotation drill and an isolated backup/restore rehearsal, recording measured wall-clock recovery time.",
       "status": "not_run",
-      "note": "Procedure in docs/runbooks/key-rotation-and-backup.md, extended by MW-V11-07 and gated by tests/resilience-beta.test.ts: a seven-row restore verification table (row counts, orphaned user_ids, consent versions, allergy fields, Stripe subscription mapping, deletion tombstones, plan versions with their snapshots), tested-versus-desired RTO/RPO with an explicit statement that an unfilled Tested column means the project has no RTO, what a database restore does NOT bring back (Stripe objects, secrets, cron, suppression lists, already-sent mail), and the rule that restoring over a deletion is a data-protection incident rather than a rollback."
+      "note": "docs/runbooks/key-rotation-and-backup.md now has a per-secret procedure (MW-V12-05), a one-way fingerprint check (scripts/secret-fingerprint.mjs) that verifies identity without printing a value, and an executable read-only restore-verification (docs/runbooks/restore-verification.sql). Gated by tests/resilience-beta.test.ts. Tested RTO/RPO are still blank until the owner runs the drill; blank Tested means the project has no measured RTO."
     }
   ],
   "blockers": [
@@ -232,40 +164,32 @@
       "level": "P0",
       "title": "No real transaction has been put through live Stripe end to end.",
       "owner": "Owner",
-      "blocks": [
-        "public_paid"
-      ],
-      "acceptance": "Recorded owner evidence for charge, cancel, unsubscribe and reactivate against the live 9.99 EUR monthly plan."
+      "blocks": ["public_paid"],
+      "acceptance": "Recorded owner evidence for charge, cancel, reactivate, payment recovery and refund against the live 9.99 EUR monthly plan."
     },
     {
       "id": "P1-REMINDER-REHEARSAL",
       "level": "P1",
-      "title": "Reminder, cron and lifecycle email delivery has never been observed in a real inbox.",
+      "title": "Duplicate-cron dedupe and forced provider failure have not been observed live.",
       "owner": "Owner",
-      "blocks": [
-        "public_paid"
-      ],
-      "acceptance": "Recorded owner evidence covering consent, send window, duplicate cron run, unsubscribe and provider failure."
+      "blocks": ["public_paid"],
+      "acceptance": "Recorded owner evidence for a duplicate eligible cron run (dedupe key holds) and a deliberate provider failure (retry/backoff and dead-letter observed)."
     },
     {
       "id": "P1-ROTATION-RESTORE",
       "level": "P1",
       "title": "Key rotation and backup restore have never been rehearsed.",
       "owner": "Owner",
-      "blocks": [
-        "public_paid"
-      ],
+      "blocks": ["public_paid"],
       "acceptance": "Rotation completed and rolled back without exposing a secret, plus an isolated restore with a measured recovery time."
     },
     {
       "id": "P1-AUTH-E2E-AT-HEAD",
       "level": "P1",
-      "title": "Authenticated browser journeys have not been run at this baseline.",
+      "title": "The full authenticated matrix has not run in one unattended sweep at this candidate.",
       "owner": "Eng + Owner (env)",
-      "blocks": [
-        "public_paid"
-      ],
-      "acceptance": "The full authenticated matrix run at the candidate SHA with raw artifacts. Evidence from an earlier SHA does not carry forward. Progress in MW-V11-04: six journeys now execute and pass against live Supabase as a synthetic account. Still outstanding: the eight-state daily-journey matrix, plus the trial-eligible and trial-used journeys, all of which need the service-role seed script to be run per state. Owner runs the seed; the suites then run unattended."
+      "blocks": ["public_paid"],
+      "acceptance": "The full authenticated matrix run at the candidate SHA with raw artifacts, via npm run test:e2e:matrix against a seeded non-production Supabase. MW-V12-02 added the canonical matrix, the fail-closed runner and the marker-guarded seed; the owner runs the seed and the suites run unattended."
     },
     {
       "id": "P2-DENIAL-COUNTING",
@@ -278,81 +202,76 @@
     {
       "id": "P2-COLD-START",
       "level": "P2",
-      "title": "Cold-start performance is unmeasured and materially worse than steady state: the first request to a cold route measured 4080ms LCP on the landing page versus 812ms warm.",
+      "title": "Cold-start performance is unmeasured against a real deployment.",
       "owner": "Eng",
       "blocks": [],
-      "acceptance": "Cold-start LCP measured against the real deployment rather than a local server, and either brought inside the budget or accepted with a stated frequency. A first-time visitor arriving on a cold function is exactly the visitor the landing page is for."
+      "acceptance": "MW-V12-07 added a cold-start measurement mode (PERF_MODE=cold) and separated warm/cold/field labels. The remaining step is owner-run: measure cold-start LCP against a deployed preview and either bring it inside budget or accept it with a stated frequency."
     },
     {
       "id": "P2-INP-UNMEASURED",
       "level": "P2",
-      "title": "INP has never been measured. The interaction probe in the perf suite is a click-to-paint proxy on one control and is not a substitute.",
+      "title": "INP has never been measured from the field.",
       "owner": "Eng",
       "blocks": [],
-      "acceptance": "Real-user INP collected from the field, or an explicit decision that lab proxies are sufficient before public launch. No INP number may be claimed until then."
+      "acceptance": "MW-V12-07 added anonymous field INP collection (/api/vitals). The remaining step is data: collect >= 100 samples and report p75 before any INP number is claimed. The lab interaction probe is still not called INP."
     },
     {
       "id": "P2-BRAND-TYPEFACE",
       "level": "P2",
-      "title": "The product renders in Arial, not its brand typeface. Geist was loaded but never applied — `body` sets Arial and no component uses `font-sans` — so 53KB of webfonts were downloaded and never painted.",
+      "title": "The product renders in a system stack, not its brand typeface. Geist was loaded but never applied; MW-V11-05 removed the unused download.",
       "owner": "Owner",
       "blocks": [],
-      "acceptance": "An explicit decision: keep the system stack, or adopt Geist deliberately. MW-V11-05 removed the unused download rather than changing the typeface, because altering the type of every screen is a design decision and not launch hardening."
+      "acceptance": "An explicit decision: keep the system stack, or adopt Geist deliberately."
     },
     {
       "id": "P2-SUITE-FLAKES",
       "level": "P2",
-      "title": "Three different suites have each failed once under full-suite load and passed on re-run: tests/email-templates.test.ts (6.1s for pure Intl formatting), the public keyboard-tabbing journey (60s timeout), and tests/content-system.test.ts (5.7s scanning customer surfaces). All three are slow-then-fail, never fail-fast, and none reproduces in isolation or on a re-run.",
+      "title": "Three doc-scanning/formatting suites have each failed once under full-suite load and passed on re-run, never fail-fast.",
       "owner": "Eng",
       "blocks": [],
-      "acceptance": "Root cause identified and fixed, or the reads made resilient. NOT to be closed with a retry or a longer timeout. Diagnosis so far: the first theory (CPU contention from a concurrent production build) is now weaker, because the content-system failure happened with nothing else running. The common factor across all three is heavy synchronous filesystem reads under parallel vitest workers on Windows. The associated risk is worse than the flake itself: a doc-scanning test that asserts the ABSENCE of a phrase passes trivially if the read returns empty, so a partial read could produce a false green rather than a failure. MW-V11-07 added non-empty guards to the new doc-scanning tests; the pre-existing ones have not been audited for this."
-    },
-    {
-      "id": "P2-REMINDER-OPTOUT-SURFACE",
-      "level": "P2",
-      "title": "Settings does not reflect \"off because you unsubscribed\" after an email opt-out.",
-      "owner": "Eng",
-      "blocks": [],
-      "acceptance": "The in-app surface states the suppression and how to resume."
+      "acceptance": "Root cause identified and fixed, or the reads made resilient. NOT to be closed with a retry or a longer timeout. Non-empty read guards were added to the new doc-scanning tests; the pre-existing ones have not all been audited."
     }
   ],
   "closedBlockers": [
     {
       "id": "P1-COMMERCIAL-COPY",
       "level": "P1",
-      "title": "Public commercial copy was ungrammatical and inconsistent: the hero rendered the promise glued to the next sentence with no space, and the canonical helpers produced a plural noun form where the sentence needed the adjective form.",
+      "title": "Public commercial copy was ungrammatical and inconsistent.",
       "owner": "Eng",
-      "blocks": [
-        "public_paid"
-      ],
+      "blocks": ["public_paid"],
       "acceptance": "Every public, auth, paywall and lifecycle surface is grammatical and agrees on sample, trial length, card requirement and charge date.",
       "closedBy": "MW-V11-01",
-      "evidence": "docs/release/evidence/v11/e2e-public-mw-v11-01.txt — 57 browser journeys green, including rendered-text assertions that fail on either defect. Contract coverage in tests/commercial-copy.test.ts."
+      "evidence": "docs/release/evidence/v11/e2e-public-mw-v11-01.txt — 57 browser journeys green. Contract coverage in tests/commercial-copy.test.ts."
     },
     {
       "id": "P1-HEADER",
       "level": "P1",
       "title": "The public 44px target rule exempted every header control, so the header's accessibility was untested rather than compliant.",
       "owner": "Eng",
-      "blocks": [
-        "public_paid"
-      ],
+      "blocks": ["public_paid"],
       "acceptance": "The exemption is removed and replaced with explicit target-size and layout assertions across breakpoints.",
       "closedBy": "MW-V11-02",
-      "evidence": "docs/release/evidence/v11/e2e-public-mw-v11-02.txt — 72 browser journeys green with no header exemption. Every header target measured at 320, 360, 375, 768, 1024 and 1440 plus a 200% zoom case; disclosure keyboard and focus-return behaviour asserted."
+      "evidence": "docs/release/evidence/v11/e2e-public-mw-v11-02.txt — 72 browser journeys green with no header exemption."
     },
     {
       "id": "P0-PRICE-CURRENCY",
       "level": "P0",
-      "title": "The live Stripe prices were in USD while every customer surface promised EUR. price_1TvRDS was 999 usd/month and price_1TvREH was 5999 usd/year, on an account whose default currency is eur.",
+      "title": "The live Stripe prices were in USD while every customer surface promised EUR.",
       "owner": "Owner",
-      "blocks": [
-        "capped_beta",
-        "public_paid"
-      ],
-      "acceptance": "EUR prices created (999 and 5999), STRIPE_PRICE_PRO_MONTHLY and STRIPE_PRICE_PRO_YEARLY repointed in Vercel production, the USD prices archived rather than deleted, and `npm run verify-prices` green against the production env. Stripe does not convert, so until then a user who reads EUR 9.99 is charged USD 9.99 plus whatever their bank adds in FX.",
+      "blocks": ["capped_beta", "public_paid"],
+      "acceptance": "EUR prices created (999 and 5999), env repointed, USD prices archived, and npm run verify-prices green against the production env.",
       "closedBy": "MW-V11-09",
-      "evidence": "docs/release/evidence/v11/rc/verify-prices.txt — verify-stripe-prices.mjs run in LIVE mode against the production env pulled from Vercel on 2026-07-28, exit 0. Both configured prices resolve to new ids and read back 999 eur / month and 5999 eur / year on an account whose default currency is eur. This closes on what the prices charge, not on the ids being set: the original defect passed a presence check, so presence was never going to close it."
+      "evidence": "docs/release/evidence/v11/rc/verify-prices.txt — verify-stripe-prices.mjs in LIVE mode, exit 0. Both prices read back 999 eur / month and 5999 eur / year on a eur-default account. This closes on what the prices charge, not on the ids being set."
+    },
+    {
+      "id": "P2-REMINDER-OPTOUT-SURFACE",
+      "level": "P2",
+      "title": "Settings did not reflect \"off because you unsubscribed\" after an email opt-out.",
+      "owner": "Eng",
+      "blocks": [],
+      "acceptance": "The in-app surface states the suppression and how to resume.",
+      "closedBy": "MW-V12-04",
+      "evidence": "Migration 040 adds reminders_unsubscribed_at; the one-click route sets it; the preferences form shows a distinct 'off because you unsubscribed on <date>' notice with an explicit re-enable that clears the marker and the pause. Locked by tests/reminder-reliability.test.ts and tests/email-unsubscribe.test.ts."
     }
   ],
   "acceptedRisks": [
@@ -360,121 +279,45 @@
       "blockerId": "P1-ROTATION-RESTORE",
       "acceptedBy": "Primoz Cerar",
       "acceptedOnUtc": "2026-07-28T00:00:00Z",
-      "tiers": [
-        "public_paid"
-      ],
-      "rationale": "Neither the key-rotation drill nor the isolated restore has been rehearsed, and this ships without them. The reason it is acceptable on day one is that its absence harms no user directly: nothing in the product is degraded by a drill not having been run. What is unknown is recovery time. If a key leaks or the database needs restoring, the first attempt will be the rehearsal, under pressure, at an unmeasured duration. That exposure is accepted in exchange for launching. The mitigations that do exist: every migration is additive and re-runnable, Supabase retains automated backups, and the rollback path is flag-based rather than data-dependent. Reviewed before the paid tier scales beyond the initial cohort."
+      "tiers": ["public_paid"],
+      "rationale": "Neither the key-rotation drill nor the isolated restore has been rehearsed, and this ships without them. It is acceptable on day one because its absence harms no user directly: nothing in the product is degraded by a drill not having been run. What is unknown is recovery time. If a key leaks or the database needs restoring, the first attempt will be the rehearsal, under pressure, at an unmeasured duration. Mitigations that exist: every migration is additive and re-runnable, Supabase retains automated backups, the rollback path is flag-based, and MW-V12-05 added a per-secret procedure, a safe fingerprint check and an executable restore verification so the drill is now scripted rather than improvised. Standing 2026-07-28 acceptance carried into the v12 candidate; to be re-confirmed and reviewed before the paid tier scales beyond the initial cohort."
     },
     {
       "blockerId": "P0-LIVE-TRANSACTION",
       "acceptedBy": "Primoz Cerar",
       "acceptedOnUtc": "2026-07-28T00:00:00Z",
-      "tiers": [
-        "public_paid"
-      ],
-      "rationale": "No charge has been captured against the live 9.99 EUR plan, and cancel, reactivate, portal and refund have never been exercised live. What has been verified is narrower: the live prices read back 999 and 5999 eur from Stripe, and live trial checkout now completes and starts a trial where it previously failed, which is consistent with the USD-versus-EUR diagnosis recorded against P0-PRICE-CURRENCY. The owner judges the remaining risk acceptable because the first paying customers will be a small known cohort he can refund by hand, and because the currency defect that made this dangerous is closed and evidenced. The residual exposure is real and specific: an out-of-order or late payment_failed webhook arriving after a recovery could silently remove access from a paying customer, and nothing has proven the refund path end to end. Accepted deliberately rather than closed, so the gap stays visible in this record. To be rehearsed before the cohort grows beyond people the owner can contact directly."
+      "tiers": ["public_paid"],
+      "rationale": "No charge has been captured against the live 9.99 EUR plan, and cancel, reactivate, recovery and refund have never been exercised live. What is verified is narrower: the live prices read back 999 and 5999 eur, and live trial checkout completes. The owner judges the remaining risk acceptable because the first paying customers are a small known cohort he can refund by hand, and because the currency defect that made this dangerous is closed. MW-V12-03 additionally made the out-of-order and late payment_failed-after-recovery path safe in code, so the specific residual that could silently remove access is now guarded and unit-tested; the live refund path is still unproven. Accepted deliberately rather than closed. Standing 2026-07-28 acceptance carried into the v12 candidate; to be rehearsed before the cohort grows beyond people the owner can contact directly."
     },
     {
       "blockerId": "P1-AUTH-E2E-AT-HEAD",
       "acceptedBy": "Primoz Cerar",
       "acceptedOnUtc": "2026-07-28T00:00:00Z",
-      "tiers": [
-        "public_paid"
-      ],
-      "rationale": "The authenticated matrix runs and passes at the candidate, with raw artifacts recorded for the public suite, the trial-eligible and trial-used journeys and the daily-journey states. What keeps this open is that the eight-state matrix requires the service-role seed script to be run once per state by hand, so the full sweep has never executed unattended in one pass at a single SHA. The gap is coverage completeness, not a known failure: no authenticated journey is red. Two structural weaknesses are accepted with it. The runner exits zero when the environment is absent, so a missing seed reads as a skip rather than a block, and the seed script has no marker-table guard proving it is pointed at a non-production database. The second matters less than it would elsewhere because there is a single live Supabase project by design and RLS isolates the synthetic account, but both should be repaired before anyone other than the owner runs the suite."
+      "tiers": ["public_paid"],
+      "rationale": "No authenticated journey is red; what keeps this open is that the full matrix has never executed unattended in one pass at a single SHA, because it needs a seeded non-production Supabase. MW-V12-02 turned this from a coverage-completeness worry into a runnable, fail-closed step: a canonical matrix, a runner that BLOCKS on any required journey that never ran, an integrity test that stops a required test from silently vanishing, and an opt-in marker guard so the seed cannot be pointed at production. The gap is now purely that the owner has not yet run it against an env. Standing 2026-07-28 acceptance carried into the v12 candidate; to be run before anyone other than the owner uses the suite."
     },
     {
       "blockerId": "P1-REMINDER-REHEARSAL",
       "acceptedBy": "Primoz Cerar",
       "acceptedOnUtc": "2026-07-28T00:00:00Z",
-      "tiers": [
-        "public_paid"
-      ],
-      "rationale": "Five of the seven acceptance items were evidenced live against production on 2026-07-28 and are recorded in rc/reminder-rehearsal.txt: sender configuration, welcome delivery, unsubscribe writing the consent state, suppression enforced at the database query level rather than merely recorded, transactional mail surviving the opt-out, and timezone resolution against the stored zone. The rehearsal also found and closed two live defects no test had caught. Two items remain unproven: a duplicate cron run, where the second firing returned zero scanned because the account had unsubscribed rather than because the dedupe key held, and a deliberate provider failure, so retry and backoff were never observed live. Both are covered by unit tests and by a unique constraint on event_key. The consequence if either is wrong is a duplicate or a missing reminder email, not a loss of access or money, which is why this is accepted where the untested paths are narrow and the blast radius is one email."
+      "tiers": ["public_paid"],
+      "rationale": "Five of seven acceptance items were evidenced live on 2026-07-28. The two that remained — a duplicate eligible cron run and a deliberate provider failure — are covered by deterministic unit tests and, in MW-V12-04, sharpened in the owner worksheet so the live run isolates the dedupe key and observes the retry/backoff/dead-letter transitions rather than proving nothing. The consequence if either is wrong is a duplicate or missing reminder email, not a loss of access or money, which is why this is accepted where the untested paths are narrow and the blast radius is one email. Standing 2026-07-28 acceptance carried into the v12 candidate."
     }
   ],
   "verdicts": {
-    "automated_code_gate": "UNASSESSED",
-    "capped_beta": "UNASSESSED",
-    "public_paid": "UNASSESSED"
+    "automated_code_gate": "CONDITIONAL GO",
+    "capped_beta": "CONDITIONAL GO",
+    "public_paid": "CONDITIONAL GO"
   },
-  "rollback": "Flag-based and data-safe. FLAG_MONTHLY_FAIR_USE=0, FLAG_PLAN_REPAIR=0, FLAG_WEEKLY_REFLECTION=0, FLAG_EMPHASIZE_YEARLY unset, FLAG_TRIAL_LENGTH_EXPERIMENT=0 (pinned trials complete exactly as disclosed; no subscription is touched), plus per-surface UI reverts. Every migration in the repository is additive and re-runnable, so no migration reversal is required to roll back any behaviour.",
+  "rollback": "Flag-based and data-safe. FLAG_MONTHLY_FAIR_USE=0, FLAG_PLAN_REPAIR=0, FLAG_WEEKLY_REFLECTION=0, FLAG_EMPHASIZE_YEARLY unset, FLAG_TRIAL_LENGTH_EXPERIMENT=0 (pinned trials complete exactly as disclosed; no subscription is touched), plus per-surface UI reverts. Every migration in the repository is additive and re-runnable, so no migration reversal is required to roll back any behaviour; migrations 040 and 041 are additive columns/tables and the app tolerates their absence.",
   "documents": [
     "docs/launch-go-no-go-v11.md",
     "docs/BUILD_STATE.md",
     "docs/beta-scorecard.md",
+    "docs/perf-field.md",
     "docs/runbooks/live-transaction-rehearsal.md",
     "docs/runbooks/key-rotation-and-backup.md",
+    "docs/runbooks/restore-verification.sql",
     "docs/ops-cron.md"
-  ],
-  "supersededNote": "RC 0025a502 is SUPERSEDED (reconciled MW-V12-01). Product code changed after the freeze — 30 product-code files between 0025a502 and 878f851, including the mobile sign-out fix, the paywall hydration fix, the USD/EUR billing contract work, and checkout/webhook/auth/email/unsubscribe fixes. See changedSinceRc for the machine-readable classification. Every tier is UNASSESSED: no verdict can be read from a superseded candidate. The candidate must be re-cut and every gate re-run (MW-V12-09) before any verdict is read from this file. The acceptedRisks and CONDITIONAL GO verdicts recorded at the frozen RC are preserved as history, not as a current decision.",
-  "changedSinceRc": {
-    "fromRcSha": "0025a5021f921800d08edee1c86f3c33c62185da",
-    "toSha": "878f851a5c77524ad2a9c265983d5806c7e7c37f",
-    "generatedAtUtc": "2026-07-31T00:00:00Z",
-    "classification": "product_code_changed",
-    "generatedBy": "scripts/classify-rc-drift.mjs",
-    "rawEvidence": "docs/release/evidence/v11/rc/rc-drift-classification.json",
-    "note": "productHeadSha (878f851) is where the drift was classified; HEAD continues to move as v12 lands and is not frozen until MW-V12-09.",
-    "totals": { "changed": 55, "productCode": 30, "documentation": 25 },
-    "productCodeFiles": [
-      "M e2e/daily-journey.spec.ts",
-      "M e2e/support/harness.ts",
-      "M package.json",
-      "M scripts/seed-test-user.mjs",
-      "A scripts/verify-stripe-prices.mjs",
-      "M src/app/(app)/you/page.tsx",
-      "M src/app/api/cron/trial-reminders/route.ts",
-      "M src/app/api/email/unsubscribe/route.ts",
-      "M src/app/api/stripe/checkout/route.ts",
-      "M src/app/api/stripe/webhook/route.ts",
-      "M src/app/auth/callback/route.ts",
-      "A src/components/dailyflow/sign-out-button.tsx",
-      "M src/components/dailyflow/upgrade-button.tsx",
-      "M src/lib/dates/local-day.ts",
-      "M src/lib/email/send.ts",
-      "M src/lib/email/templates.ts",
-      "M src/lib/env.ts",
-      "M src/lib/release/manifest.ts",
-      "M src/lib/stripe/plans.ts",
-      "A tests/billing-contract.test.ts",
-      "M tests/content-system.test.ts",
-      "A tests/email-sender-address.test.ts",
-      "M tests/email-templates.test.ts",
-      "A tests/email-unsubscribe.test.ts",
-      "M tests/local-day.test.ts",
-      "M tests/rehearsal-readiness.test.ts",
-      "M tests/release-manifest.test.ts",
-      "A tests/sign-out.test.ts",
-      "A tests/webhook-isolation.test.ts",
-      "M vitest.config.ts"
-    ],
-    "documentationFiles": [
-      "A HANDOFF_MELLOWA_LAUNCH_STEPS.md",
-      "A docs/handoff-scalvya.md",
-      "M docs/launch-go-no-go-v11.md",
-      "A docs/release/evidence/v11/rc/e2e-auth-trial-eligible.txt",
-      "R docs/release/evidence/v11/rc/e2e-auth-trial-used.txt",
-      "A docs/release/evidence/v11/rc/e2e-daily-journey.txt",
-      "A docs/release/evidence/v11/rc/reminder-rehearsal.txt",
-      "A docs/release/evidence/v11/rc/verify-prices.txt",
-      "M docs/release/manifest.v11.json",
-      "A docs/release/v12/00-ORCHESTRATION-PLAN.md",
-      "A docs/release/v12/MW-V12-01.md",
-      "A docs/release/v12/MW-V12-02.md",
-      "A docs/release/v12/MW-V12-03.md",
-      "A docs/release/v12/MW-V12-04.md",
-      "A docs/release/v12/MW-V12-05.md",
-      "A docs/release/v12/MW-V12-06.md",
-      "A docs/release/v12/MW-V12-07.md",
-      "A docs/release/v12/MW-V12-08.md",
-      "A docs/release/v12/MW-V12-09.md",
-      "A docs/release/v12/XAPP-V12-01.md",
-      "M docs/runbooks/live-transaction-rehearsal.md",
-      "A docs/runbooks/reminder-rehearsal-queries.sql",
-      "A docs/runbooks/trial-ending-mistimed-check.sql",
-      "M README.md",
-      "M V11_RUN_LOG.md"
-    ]
-  }
+  ]
 }

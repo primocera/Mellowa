@@ -1,0 +1,577 @@
+
+> dailyflow-ai@0.1.0 test:e2e:public
+> playwright test e2e/public.spec.ts
+
+[WebServer] [legal] outstanding before paid launch: [
+[WebServer]   'LEGAL_ENTITY_NAME is not set',
+[WebServer]   'LEGAL_REGISTERED_ADDRESS is not set',
+[WebServer]   'LEGAL_GOVERNING_LAW is not set',
+[WebServer]   'SUPPORT_EMAIL is not set (hardcoded fallback in use)',
+[WebServer]   'NEXT_PUBLIC_APP_URL is a temporary domain: http://localhost:3000'
+[WebServer] ]
+
+Running 75 tests using 1 worker
+
+  ✓   1 [mobile] › e2e\public.spec.ts:9:5 › home page renders with safety boundary and legal links (25.6s)
+  ✓   2 [mobile] › e2e\public.spec.ts:18:5 › no horizontal overflow on mobile (458ms)
+  ✓   3 [mobile] › e2e\public.spec.ts:26:5 › pricing shows exact prices and payment disclosure near CTA (779ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓   4 [mobile] › e2e\public.spec.ts:52:5 › anonymous trial disclosure never claims an unassigned length (1.7s)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓   5 [mobile] › e2e\public.spec.ts:85:5 › public routes are usable without a pointer and without horizontal scroll (1.7s)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓   6 [mobile] › e2e\public.spec.ts:108:5 › every interactive control on the public pages is at least 44px tall (1.6s)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓   7 [mobile] › e2e\public.spec.ts:170:5 › every header target meets 44px at every supported width (2.2s)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓   8 [mobile] › e2e\public.spec.ts:198:5 › the header stays on one row and never overflows (1.2s)
+  ✓   9 [mobile] › e2e\public.spec.ts:236:5 › the header survives 200% zoom without wrapping or clipping (380ms)
+  ✓  10 [mobile] › e2e\public.spec.ts:256:5 › pricing, sign-in and sample access stay reachable at 320px (1.3s)
+  ✓  11 [mobile] › e2e\public.spec.ts:276:5 › the header disclosure is operable by keyboard and closes predictably (2.3s)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  12 [mobile] › e2e\public.spec.ts:306:5 › the header exposes literal accessible names at every width (819ms)
+  ✓  13 [mobile] › e2e\public.spec.ts:346:5 › the adaptation proof renders truthfully and fits a phone (499ms)
+  ✓  14 [mobile] › e2e\public.spec.ts:383:5 › focus is visible on the primary signup control (762ms)
+  ✓  15 [mobile] › e2e\public.spec.ts:395:5 › signup requires 18+ and policy consent (not pre-checked) (1.9s)
+  ✓  16 [mobile] › e2e\public.spec.ts:412:5 › login offers forgot-password recovery (557ms)
+  ✓  17 [mobile] › e2e\public.spec.ts:417:5 › privacy policy lists processors and retention (734ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  18 [mobile] › e2e\public.spec.ts:425:5 › legal pages have no placeholder lorem or broken headings (543ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  19 [mobile] › e2e\public.spec.ts:433:5 › keyboard navigation reaches the primary signup CTA (625ms)
+  ✓  20 [mobile] › e2e\public.spec.ts:440:5 › verify-email page shows next step, resend and change-email (553ms)
+  ✓  21 [mobile] › e2e\public.spec.ts:448:5 › auth callback rejects a missing code and a malicious next URL (471ms)
+  ✓  22 [mobile] › e2e\public.spec.ts:455:5 › hero leads with the free-sample funnel, not a trial promise (507ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  23 [mobile] › e2e\public.spec.ts:470:5 › public commercial copy is grammatical and spaced in the browser (731ms)
+  ✓  24 [mobile] › e2e\public.spec.ts:495:5 › the hero states the sample terms once, not twice (405ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  25 [mobile] › e2e\public.spec.ts:506:5 › signup and login pages carry the elevated account copy (683ms)
+  ✓  26 [desktop] › e2e\public.spec.ts:9:5 › home page renders with safety boundary and legal links (610ms)
+  ✓  27 [desktop] › e2e\public.spec.ts:18:5 › no horizontal overflow on mobile (507ms)
+  ✓  28 [desktop] › e2e\public.spec.ts:26:5 › pricing shows exact prices and payment disclosure near CTA (417ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  29 [desktop] › e2e\public.spec.ts:52:5 › anonymous trial disclosure never claims an unassigned length (1.1s)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  30 [desktop] › e2e\public.spec.ts:85:5 › public routes are usable without a pointer and without horizontal scroll (1.1s)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  31 [desktop] › e2e\public.spec.ts:108:5 › every interactive control on the public pages is at least 44px tall (1.8s)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  32 [desktop] › e2e\public.spec.ts:170:5 › every header target meets 44px at every supported width (2.1s)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  33 [desktop] › e2e\public.spec.ts:198:5 › the header stays on one row and never overflows (1.1s)
+  ✓  34 [desktop] › e2e\public.spec.ts:236:5 › the header survives 200% zoom without wrapping or clipping (412ms)
+  ✓  35 [desktop] › e2e\public.spec.ts:256:5 › pricing, sign-in and sample access stay reachable at 320px (488ms)
+  ✓  36 [desktop] › e2e\public.spec.ts:276:5 › the header disclosure is operable by keyboard and closes predictably (598ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  37 [desktop] › e2e\public.spec.ts:306:5 › the header exposes literal accessible names at every width (713ms)
+  ✓  38 [desktop] › e2e\public.spec.ts:346:5 › the adaptation proof renders truthfully and fits a phone (411ms)
+  ✓  39 [desktop] › e2e\public.spec.ts:383:5 › focus is visible on the primary signup control (520ms)
+  ✓  40 [desktop] › e2e\public.spec.ts:395:5 › signup requires 18+ and policy consent (not pre-checked) (778ms)
+  ✓  41 [desktop] › e2e\public.spec.ts:412:5 › login offers forgot-password recovery (413ms)
+  ✓  42 [desktop] › e2e\public.spec.ts:417:5 › privacy policy lists processors and retention (369ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  43 [desktop] › e2e\public.spec.ts:425:5 › legal pages have no placeholder lorem or broken headings (814ms)
+  ✓  44 [desktop] › e2e\public.spec.ts:433:5 › keyboard navigation reaches the primary signup CTA (408ms)
+  ✓  45 [desktop] › e2e\public.spec.ts:440:5 › verify-email page shows next step, resend and change-email (370ms)
+  ✓  46 [desktop] › e2e\public.spec.ts:448:5 › auth callback rejects a missing code and a malicious next URL (408ms)
+  ✓  47 [desktop] › e2e\public.spec.ts:455:5 › hero leads with the free-sample funnel, not a trial promise (428ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  48 [desktop] › e2e\public.spec.ts:470:5 › public commercial copy is grammatical and spaced in the browser (787ms)
+  ✓  49 [desktop] › e2e\public.spec.ts:495:5 › the hero states the sample terms once, not twice (428ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  50 [desktop] › e2e\public.spec.ts:506:5 › signup and login pages carry the elevated account copy (589ms)
+  ✓  51 [mobile-320] › e2e\public.spec.ts:9:5 › home page renders with safety boundary and legal links (551ms)
+  ✓  52 [mobile-320] › e2e\public.spec.ts:18:5 › no horizontal overflow on mobile (375ms)
+  ✓  53 [mobile-320] › e2e\public.spec.ts:26:5 › pricing shows exact prices and payment disclosure near CTA (383ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  54 [mobile-320] › e2e\public.spec.ts:52:5 › anonymous trial disclosure never claims an unassigned length (800ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  55 [mobile-320] › e2e\public.spec.ts:85:5 › public routes are usable without a pointer and without horizontal scroll (1.0s)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  56 [mobile-320] › e2e\public.spec.ts:108:5 › every interactive control on the public pages is at least 44px tall (1.5s)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  57 [mobile-320] › e2e\public.spec.ts:170:5 › every header target meets 44px at every supported width (2.1s)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  58 [mobile-320] › e2e\public.spec.ts:198:5 › the header stays on one row and never overflows (1.2s)
+  ✓  59 [mobile-320] › e2e\public.spec.ts:236:5 › the header survives 200% zoom without wrapping or clipping (411ms)
+  ✓  60 [mobile-320] › e2e\public.spec.ts:256:5 › pricing, sign-in and sample access stay reachable at 320px (501ms)
+  ✓  61 [mobile-320] › e2e\public.spec.ts:276:5 › the header disclosure is operable by keyboard and closes predictably (603ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  62 [mobile-320] › e2e\public.spec.ts:306:5 › the header exposes literal accessible names at every width (690ms)
+  ✓  63 [mobile-320] › e2e\public.spec.ts:346:5 › the adaptation proof renders truthfully and fits a phone (396ms)
+  ✓  64 [mobile-320] › e2e\public.spec.ts:383:5 › focus is visible on the primary signup control (469ms)
+  ✓  65 [mobile-320] › e2e\public.spec.ts:395:5 › signup requires 18+ and policy consent (not pre-checked) (607ms)
+  ✓  66 [mobile-320] › e2e\public.spec.ts:412:5 › login offers forgot-password recovery (470ms)
+  ✓  67 [mobile-320] › e2e\public.spec.ts:417:5 › privacy policy lists processors and retention (380ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  68 [mobile-320] › e2e\public.spec.ts:425:5 › legal pages have no placeholder lorem or broken headings (521ms)
+  ✓  69 [mobile-320] › e2e\public.spec.ts:433:5 › keyboard navigation reaches the primary signup CTA (409ms)
+  ✓  70 [mobile-320] › e2e\public.spec.ts:440:5 › verify-email page shows next step, resend and change-email (343ms)
+  ✓  71 [mobile-320] › e2e\public.spec.ts:448:5 › auth callback rejects a missing code and a malicious next URL (382ms)
+  ✓  72 [mobile-320] › e2e\public.spec.ts:455:5 › hero leads with the free-sample funnel, not a trial promise (403ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  73 [mobile-320] › e2e\public.spec.ts:470:5 › public commercial copy is grammatical and spaced in the browser (732ms)
+  ✓  74 [mobile-320] › e2e\public.spec.ts:495:5 › the hero states the sample terms once, not twice (371ms)
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+[WebServer] [vitals] insert failed {
+[WebServer]   message: "Could not find the table 'public.web_vitals' in the schema cache"
+[WebServer] }
+  ✓  75 [mobile-320] › e2e\public.spec.ts:506:5 › signup and login pages carry the elevated account copy (548ms)
+
+  75 passed (2.1m)
