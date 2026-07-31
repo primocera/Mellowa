@@ -42,7 +42,7 @@ First execution step: review + run these tests, then commit them as the opening 
 | 1 | MW-V12-01 | `MW-V12-01.md` | Reconcile HEAD vs superseded RC 0025a502; manifest truth | ✅ |
 | 2 | MW-V12-02 | `MW-V12-02.md` | Full authenticated/daily-state E2E matrix, no silent skips | ✅ (harness; owner-run) |
 | 3 | MW-V12-03 | `MW-V12-03.md` | Billing hardening + EUR live-transaction rehearsal runbook | ✅ (code; live txn owner-run) |
-| 4 | MW-V12-04 | `MW-V12-04.md` | Reminder/cron dedupe + email failure-path tests & worksheet | ☐ |
+| 4 | MW-V12-04 | `MW-V12-04.md` | Reminder/cron dedupe + email failure-path tests & worksheet | ✅ (code; 2 live obs owner-run) |
 | 5 | MW-V12-05 | `MW-V12-05.md` | Key rotation & restore readiness (docs + readiness tests) | ☐ |
 | 6 | MW-V12-06 | `MW-V12-06.md` | Premium recurring-value product/content pass | ☐ |
 | 7 | MW-V12-07 | `MW-V12-07.md` | Real-user performance (cold-start, RUM vitals, budgets) | ☐ |
