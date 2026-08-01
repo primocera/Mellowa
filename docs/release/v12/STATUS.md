@@ -46,10 +46,15 @@ Raw artifacts: `docs/release/evidence/v12/rc/`.
    - Step 2 cancel: `cancel_at_period_end`; access retained to 2026-09-01; `customer.subscription.updated` → 200 (1:28 PM); one cancellation email, no dupes.
    - Step 3 unsubscribe: optional reminder suppressed (040 marker); billing/account mail still arrives; no duplicate mail.
    - Step 4 reactivate: active again, **no second charge** (single €9.99 confirmed in Stripe Payments); no unexpected mail.
-   Steps 5–6 (failure→recovery, late-failure redelivery) **DEFERRED** — proven
-   by `tests/billing-lifecycle-order.test.ts`; live/test-clock redelivery not yet
-   witnessed. Accepted-risk-grade for capped beta; still required before full GO
-   on unrestricted public paid. Step 7 refund of the live €9.99 pending as cleanup.
+   Steps 5–6 (failure→recovery, late-failure redelivery) **DEFERRED by owner**
+   (2026-08-01) — proven by `tests/billing-lifecycle-order.test.ts`; live/test-clock
+   redelivery not yet witnessed. Needs a **local** Supabase (`supabase start`, not
+   a cloud project — free-plan 2-project cap) as the target; script ready at
+   `docs/runbooks/billing-order-test-clock.md`. Accepted-risk-grade for capped
+   beta; still required before full GO on **uncapped** public paid (raising
+   `beta_settings.invite_cap`). Step 7 refund of the live €9.99: owner retained
+   the subscription — refund **not performed**, so the `charge.refunded` path
+   stays unverified. (Live sub renews €9.99 on 2026-09-01 unless cancelled.)
 3. **Reminder rehearsal** (`P1-REMINDER-REHEARSAL`): a duplicate eligible cron
    run (dedupe key holds) and a forced provider failure (retry/backoff →
    dead-letter), per `docs/ops-cron.md`.
