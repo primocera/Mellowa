@@ -38,29 +38,26 @@ Raw artifacts: `docs/release/evidence/v12/rc/`.
 1. ~~**Apply migrations 040 and 041** to live Supabase~~ — **DONE 2026-08-01**
    (reminder unsubscribe marker; web_vitals). App tolerated absence (failed
    closed) before; both now applied to the live project.
-2. **Live EUR transaction** (`P0-LIVE-TRANSACTION`): charge → cancel → reactivate
-   → payment recovery → **late failure after recovery** → refund, per
-   `docs/runbooks/live-transaction-rehearsal.md`. **PARTIAL — 2026-08-01.**
-   Steps 1–4 verified live end-to-end against Stripe *and* the app:
-   - Step 1 charge: €9.99 EUR Succeeded (Aug 1 1:03 PM); `customer.subscription.created` → 200; Premium granted; renews 2026-09-01. No duplicate charge.
-   - Step 2 cancel: `cancel_at_period_end`; access retained to 2026-09-01; `customer.subscription.updated` → 200 (1:28 PM); one cancellation email, no dupes.
-   - Step 3 unsubscribe: optional reminder suppressed (040 marker); billing/account mail still arrives; no duplicate mail.
-   - Step 4 reactivate: active again, **no second charge** (single €9.99 confirmed in Stripe Payments); no unexpected mail.
-   Steps 5–6 (failure→recovery, late-failure redelivery) — automated coverage
-   **strengthened 2026-08-01**: the pure guard + route model
-   (`tests/billing-lifecycle-order.test.ts`) is now joined by
-   `tests/webhook-order-integration.test.ts`, which invokes the **real `POST`
-   handler at runtime** (transport mocked, in-memory DB) and proves a distinct
-   older `payment_failed` after a recovery does not revert the row or re-send
-   email, and that a same-id redelivery is dropped by idempotency. The **live /
-   test-clock owner witness is still DEFERRED by owner** — it needs a **local**
-   Supabase (`supabase start`, not a cloud project — free-plan 2-project cap);
-   script ready at `docs/runbooks/billing-order-test-clock.md`. Runtime tests are
-   not owner evidence; the live witness is still required before full GO on
-   **uncapped** public paid (raising `beta_settings.invite_cap`). Step 7 refund of
-   the live €9.99: owner retained the subscription — refund **not performed**, so
-   the `charge.refunded` path stays unverified. (Live sub renews €9.99 on
-   2026-09-01 unless cancelled.)
+2. **Live EUR transaction** (`P0-LIVE-TRANSACTION`) — **CLOSED via owner-accepted
+   risk 2026-08-01.** Real-money lifecycle verified **live** against the live
+   9.99 EUR plan, confirmed on the Stripe dashboard:
+   - Charge: €9.99 EUR Succeeded (Aug 1 1:03 PM); `customer.subscription.created` → 200; Premium granted; renews 2026-09-01. No duplicate charge.
+   - Cancel: `cancel_at_period_end`; access retained to 2026-09-01; `customer.subscription.updated` → 200 (1:28 PM); one cancellation email, no dupes.
+   - Unsubscribe: optional reminder suppressed (040 marker); billing/account mail still arrives; no duplicate mail.
+   - Reactivate: active again, **no second charge** (single €9.99 confirmed); no unexpected mail.
+   - **Refund: performed live, `charge.refunded` webhook → 200.**
+   The only leg **not** live-witnessed is a payment **failure→recovery** (step 5)
+   and the **late-failure-after-recovery** ordering (step 6): a live card can't be
+   forced to decline on demand, and forcing it needs a test clock against a
+   non-prod Supabase the owner doesn't have. That path is order-resilient in code
+   (`event-order.ts`) and proven by two tests — the pure guard + route model
+   (`tests/billing-lifecycle-order.test.ts`) and a **real-handler runtime test**
+   (`tests/webhook-order-integration.test.ts`, invokes `POST` with transport
+   mocked). Runtime tests are **not** live owner evidence, so this residual is
+   carried as the **P0-LIVE-TRANSACTION accepted risk** (Primoz Cerar,
+   2026-08-01); the live/test-clock witness is deferred to uncap-day per
+   `docs/runbooks/billing-order-test-clock.md`. Owner evidence line reads
+   `blocked` (4/5 items live_rehearsed, the 5th blocked on a test clock).
 3. **Reminder rehearsal** (`P1-REMINDER-REHEARSAL`): a duplicate eligible cron
    run (dedupe key holds) and a forced provider failure (retry/backoff →
    dead-letter), per `docs/ops-cron.md`.
