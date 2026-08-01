@@ -35,11 +35,21 @@ Raw artifacts: `docs/release/evidence/v12/rc/`.
 
 ## Blocked / owner-run — required before public paid launch
 
-1. **Apply migrations 040 and 041** to live Supabase (reminder unsubscribe
-   marker; web_vitals). The app tolerates their absence (fails closed).
+1. ~~**Apply migrations 040 and 041** to live Supabase~~ — **DONE 2026-08-01**
+   (reminder unsubscribe marker; web_vitals). App tolerated absence (failed
+   closed) before; both now applied to the live project.
 2. **Live EUR transaction** (`P0-LIVE-TRANSACTION`): charge → cancel → reactivate
    → payment recovery → **late failure after recovery** → refund, per
-   `docs/runbooks/live-transaction-rehearsal.md`.
+   `docs/runbooks/live-transaction-rehearsal.md`. **PARTIAL — 2026-08-01.**
+   Steps 1–4 verified live end-to-end against Stripe *and* the app:
+   - Step 1 charge: €9.99 EUR Succeeded (Aug 1 1:03 PM); `customer.subscription.created` → 200; Premium granted; renews 2026-09-01. No duplicate charge.
+   - Step 2 cancel: `cancel_at_period_end`; access retained to 2026-09-01; `customer.subscription.updated` → 200 (1:28 PM); one cancellation email, no dupes.
+   - Step 3 unsubscribe: optional reminder suppressed (040 marker); billing/account mail still arrives; no duplicate mail.
+   - Step 4 reactivate: active again, **no second charge** (single €9.99 confirmed in Stripe Payments); no unexpected mail.
+   Steps 5–6 (failure→recovery, late-failure redelivery) **DEFERRED** — proven
+   by `tests/billing-lifecycle-order.test.ts`; live/test-clock redelivery not yet
+   witnessed. Accepted-risk-grade for capped beta; still required before full GO
+   on unrestricted public paid. Step 7 refund of the live €9.99 pending as cleanup.
 3. **Reminder rehearsal** (`P1-REMINDER-REHEARSAL`): a duplicate eligible cron
    run (dedupe key holds) and a forced provider failure (retry/backoff →
    dead-letter), per `docs/ops-cron.md`.
