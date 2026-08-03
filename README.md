@@ -5,6 +5,25 @@ realistic plan for food, energy, mood and habits — adapted to how the day
 actually feels. Not a diet app, macro tracker, therapy tool or medical
 service.
 
+## Update — v13 (2026-08-03)
+
+The **v13 launch-hardening pass** is merged to `main` (journal-reflection output
+safety + usage lifecycle, Next 16.2.12 security patch with 0 production audit
+vulns, release-truth consistency gate, adaptive-day metadata). Full record:
+[`docs/release/v13/HANDOFF-v13.md`](docs/release/v13/HANDOFF-v13.md) and
+[`docs/release/manifest.v13.json`](docs/release/manifest.v13.json).
+
+**Pricing is now USD-first dual-currency** (not EUR-only). US/rest-of-world pay
+**$12.99/mo · $129.99/yr**; EU/EEA buyers pay **€11.99/mo · €119.99/yr** on the
+same Stripe price ids via `currency_options`, gated by `EUR_PRICING_ENABLED`.
+Live-verified against Stripe 2026-08-03. See `src/lib/stripe/currency.ts` +
+`docs/release/v13/HANDOFF-v13.md` §2.
+
+Remaining gap to a clean beta **GO** (still CONDITIONAL below): run the
+authenticated E2E matrix (`npm run test:e2e:matrix`) once at the pinned v13
+candidate against a seeded non-production Supabase, then freeze the manifest.
+The section below is the last frozen v12 record and is kept for history.
+
 ## Status — v12 candidate `745b4a4`, 2026-07-31
 
 | Tier | Verdict |
