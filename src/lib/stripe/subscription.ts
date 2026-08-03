@@ -47,7 +47,7 @@ export async function getUserSubscriptionStatus(
   userId: string
 ): Promise<UserSubscriptionStatus> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("subscriptions")
     .select(
       "status, trial_start, trial_end, current_period_end, cancel_at_period_end, plan_name, trial_days"
@@ -55,7 +55,10 @@ export async function getUserSubscriptionStatus(
     .eq("user_id", userId)
     .maybeSingle();
 
-  const status = (data?.status as SubscriptionStatus) ?? "none";
+  // MW-04: fail closed on a read error. An unverifiable status resolves to
+  // "none", whose entitlement grants no premium generation — we never assume
+  // Premium (or a trial) we could not confirm.
+  const status = (error ? "none" : (data?.status as SubscriptionStatus)) ?? "none";
   const entitlement = entitlementFor(status);
   const isPremium = entitlement.generate;
   const trialEndsAt = data?.trial_end ?? null;
@@ -93,37 +96,45 @@ export async function getUserPlan(userId: string): Promise<PlanTier> {
   return plan;
 }
 
-async function countAllTime(userId: string, table: "daily_plans") {
+// MW-04: a failed count returns null (NOT 0). A swallowed error that became 0
+// would read as "no usage yet" and grant an extra free generation, so callers
+// must treat null as "cannot verify" and deny.
+async function countAllTime(userId: string, table: "daily_plans"): Promise<number | null> {
   const supabase = await createClient();
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from(table)
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId);
+  if (error) return null;
   return count ?? 0;
 }
 
-async function countThisMonth(userId: string, table: "weekly_plans") {
+async function countThisMonth(userId: string, table: "weekly_plans"): Promise<number | null> {
   const supabase = await createClient();
   const monthStart = format(startOfMonth(new Date()), "yyyy-MM-dd");
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from(table)
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
     .gte("week_start", monthStart);
+  if (error) return null;
   return count ?? 0;
 }
 
 export async function canGenerateDailyPlan(userId: string): Promise<boolean> {
   const plan = await getUserPlan(userId);
   if (plan === "premium") return true;
-  // Sample: one lifetime preview plan.
+  // Sample: one lifetime preview plan. Fail closed if the quota read failed —
+  // a count we could not verify must never grant a generation.
   const used = await countAllTime(userId, "daily_plans");
+  if (used === null) return false;
   return used < PLAN_LIMITS.sample.dailyPlansTotal;
 }
 
 export async function canGenerateWeeklyPlan(userId: string): Promise<boolean> {
   const plan = await getUserPlan(userId);
   const used = await countThisMonth(userId, "weekly_plans");
+  if (used === null) return false; // fail closed on an unverifiable quota
   return used < PLAN_LIMITS[plan].weeklyPlansPerMonth;
 }
 

@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { classifyBillingRead } from "@/lib/stripe/billing-state";
 import {
   chargeDateFor,
   publicTrialDays,
@@ -27,6 +28,12 @@ export interface TrialDisclosure {
   chargeDate: string | null;
   /** Assigned cohort code, for server-side instrumentation only. */
   variant: TrialVariant | null;
+  /**
+   * MW-04: true when the billing read failed, so eligibility could not be
+   * verified. Surfaces must render this honestly (a "try again" state) rather
+   * than promising a trial the account may not be eligible for.
+   */
+  unavailable: boolean;
 }
 
 export async function trialDisclosureForViewer(): Promise<TrialDisclosure> {
@@ -42,20 +49,36 @@ export async function trialDisclosureForViewer(): Promise<TrialDisclosure> {
       days,
       chargeDate: days === null ? null : chargeDateFor(days),
       variant: null,
+      unavailable: false,
     };
   }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("subscriptions")
     .select("trial_used_at, trial_variant, trial_days")
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const resolved = resolveTrialConfig({ userId: user.id, pinned: data });
+  const billing = classifyBillingRead(data, error);
+  if (billing.state === "unavailable") {
+    // Never promise a trial we could not verify the account is still eligible
+    // for. trialEligible=false means no trial CTA; `unavailable` lets the page
+    // explain why instead of falsely claiming the trial was already used.
+    return {
+      trialEligible: false,
+      days: null,
+      chargeDate: null,
+      variant: null,
+      unavailable: true,
+    };
+  }
+
+  const resolved = resolveTrialConfig({ userId: user.id, pinned: billing.row });
   return {
-    trialEligible: !data?.trial_used_at,
+    trialEligible: !billing.row?.trial_used_at,
     days: resolved.days,
     chargeDate: chargeDateFor(resolved.days),
     variant: resolved.variant,
+    unavailable: false,
   };
 }

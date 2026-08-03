@@ -45,7 +45,7 @@ export default async function PricingPage() {
   // trial copy (Prompt 3). MW-V10-02: the trial LENGTH and charge date come
   // from the same server resolution, so a cohort never sees the other arm's
   // number. The checkout route re-checks both server-side either way.
-  const { trialEligible, days: trialDays, chargeDate } =
+  const { trialEligible, days: trialDays, chargeDate, unavailable } =
     await trialDisclosureForViewer();
   // USD-first; EU/EEA visitors see EUR when EUR pricing is enabled.
   const currency = await serverCurrency();
@@ -77,9 +77,11 @@ export default async function PricingPage() {
               : "Choose the plan that fits now."}
           </h1>
           <p className="mt-2 text-[#6B7280]">
-            {trialEligible
-              ? "Both plans include the same Premium features. Choose how often you want to be billed."
-              : "You've already used your free trial, so billing begins today. The exact amount is shown before checkout."}
+            {unavailable
+              ? "We couldn't confirm your trial eligibility right now. You can still choose a plan — the exact terms are shown before checkout."
+              : trialEligible
+                ? "Both plans include the same Premium features. Choose how often you want to be billed."
+                : "You've already used your free trial, so billing begins today. The exact amount is shown before checkout."}
           </p>
         </div>
 

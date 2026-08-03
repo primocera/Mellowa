@@ -69,6 +69,7 @@ export default async function BillingPage({
     trialEligible,
     days: trialDays,
     chargeDate,
+    unavailable: trialUnavailable,
   } = await trialDisclosureForViewer();
 
   const isTrialing = sub.status === "trialing";
@@ -160,11 +161,13 @@ export default async function BillingPage({
                 <p className="mt-3 text-sm text-[#6B7280]">
                   Your account, planning baseline and one lifetime sample daily
                   plan stay free — no payment method needed for those.{" "}
-                  {trialEligible
-                    ? `${startTrialCta(
-                        trialDays
-                      )} to create new daily plans, shape the week and use reflections — personalized plans come with fair-use safeguards.`
-                    : "You've already used your one Premium trial, so a new subscription is charged from day one. Premium unlocks new daily plans, weekly structure and reflections, with fair-use safeguards."}
+                  {trialUnavailable
+                    ? "We couldn't confirm your trial eligibility right now. Premium unlocks new daily plans, weekly structure and reflections, with fair-use safeguards — the exact charge terms are shown before checkout."
+                    : trialEligible
+                      ? `${startTrialCta(
+                          trialDays
+                        )} to create new daily plans, shape the week and use reflections — personalized plans come with fair-use safeguards.`
+                      : "You've already used your one Premium trial, so a new subscription is charged from day one. Premium unlocks new daily plans, weekly structure and reflections, with fair-use safeguards."}
                 </p>
                 <div className="mt-4 space-y-2">
                   <UpgradeButton
