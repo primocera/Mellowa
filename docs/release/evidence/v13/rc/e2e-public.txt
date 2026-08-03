@@ -1,0 +1,2 @@
+# npm run test:e2e:public @ 940cb94a69a171a4174a06fa96bf60959b5d8542 (2026-08-03)
+75 passed (1.5m) — 25 tests across desktop/375/320

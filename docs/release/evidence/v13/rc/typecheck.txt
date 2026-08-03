@@ -1,0 +1,4 @@
+# npm run typecheck @ 940cb94a69a171a4174a06fa96bf60959b5d8542 (2026-08-03)
+> dailyflow-ai@0.1.0 typecheck
+> tsc --noEmit
+

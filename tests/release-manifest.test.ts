@@ -817,3 +817,65 @@ describe("the human launch documents agree with the manifest", () => {
     expect(v10).toContain("launch-go-no-go-v11.md");
   });
 });
+
+describe("the draft v13 candidate manifest", () => {
+  const V13_PATH = "docs/release/manifest.v13.json";
+  const manifest = JSON.parse(readFileSync(V13_PATH, "utf8")) as ReleaseManifest;
+
+  it("is internally consistent", () => {
+    const violations = validateReleaseManifest(manifest);
+    expect(
+      violations,
+      `v13 manifest violations: ${violations.map((v) => `${v.rule}: ${v.message}`).join(" | ")}`,
+    ).toEqual([]);
+  });
+
+  it("records the v12 baseline and a real 40-char candidate that is not the baseline", () => {
+    expect(manifest.baselineSha).toBe("74080e0073d2215f84ba8356b44af33747449ff0");
+    expect(manifest.rcSha).toMatch(/^[0-9a-f]{40}$/);
+    expect(manifest.rcSha).not.toBe(manifest.baselineSha);
+    // Nothing is GO while owner blockers remain open.
+    expect(manifest.verdicts.public_paid).not.toBe("GO");
+  });
+
+  it("keeps every passing claim tied to a raw artifact that exists", () => {
+    for (const suite of manifest.suites) {
+      if (!isPassing(suite.status)) continue;
+      if (!suite.evidence?.startsWith("docs/")) continue;
+      const path = suite.evidence.split(" ")[0];
+      expect(() => readFileSync(path, "utf8"), `${suite.id}: ${path} missing`).not.toThrow();
+    }
+  });
+
+  it("keeps the authenticated matrix blocked and its blocker open at the v13 candidate", () => {
+    const auth = manifest.suites.find((s) => s.id === "e2e-authenticated");
+    expect(auth).toBeDefined();
+    expect(isPassing(auth!.status)).toBe(false);
+    expect(auth!.note).toBeTruthy();
+    expect(manifest.blockers.some((b) => b.id === "P1-AUTH-E2E-AT-HEAD")).toBe(true);
+  });
+
+  it("records the v13 P0 closures with a closedBy and evidence", () => {
+    const ids = (manifest.closedBlockers ?? []).map((b) => b.id);
+    for (const id of [
+      "P0-JOURNAL-REFLECTION-LIFECYCLE",
+      "P0-NEXT-ADVISORIES",
+      "P0-RELEASE-TRUTH-CONTRADICTIONS",
+    ]) {
+      expect(ids, `v13 should record ${id} as closed`).toContain(id);
+    }
+    for (const b of manifest.closedBlockers ?? []) {
+      expect(b.closedBy, `${b.id} missing closedBy`).toBeTruthy();
+      expect(b.evidence, `${b.id} missing evidence`).toBeTruthy();
+    }
+  });
+
+  it("never presents an accepted risk as closed", () => {
+    const closed = new Set((manifest.closedBlockers ?? []).map((b) => b.id));
+    const open = new Set(manifest.blockers.map((b) => b.id));
+    for (const r of manifest.acceptedRisks ?? []) {
+      expect(open, `${r.blockerId} accepted but not open`).toContain(r.blockerId);
+      expect(closed, `${r.blockerId} accepted AND closed`).not.toContain(r.blockerId);
+    }
+  });
+});
