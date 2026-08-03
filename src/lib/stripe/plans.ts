@@ -185,12 +185,10 @@ export const CATALOG = {
   },
   eur: {
     symbol: "€",
-    // EUR monthly is the currency_option amount on the monthly price. Confirm
-    // against Stripe with `npm run verify-prices` before enabling EUR.
+    // EUR amounts are currency_options on the same monthly/yearly prices.
+    // Confirm against Stripe with `npm run verify-prices` before enabling EUR.
     monthly: { minorUnits: 1199, display: "€11.99", interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY" },
-    // No EUR currency_option on the yearly price yet — yearly shows/charges USD
-    // until the owner adds one. Kept for a uniform shape.
-    yearly: { minorUnits: null, display: null, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY" },
+    yearly: { minorUnits: 11999, display: "€119.99", interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY" },
   },
 } as const;
 
@@ -216,8 +214,7 @@ export function pricingFor(currency: Currency = DEFAULT_CURRENCY) {
     },
     yearly: {
       name: "Mellowa Yearly",
-      // Yearly is USD-only for now; always show the USD yearly price.
-      price: priceDisplay(DEFAULT_CURRENCY, "yearly"),
+      price: priceDisplay(currency, "yearly"),
       cadence: "/year",
       note: "Save 50% compared to monthly",
       features: PREMIUM_FEATURES,
@@ -242,6 +239,6 @@ export const BILLING_CONTRACT = {
   },
   eur: {
     monthly: { minorUnits: 1199, interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY" },
-    yearly: { minorUnits: null, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY" },
+    yearly: { minorUnits: 11999, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY" },
   },
 } as const;

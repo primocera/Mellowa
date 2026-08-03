@@ -137,9 +137,8 @@ export default async function LandingPage() {
           },
           {
             "@type": "Offer",
-            // Yearly is USD-only today.
             price: PRICING.yearly.price.replace(/[^0-9.]/g, ""),
-            priceCurrency: "USD",
+            priceCurrency: currency.toUpperCase(),
             name: PRICING.yearly.name,
           },
         ],

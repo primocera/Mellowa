@@ -60,7 +60,7 @@ if (!secret) {
 const CONTRACT = {
   plans: [
     { label: "monthly", envVar: "STRIPE_PRICE_PRO_MONTHLY", interval: "month", usd: 1299, usdDisplay: "$12.99", eur: 1199, eurDisplay: "€11.99" },
-    { label: "yearly", envVar: "STRIPE_PRICE_PRO_YEARLY", interval: "year", usd: 12999, usdDisplay: "$129.99", eur: null, eurDisplay: null },
+    { label: "yearly", envVar: "STRIPE_PRICE_PRO_YEARLY", interval: "year", usd: 12999, usdDisplay: "$129.99", eur: 11999, eurDisplay: "€119.99" },
   ],
 };
 

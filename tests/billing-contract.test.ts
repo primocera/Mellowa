@@ -52,12 +52,16 @@ describe("EUR (region) display and contract agree", () => {
     expect(render(BILLING_CONTRACT.eur.monthly.minorUnits)).toBe(priceDisplay("eur", "monthly"));
   });
 
-  it("has no EUR yearly price yet, so yearly falls back to the USD display", () => {
-    expect(BILLING_CONTRACT.eur.yearly.minorUnits).toBeNull();
-    // pricingFor(eur) shows the USD yearly price because EUR yearly is not offered.
-    expect(pricingFor("eur").yearly.price).toBe("$129.99");
-    // ...but the monthly price is EUR.
+  it("yearly display matches the EUR contract amount", () => {
+    expect(priceDisplay("eur", "yearly")).toBe("€119.99");
+    expect(BILLING_CONTRACT.eur.yearly.minorUnits).toBe(11999);
+    const render = (minor: number) => `€${(minor / 100).toFixed(2)}`;
+    expect(render(BILLING_CONTRACT.eur.yearly.minorUnits!)).toBe(priceDisplay("eur", "yearly"));
+  });
+
+  it("pricingFor(eur) quotes both intervals in euro", () => {
     expect(pricingFor("eur").monthly.price).toBe("€11.99");
+    expect(pricingFor("eur").yearly.price).toBe("€119.99");
   });
 });
 
