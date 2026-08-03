@@ -173,9 +173,10 @@ export function premiumProblemFor(capability: string): string | null {
  * the real Stripe price's currency_options, and `tests/billing-contract.test.ts`
  * pins the display strings to the minor units.
  *
- * NOTE: the EUR amount must be attached as a currency_option on BOTH the monthly
- * and yearly prices before EUR_PRICING_ENABLED is turned on. `yearly.eur` below
- * is null until the owner adds a EUR option + amount to the yearly price.
+ * NOTE: both the monthly and yearly EUR amounts are authored below and must be
+ * attached as `currency_options` on the matching Stripe prices before
+ * EUR_PRICING_ENABLED is turned on. `npm run verify-prices` fails closed if a
+ * EUR amount named here is missing on Stripe (see MW-05).
  */
 export const CATALOG = {
   usd: {
@@ -200,6 +201,88 @@ export function priceDisplay(currency: Currency, interval: Interval): string {
 }
 
 /**
+ * Format catalog minor units as a display string in that currency, e.g.
+ * (usd, 1299) -> "$12.99". Decimal-safe: the amount is an integer number of
+ * minor units and `toFixed(2)` only divides by 100, so no binary-float money
+ * math and no rounding of the authored price ever happens here.
+ */
+export function formatMinorUnits(currency: Currency, minorUnits: number): string {
+  return `${CATALOG[currency].symbol}${(minorUnits / 100).toFixed(2)}`;
+}
+
+/**
+ * Every yearly-vs-monthly number a surface might show, derived from the ONE
+ * catalog per currency. All arithmetic is on integer minor units; only the
+ * final display strings divide by 100. Nothing here reads a localized display
+ * string back into a number, and the percentage is derived — never a hardcoded
+ * "Save 50%" (the real saving at current amounts is ~16.6%).
+ */
+export interface PlanSavings {
+  currency: Currency;
+  monthlyMinor: number;
+  yearlyMinor: number;
+  /** yearly price spread across 12 months (rounded to whole minor units). */
+  yearlyMonthlyEquivMinor: number;
+  /** what 12 monthly charges would cost. */
+  twelveMonthTotalMinor: number;
+  /** twelveMonthTotal - yearly, i.e. the actual saving. */
+  absoluteSavingMinor: number;
+  /** absoluteSaving / twelveMonthTotal, rounded to a whole percent. */
+  percentSaving: number;
+  monthlyDisplay: string;
+  yearlyDisplay: string;
+  monthlyEquivDisplay: string;
+  twelveMonthTotalDisplay: string;
+  absoluteSavingDisplay: string;
+}
+
+export function planSavings(currency: Currency = DEFAULT_CURRENCY): PlanSavings {
+  const monthlyMinor = CATALOG[currency].monthly.minorUnits;
+  const yearlyMinor = CATALOG[currency].yearly.minorUnits;
+  const twelveMonthTotalMinor = monthlyMinor * 12;
+  const absoluteSavingMinor = twelveMonthTotalMinor - yearlyMinor;
+  const yearlyMonthlyEquivMinor = Math.round(yearlyMinor / 12);
+  const percentSaving =
+    twelveMonthTotalMinor > 0
+      ? Math.round((absoluteSavingMinor / twelveMonthTotalMinor) * 100)
+      : 0;
+  return {
+    currency,
+    monthlyMinor,
+    yearlyMinor,
+    yearlyMonthlyEquivMinor,
+    twelveMonthTotalMinor,
+    absoluteSavingMinor,
+    percentSaving,
+    monthlyDisplay: formatMinorUnits(currency, monthlyMinor),
+    yearlyDisplay: formatMinorUnits(currency, yearlyMinor),
+    monthlyEquivDisplay: formatMinorUnits(currency, yearlyMonthlyEquivMinor),
+    twelveMonthTotalDisplay: formatMinorUnits(currency, twelveMonthTotalMinor),
+    absoluteSavingDisplay: formatMinorUnits(currency, absoluteSavingMinor),
+  };
+}
+
+/**
+ * Ready-to-render yearly savings copy for a single currency. Every string is
+ * one currency throughout — a USD viewer never sees a euro figure and vice
+ * versa — because it all comes from `planSavings(currency)`.
+ */
+export function savingsCopy(currency: Currency = DEFAULT_CURRENCY) {
+  const s = planSavings(currency);
+  return {
+    /** short badge, e.g. "Save $25.89". */
+    badge: `Save ${s.absoluteSavingDisplay}`,
+    /** e.g. "About $10.83/month". */
+    monthlyEquivShort: `About ${s.monthlyEquivDisplay}/month`,
+    /** full, checkable monthly-equivalent note. */
+    monthlyEquivNote: `About ${s.monthlyEquivDisplay}/month, billed yearly — ${s.yearlyDisplay} instead of ${s.twelveMonthTotalDisplay} (12 × ${s.monthlyDisplay}).`,
+    /** full, checkable one-line arithmetic. */
+    arithmetic: `${s.yearlyDisplay}/year instead of ${s.twelveMonthTotalDisplay} (12 × ${s.monthlyDisplay}) — you save ${s.absoluteSavingDisplay}.`,
+    savings: s,
+  } as const;
+}
+
+/**
  * PRICING shaped per currency, for a pricing/paywall surface. USD is the
  * default so existing (region-unaware) callers keep working unchanged.
  */
@@ -216,7 +299,9 @@ export function pricingFor(currency: Currency = DEFAULT_CURRENCY) {
       name: "Mellowa Yearly",
       price: priceDisplay(currency, "yearly"),
       cadence: "/year",
-      note: "Save 50% compared to monthly",
+      // Derived from the catalog, never a hardcoded percent. At current amounts
+      // the real saving is ~16.6%, so "Save 50%" would be false.
+      note: savingsCopy(currency).badge,
       features: PREMIUM_FEATURES,
     },
   } as const;

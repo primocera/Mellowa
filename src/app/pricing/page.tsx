@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Check } from "lucide-react";
-import { pricingFor, premiumProblemFor } from "@/lib/stripe/plans";
+import { pricingFor, premiumProblemFor, savingsCopy } from "@/lib/stripe/plans";
 import { serverCurrency } from "@/lib/stripe/currency-server";
 import { UpgradeButton } from "@/components/dailyflow/upgrade-button";
 import { isYearlyEmphasisEnabled } from "@/lib/flags";
@@ -48,7 +48,11 @@ export default async function PricingPage() {
   const { trialEligible, days: trialDays, chargeDate } =
     await trialDisclosureForViewer();
   // USD-first; EU/EEA visitors see EUR when EUR pricing is enabled.
-  const PRICING = pricingFor(await serverCurrency());
+  const currency = await serverCurrency();
+  const PRICING = pricingFor(currency);
+  // All yearly savings figures derive from this one currency's catalog, so the
+  // page never mixes a USD price with a EUR saving. See src/lib/stripe/plans.ts.
+  const savings = savingsCopy(currency);
   // MW-V9-08: by default (flag OFF) Monthly is presented first and carries the
   // visual emphasis; we don't aggressively steer to Yearly until retention and
   // unit economics justify it. FLAG_EMPHASIZE_YEARLY=1 flips the emphasis.
@@ -138,15 +142,15 @@ export default async function PricingPage() {
             </p>
             <p className="mt-1 text-sm text-[#7C9A92]">
               {trialEligible
-                ? `About €5.00/month • ${trialThenPriceLine(
+                ? `${savings.monthlyEquivShort} • ${trialThenPriceLine(
                     trialDays,
                     PRICING.yearly.price,
                     "year"
                   )}`
-                : "About €5.00/month • Billed yearly, starting today"}
+                : `${savings.monthlyEquivShort} • Billed yearly, starting today`}
             </p>
             <p className="mt-1 text-xs text-[#6B7280]">
-              €59.99/year instead of €119.88 (12 × €9.99) — you save €59.89.
+              {savings.arithmetic}
             </p>
             <FeatureList features={PRICING.yearly.features} />
             <div className="mt-6">

@@ -245,7 +245,7 @@ export function startTrialCta(days: number | null): string {
     : `Start free ${trialLengthAdjective(days)} trial`;
 }
 
-/** e.g. "3 days free, then €9.99 each month". */
+/** e.g. "3 days free, then $12.99 each month" (currency comes from `price`). */
 export function trialThenPriceLine(
   days: number | null,
   price: string,

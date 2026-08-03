@@ -89,9 +89,30 @@ describe("MW-01: exact plan output categories and honest boundaries", () => {
 
 describe("honest, evidence-based claims", () => {
   it("makes the annual saving mathematically explicit on both surfaces", () => {
-    expect(landing).toContain("€119.88");
-    expect(landing).toContain("€59.89");
-    expect(pricing).toContain("€119.88");
+    // The saving is derived per-currency from the catalog (savingsCopy), not
+    // written as a literal — so a US viewer sees the USD arithmetic and an EU
+    // viewer sees the EUR arithmetic from the SAME code path.
+    expect(landing).toContain("savingsCopy");
+    expect(landing).toMatch(/savings\.(badge|monthlyEquivNote)/);
+    expect(pricing).toContain("savingsCopy");
+    expect(pricing).toContain("savings.arithmetic");
+  });
+
+  it("has no hardcoded old price/saving literals in the customer surfaces", () => {
+    // MW-02: the stale EUR-only math (€9.99/€59.99/€119.88/€59.89/About €5.00/
+    // Save 50%) once lived in JSX and a currency-agnostic percent claim. Every
+    // one of these must now come from the currency-aware catalog instead.
+    for (const stale of [
+      "€9.99",
+      "€59.99",
+      "€119.88",
+      "€59.89",
+      "€5.00/month",
+      "Save 50%",
+    ]) {
+      expect(landing, `landing still hardcodes ${stale}`).not.toContain(stale);
+      expect(pricing, `pricing still hardcodes ${stale}`).not.toContain(stale);
+    }
   });
 
   it("keeps payment/renewal disclosure next to the CTA", () => {

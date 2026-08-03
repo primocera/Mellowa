@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { readLegalConfig } from "@/lib/legal/config";
-import { pricingFor } from "@/lib/stripe/plans";
+import { pricingFor, savingsCopy } from "@/lib/stripe/plans";
 import { serverCurrency } from "@/lib/stripe/currency-server";
 import { TERMS, joinSentences } from "@/lib/content/terminology";
 import {
@@ -109,6 +109,10 @@ export default async function LandingPage() {
   // USD-first; EU/EEA visitors see EUR when EUR pricing is enabled.
   const currency = await serverCurrency();
   const PRICING = pricingFor(currency);
+  // Yearly savings copy, derived entirely from the resolved currency's catalog
+  // so the whole card stays in one currency (never a USD price beside a EUR
+  // saving). See src/lib/stripe/plans.ts.
+  const savings = savingsCopy(currency);
   // MW-V10-02: the landing page has no user, so it names the trial length only
   // while no cohort experiment is running (the default). Once one is, it
   // promises the exact length before checkout rather than guessing an arm.
@@ -387,7 +391,7 @@ export default async function LandingPage() {
             <div className="flex items-center justify-between">
               <h3 className="font-medium">{PRICING.yearly.name}</h3>
               <span className="rounded-full bg-[#7C9A92]/10 px-2.5 py-0.5 text-xs font-medium text-[#6D8C7D]">
-                Save €59.89
+                {savings.badge}
               </span>
             </div>
             <p className="mt-1 text-2xl font-semibold">
@@ -396,9 +400,10 @@ export default async function LandingPage() {
             </p>
             <p className="mt-1 text-sm text-[#6B7280]">
               {/* The explicit arithmetic stays: a "50% saving" a reader cannot
-                  check is a marketing claim, and this one is checkable. */}
+                  check is a marketing claim, and this one is checkable. Every
+                  number here is derived from the resolved currency's catalog. */}
               {joinSentences(
-                `About €5.00/month, billed yearly — ${PRICING.yearly.price} instead of €119.88 (12 × ${PRICING.monthly.price}).`,
+                savings.monthlyEquivNote,
                 `${trialThenPriceLine(trialDays, PRICING.yearly.price, "year")}.`
               )}
             </p>

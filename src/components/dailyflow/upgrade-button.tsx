@@ -51,7 +51,7 @@ export function UpgradeButton({
 }: {
   interval: "monthly" | "yearly";
   label: string;
-  /** e.g. "€9.99" — shown in the confirmation before redirect. */
+  /** e.g. "$12.99" — shown in the confirmation before redirect. */
   amount: string;
   /** e.g. "/month" — shown after the amount. */
   cadence: string;
