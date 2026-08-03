@@ -41,6 +41,37 @@ pricing. **Do not change €9.99/€59.99 without four-week evidence + owner sig
 | Email outbox / dead-letters | outbox table backlog | dead-letter growth |
 | Cron health | pinger heartbeats | a scheduled job misses its window |
 
+## Stuck AI usage reservations (MW-P1-10 / ties to MW-P0-01)
+
+Every AI route reserves a `claim_ai_generation` row and MUST finalize or release
+it on every terminal path. MW-P0-01 completed this for journal-reflection. Watch
+for orphans with `docs/runbooks/ai-usage-health-queries.sql`:
+
+| Signal | Query | Alert when | Owner action |
+|---|---|---|---|
+| Stuck reserved usage | query 1 | any row `reserved` > 5 min | investigate the route's finalize/finally path; the row inflates quota/ceiling |
+| Reserved-vs-terminal ratio | query 2 | any route with a non-trivial `still_reserved` in 24h | a route is leaking reservations |
+| Journal safety-block rate | query 3 | `safety_blocked` share spikes vs baseline | prompt/model regression — inspect counts, never content |
+| Finalize failure | query 4 + app log `[ai] finalize_ai_usage failed` | any lingering row | ledger write is failing; check admin RPC / DB |
+
+Alerts use redacted identifiers only — never journal, plan, prompt or reflection
+text. Escalation: owner, same-day; a rising stuck-reservation trend is a launch
+stop condition for the affected route.
+
+## Owner-run drills (scripted, not executed by Claude)
+
+- Reminder duplicate-eligibility + forced provider failure: worksheet in
+  `docs/ops-cron.md`, queries in `docs/runbooks/reminder-rehearsal-queries.sql`
+  (dedupe **key** isolation; transient → retry/backoff → success; permanent →
+  dead-letter → recovery). Use a test recipient; never real customer reminders.
+- Isolated backup restore with measured RTO/RPO: `docs/runbooks/restore-verification.sql`
+  against a non-production target; never overwrite production.
+- Per-secret key rotation with overlap + validation + rollback:
+  `docs/runbooks/key-rotation-and-backup.md` + `scripts/secret-fingerprint.mjs`
+  (identity check, never prints a value). Gated by `tests/resilience-beta.test.ts`.
+  **Do not rotate keys except in an owner-approved operation.** Tested RTO/RPO stay
+  blank (P1-ROTATION-RESTORE accepted risk) until the owner runs the drill.
+
 ## Known follow-up
 
 - **Ceiling-denial counting**: a denied claim writes no ledger row, so
