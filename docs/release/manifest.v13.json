@@ -178,7 +178,7 @@
       "level": "P1",
       "title": "The full authenticated matrix has not run in one unattended sweep at the v13 candidate.",
       "owner": "Eng + Owner (env)",
-      "blocks": ["public_paid"],
+      "blocks": ["capped_beta", "public_paid"],
       "acceptance": "The full authenticated matrix run at the v13 candidate SHA with raw artifacts, via npm run test:e2e:matrix against a seeded non-production Supabase, including a journal-reflection entitlement/safety journey."
     },
     {
@@ -248,9 +248,9 @@
     {
       "blockerId": "P1-AUTH-E2E-AT-HEAD",
       "acceptedBy": "Primoz Cerar",
-      "acceptedOnUtc": "2026-07-28T00:00:00Z",
-      "tiers": ["public_paid"],
-      "rationale": "No authenticated journey is red; what keeps this open is that the full matrix has never executed unattended in one pass at a single SHA, because it needs a seeded non-production Supabase. MW-V12-02 made this a runnable, fail-closed step (canonical matrix, blocking runner, integrity test, marker-guarded seed). The gap is now purely that the owner has not yet run it against an env at the v13 candidate, and a journal-reflection journey should be added there. Standing 2026-07-28 acceptance carried into v13; to be run before anyone other than the owner uses the suite."
+      "acceptedOnUtc": "2026-08-03T00:00:00Z",
+      "tiers": ["capped_beta", "public_paid"],
+      "rationale": "No authenticated journey is red; what keeps this open is that the full matrix has never executed unattended in one pass at a single SHA, because it needs a seeded non-production Supabase. The owner's Supabase free plan allows only 2 projects and both are in use (Scalvya + Mellowa production), so a throwaway cloud project is not available; the runnable path is a local Supabase (CLI/Docker) or a future paid/non-prod project. MW-V12-02 made this a runnable, fail-closed step (canonical matrix, blocking runner, integrity test, marker-guarded seed that refuses production). For the CAPPED BETA tier the owner accepts this on 2026-08-03: the cohort is <=50 invited, contactable users, the billing/auth flows are covered by route/unit tests and were exercised live (incl. the EU EUR checkout on 2026-08-03), monitoring + flag-based rollback are in place, and any anomaly is individually recoverable at that scale. It stays accepted (not closed) and must be run at a local or non-prod Supabase, with a journal-reflection authenticated journey added, before UNRESTRICTED PUBLIC PAID scales beyond a contactable cohort."
     },
     {
       "blockerId": "P1-REMINDER-REHEARSAL",
