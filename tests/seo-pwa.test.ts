@@ -50,6 +50,20 @@ describe("metadata + social", () => {
     expect(src).toContain('card: "summary_large_image"');
   });
 
+  it("root metadata leads with the adaptive-day wedge, not the generic planner line (MW-P1-08)", () => {
+    const layout = readFileSync("src/app/layout.tsx", "utf8");
+    const manifest = readFileSync("src/app/manifest.ts", "utf8");
+    // The retired generic positioning must not return in root metadata or the PWA manifest.
+    expect(layout).not.toContain("A simple daily plan for food, energy, mood and habits");
+    expect(manifest).not.toContain("A simple daily plan for food, energy, mood and habits");
+    // The wedge is present.
+    expect(layout).toMatch(/reshape what|when your day changes/i);
+    expect(manifest).toMatch(/reshape what|when your day changes/i);
+    // The safety boundary is stated once, as a disclaimer — not a medical claim.
+    expect(layout).toMatch(/not medical care/i);
+    expect(layout).not.toMatch(/\b(cure|treats?|diagnos\w+)\s+(your|anxiety|depression|disease)/i);
+  });
+
   it("branded OG image is 1200x630 and carries no fabricated stats", () => {
     const src = readFileSync("src/app/opengraph-image.tsx", "utf8");
     expect(src).toContain("width: 1200, height: 630");

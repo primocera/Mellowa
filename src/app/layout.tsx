@@ -30,9 +30,9 @@ function buildId(): string {
  * launch-hardening one. It is recorded for the owner instead.
  */
 
-const TITLE = "Mellowa — A simple daily plan for food, energy, mood and habits";
+const TITLE = "Mellowa — Reshape what's left when your day changes";
 const DESCRIPTION =
-  "Realistic daily wellbeing plans that adapt to your energy, mood and schedule — without strict dieting or overwhelm.";
+  "When your day changes, Mellowa reshapes what's left without starting over — completed items stay done, with free Undo. Not medical care, therapy or emergency support.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

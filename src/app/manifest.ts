@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Mellowa",
     short_name: "Mellowa",
-    description: "A simple daily plan for food, energy, mood and habits.",
+    description: "When your day changes, reshape what's left without starting over.",
     start_url: "/today",
     display: "standalone",
     background_color: "#FAF7F2",
