@@ -54,3 +54,26 @@ describe("events from other products on the shared account are ignored", () => {
     expect(route).toMatch(/const email = await emailForCustomer\(/);
   });
 });
+
+describe("MW-03: subscription currency is trusted webhook data, not client input", () => {
+  it("reads the charged currency from the Stripe subscription object", () => {
+    // subscription.currency is the selected currency_option Stripe actually
+    // charges — never a value taken from the request body / a client.
+    expect(route).toMatch(/const chargedCurrency = subscription\.currency/);
+  });
+
+  it("persists that currency on the subscriptions row", () => {
+    expect(route).toMatch(/currency: chargedCurrency/);
+  });
+
+  it("stores no charged amount from the event — revenue is derived from the catalog", () => {
+    // The subscriptions upsert allowlist must not persist an amount pulled from
+    // the payload; analytics reads the price from the canonical catalog by
+    // currency+interval (see src/lib/analytics/metrics.ts), so there is no
+    // second, client-influenceable price record.
+    const start = route.indexOf('from("subscriptions").upsert');
+    expect(start, "subscriptions upsert not found").toBeGreaterThan(-1);
+    const objectBlock = route.slice(start, start + route.slice(start).indexOf("}"));
+    expect(objectBlock).not.toMatch(/amount/i);
+  });
+});

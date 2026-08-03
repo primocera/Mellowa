@@ -1,4 +1,6 @@
 import { FUNNELS, type AppEvent, type FunnelName } from "@/lib/analytics/taxonomy";
+import { CATALOG } from "@/lib/stripe/plans";
+import { CURRENCIES, type Currency } from "@/lib/stripe/currency";
 
 /**
  * Decision-ready metrics (Launch & Scale v6, Prompt 10). Pure module — every
@@ -72,6 +74,12 @@ export interface SubRow {
   /** MW-V10-02: pinned trial-length cohort, when the row has one. */
   trial_variant?: string | null;
   trial_days?: number | null;
+  /**
+   * MW-V13 (migration 042): the currency the subscription is actually charged
+   * in, written by the Stripe webhook. NULL on rows created before the column
+   * existed — treated as UNKNOWN for revenue (never silently USD).
+   */
+  currency?: string | null;
 }
 
 export interface CostRow {
@@ -243,51 +251,158 @@ export function churnCounts(rows: EventRow[]): Churn {
 
 // --- Unit economics ----------------------------------------------------------
 
-/** Published prices (EUR). Kept here so revenue estimates are explicit. */
-export const PLAN_PRICE_EUR: Record<string, number> = {
-  pro_monthly: 9.99,
-  pro_yearly: 59.99,
+/** plan_name -> billing interval, for reading the amount from the catalog. */
+const PLAN_INTERVAL: Record<string, "monthly" | "yearly"> = {
+  pro_monthly: "monthly",
+  pro_yearly: "yearly",
 };
-/** Monthly-normalized revenue so intervals are comparable. */
-const MONTHLY_FACTOR: Record<string, number> = {
-  pro_monthly: 1,
-  pro_yearly: 1 / 12,
-};
+/** Monthly-normalized weighting so a yearly plan is comparable to a monthly one. */
+const MONTHLY_FACTOR = { monthly: 1, yearly: 1 / 12 } as const;
+
+/** Monthly-normalized native revenue for one payer, or null when UNKNOWN. */
+function monthlyMinorFor(sub: SubRow): { currency: Currency; minor: number } | null {
+  const interval = sub.plan_name ? PLAN_INTERVAL[sub.plan_name] : undefined;
+  if (!interval) return null; // unrecognized plan → unknown revenue, not zero
+  const raw = (sub.currency ?? "").toLowerCase();
+  // An absent/unknown currency is NOT assumed to be USD: doing so would
+  // fabricate the charged amount for an EU payer. It is reported as unknown.
+  if (!(CURRENCIES as readonly string[]).includes(raw)) return null;
+  const currency = raw as Currency;
+  // The amount is the ONE catalog price for that currency+interval — the same
+  // number Stripe charges (display == charged, MW-02). No second price table,
+  // and the currency itself comes from trusted webhook data (migration 042).
+  const full = CATALOG[currency][interval].minorUnits;
+  return { currency, minor: full * MONTHLY_FACTOR[interval] };
+}
+
+/** Native monthly-normalized MRR for a single charged currency. */
+export interface CurrencyMrr {
+  currency: Currency;
+  activePayers: number;
+  /** monthly-normalized gross revenue, in that currency's minor units. */
+  mrrMinor: number;
+  /** decimal native amount; suppressed (null) below MIN_COHORT payers here. */
+  mrr: number | null;
+}
+
+/** An explicit, sourced FX rate — required before ANY cross-currency rollup. */
+export interface FxRate {
+  /** USD value of one major unit of each foreign currency, e.g. { eur: 1.08 }. */
+  usdPer: Partial<Record<Currency, number>>;
+  /** where the rate came from, e.g. "ECB reference rate". */
+  source: string;
+  /** the date/timestamp the rate is valid for. */
+  asOf: string;
+}
 
 export interface UnitEconomics {
+  /** Active payers with a known plan, across every currency incl. unknown. */
   activePayers: number;
-  /** Estimated monthly-normalized gross revenue, EUR. Excludes Stripe fees. */
-  mrrEur: number | null;
-  aiCostEur: number | null;
-  /** Estimated monthly gross contribution per active payer, EUR. */
-  contributionPerUserEur: number | null;
-  /** Truthfulness note: what this estimate does and does not include. */
+  /**
+   * Payers whose charged currency is not yet known (pre-042 rows): their
+   * revenue is UNKNOWN — excluded from MRR, never counted as zero.
+   */
+  unknownCurrencyPayers: number;
+  /** Native monthly-normalized MRR per currency. NEVER summed across currencies. */
+  mrrByCurrency: CurrencyMrr[];
+  /** Actual AI ledger spend, USD (provider estimate). */
+  aiCostUsd: number | null;
+  /**
+   * USD-normalized rollup. Present ONLY when an explicit FX rate is supplied;
+   * null otherwise (unknown, never zero). Labeled ESTIMATE because one
+   * point-in-time rate is applied to every currency. This is GROSS contribution
+   * — Stripe fees and refunds are not in the DB, so it is not net margin.
+   */
+  normalizedUsd: {
+    label: "ESTIMATE";
+    fx: FxRate;
+    mrrUsd: number | null;
+    contributionPerPayerUsd: number | null;
+  } | null;
+  /** Truthfulness note: what this does and does not include. */
   note: string;
 }
 
 /**
- * Estimate monthly gross contribution per active payer. Revenue is derived from
- * active/trialing paid subscriptions at published prices; cost is the actual AI
- * ledger. Stripe fees and refunds are NOT in the DB — excluded and flagged, so
- * the number is never presented as net margin.
+ * Monthly gross contribution, currency-honest. Revenue is derived from
+ * active paid subscriptions at the canonical catalog price IN EACH
+ * SUBSCRIPTION'S CHARGED CURRENCY, monthly-normalized, and reported per
+ * currency — a USD figure and a EUR figure are never summed into one number.
+ * A USD rollup is produced only when the caller supplies an explicit, sourced
+ * FX rate; without it the normalized total is unknown (null), never zero.
  */
-export function unitEconomics(subs: SubRow[], costs: CostRow[], eurPerUsd = 0.92): UnitEconomics {
+export function unitEconomics(
+  subs: SubRow[],
+  costs: CostRow[],
+  opts: { fx?: FxRate } = {}
+): UnitEconomics {
   const payers = subs.filter(
     (s) => s.status === "active" && (s.plan_name === "pro_monthly" || s.plan_name === "pro_yearly")
   );
-  const mrr = payers.reduce(
-    (sum, s) => sum + (PLAN_PRICE_EUR[s.plan_name!] ?? 0) * (MONTHLY_FACTOR[s.plan_name!] ?? 0),
-    0
-  );
+
+  const minorByCurrency = new Map<Currency, number>();
+  const payersByCurrency = new Map<Currency, number>();
+  let unknownCurrencyPayers = 0;
+  for (const s of payers) {
+    const m = monthlyMinorFor(s);
+    if (!m) {
+      unknownCurrencyPayers += 1;
+      continue;
+    }
+    minorByCurrency.set(m.currency, (minorByCurrency.get(m.currency) ?? 0) + m.minor);
+    payersByCurrency.set(m.currency, (payersByCurrency.get(m.currency) ?? 0) + 1);
+  }
+
+  const mrrByCurrency: CurrencyMrr[] = [...payersByCurrency.entries()]
+    .map(([currency, n]) => {
+      const mrrMinor = minorByCurrency.get(currency) ?? 0;
+      return { currency, activePayers: n, mrrMinor, mrr: suppress(round2(mrrMinor / 100), n) };
+    })
+    .sort((a, b) => a.currency.localeCompare(b.currency));
+
   const aiUsd = costs.reduce((sum, c) => sum + Number(c.estimated_cost_usd ?? 0), 0);
-  const aiEur = aiUsd * eurPerUsd;
-  const n = payers.length;
+  const totalPayers = payers.length;
+  const aiCostUsd = suppress(round2(aiUsd), totalPayers);
+
+  let normalizedUsd: UnitEconomics["normalizedUsd"] = null;
+  const fx = opts.fx;
+  if (fx) {
+    let usdMinor = 0;
+    let convertible = true;
+    for (const [currency, minor] of minorByCurrency) {
+      if (currency === "usd") {
+        usdMinor += minor;
+        continue;
+      }
+      const rate = fx.usdPer[currency];
+      // A missing rate for a currency that IS present yields unknown, never a
+      // partial rollup that silently drops that currency's revenue.
+      if (typeof rate !== "number") {
+        convertible = false;
+        break;
+      }
+      usdMinor += minor * rate;
+    }
+    const mrrUsd = convertible ? suppress(round2(usdMinor / 100), totalPayers) : null;
+    const contributionPerPayerUsd =
+      convertible && aiCostUsd !== null && mrrUsd !== null
+        ? suppress(round2((usdMinor / 100 - aiUsd) / (totalPayers || 1)), totalPayers)
+        : null;
+    normalizedUsd = { label: "ESTIMATE", fx, mrrUsd, contributionPerPayerUsd };
+  }
+
   return {
-    activePayers: n,
-    mrrEur: suppress(round2(mrr), n),
-    aiCostEur: suppress(round2(aiEur), n),
-    contributionPerUserEur: suppress(round2((mrr - aiEur) / (n || 1)), n),
-    note: "Estimate at published prices; excludes Stripe fees and refunds.",
+    activePayers: totalPayers,
+    unknownCurrencyPayers,
+    mrrByCurrency,
+    aiCostUsd,
+    normalizedUsd,
+    note:
+      "Gross revenue at catalog prices in each subscription's charged currency, " +
+      "monthly-normalized and reported per currency (never summed without an " +
+      "explicit FX rate). Excludes Stripe fees and refunds (not in the DB), so " +
+      "this is gross contribution, not net margin. Unknown-currency payers are " +
+      "excluded, not counted as zero.",
   };
 }
 

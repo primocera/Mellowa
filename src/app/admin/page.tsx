@@ -22,7 +22,10 @@ export default async function AdminPage({
   const r = await buildMetricsReport(windowDays, release);
 
   const pct = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)}%`);
-  const eur = (v: number | null) => (v === null ? "—" : `€${v.toFixed(2)}`);
+  // Currency-aware money: a EUR figure renders with € and a USD one with $, so
+  // the dashboard never labels a euro amount with a dollar sign or vice versa.
+  const money = (currency: string, v: number | null) =>
+    v === null ? "—" : `${currency === "eur" ? "€" : "$"}${v.toFixed(2)}`;
   // MW-V10-06: "unknown" is rendered as "unknown", never as $0.00 — a zero
   // reads as "this costs us nothing", which is the opposite of no data.
   const usd = (v: number | null) => (v === null ? "unknown" : `$${v.toFixed(2)}`);
@@ -88,11 +91,34 @@ export default async function AdminPage({
         <Row label="Retention D1 / D7 / D30" value={`${pct(r.retention.d1)} / ${pct(r.retention.d7)} / ${pct(r.retention.d30)}`} />
       </Section>
 
-      <Section title="Unit economics (estimate — excludes Stripe fees & refunds)">
+      <Section title="Unit economics (gross — excludes Stripe fees & refunds)">
         <Row label="Active payers" value={String(r.economics.activePayers)} />
-        <Row label="MRR" value={eur(r.economics.mrrEur)} />
-        <Row label="AI cost" value={eur(r.economics.aiCostEur)} />
-        <Row label="Contribution / payer / mo" value={eur(r.economics.contributionPerUserEur)} />
+        {r.economics.mrrByCurrency.length === 0 ? (
+          <Row label="MRR" value="—" />
+        ) : (
+          r.economics.mrrByCurrency.map((c) => (
+            <Row
+              key={c.currency}
+              label={`MRR (${c.currency.toUpperCase()})`}
+              value={money(c.currency, c.mrr)}
+            />
+          ))
+        )}
+        {r.economics.unknownCurrencyPayers > 0 && (
+          <Row
+            label="Payers w/ unknown currency"
+            value={`${r.economics.unknownCurrencyPayers} (revenue unknown)`}
+          />
+        )}
+        <Row label="AI cost (USD)" value={usd(r.economics.aiCostUsd)} />
+        <Row
+          label="Contribution / payer / mo"
+          value={
+            r.economics.normalizedUsd
+              ? `${usd(r.economics.normalizedUsd.contributionPerPayerUsd)} (USD est., ${r.economics.normalizedUsd.fx.source})`
+              : "unknown (no FX rate)"
+          }
+        />
       </Section>
 
       <Section title="Usage & cost distribution (fair-use)">

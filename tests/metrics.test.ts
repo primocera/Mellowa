@@ -11,6 +11,7 @@ import {
   type EventRow,
   type SubRow,
 } from "@/lib/analytics/metrics";
+import { CATALOG } from "@/lib/stripe/plans";
 
 /**
  * Fixture-based metric tests (Launch v6, Prompt 10). A seeded cohort proves the
@@ -70,24 +71,86 @@ describe("retention", () => {
 });
 
 describe("unit economics", () => {
-  const subs: SubRow[] = [
-    ...Array.from({ length: 4 }, (_, i) => sub(`m${i}`, "active", "pro_monthly")),
-    ...Array.from({ length: 2 }, (_, i) => sub(`y${i}`, "active", "pro_yearly")),
-    sub("t0", "trialing", "pro_monthly"),
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const usdMonthlyMinor = CATALOG.usd.monthly.minorUnits;
+  const usdYearlyMinor = CATALOG.usd.yearly.minorUnits;
+  const eurMonthlyMinor = CATALOG.eur.monthly.minorUnits;
+
+  const usdSubs: SubRow[] = [
+    ...Array.from({ length: 4 }, (_, i) => sub(`m${i}`, "active", "pro_monthly", "usd")),
+    ...Array.from({ length: 2 }, (_, i) => sub(`y${i}`, "active", "pro_yearly", "usd")),
+    sub("t0", "trialing", "pro_monthly", "usd"), // trialing is not an active payer
   ];
 
-  it("estimates MRR and per-user contribution, excluding fees", () => {
-    const e = unitEconomics(subs, [{ estimated_cost_usd: 5, created_at: iso(0) }], 1);
-    // 4 * 9.99 + 2 * (59.99/12) = 39.96 + 9.998 = 49.958 → 49.96
+  const mixed: SubRow[] = [
+    ...Array.from({ length: 5 }, (_, i) => sub(`u${i}`, "active", "pro_monthly", "usd")),
+    ...Array.from({ length: 5 }, (_, i) => sub(`e${i}`, "active", "pro_monthly", "eur")),
+  ];
+
+  it("reports native MRR per currency, derived from the catalog (no 9.99/59.99)", () => {
+    const e = unitEconomics(usdSubs, [{ estimated_cost_usd: 5, created_at: iso(0) }]);
     expect(e.activePayers).toBe(6);
-    expect(e.mrrEur).toBe(49.96);
+    const usd = e.mrrByCurrency.find((c) => c.currency === "usd")!;
+    const expectedMinor = 4 * usdMonthlyMinor + 2 * (usdYearlyMinor / 12);
+    expect(usd.activePayers).toBe(6);
+    expect(usd.mrrMinor).toBeCloseTo(expectedMinor, 5);
+    expect(usd.mrr).toBe(round2(expectedMinor / 100));
+    expect(e.aiCostUsd).toBe(5);
     expect(e.note).toMatch(/excludes stripe fees/i);
   });
 
-  it("suppresses economics below MIN_COHORT payers", () => {
-    const e = unitEconomics([sub("m0", "active", "pro_monthly")], [], 1);
-    expect(e.mrrEur).toBeNull();
-    expect(e.contributionPerUserEur).toBeNull();
+  it("keeps USD and EUR revenue separate — never summed into one figure", () => {
+    const e = unitEconomics(mixed, []);
+    expect(e.mrrByCurrency.map((c) => c.currency)).toEqual(["eur", "usd"]);
+    const usd = e.mrrByCurrency.find((c) => c.currency === "usd")!;
+    const eur = e.mrrByCurrency.find((c) => c.currency === "eur")!;
+    expect(usd.mrrMinor).toBe(5 * usdMonthlyMinor);
+    expect(eur.mrrMinor).toBe(5 * eurMonthlyMinor);
+    // With no FX rate there is no combined total — unknown, not a bogus sum.
+    expect(e.normalizedUsd).toBeNull();
+  });
+
+  it("treats an unknown/absent currency as unknown — never zero or silently USD", () => {
+    const subs: SubRow[] = [
+      ...Array.from({ length: 5 }, (_, i) => sub(`u${i}`, "active", "pro_monthly", "usd")),
+      sub("x0", "active", "pro_monthly", null),
+      sub("x1", "active", "pro_monthly", "gbp"), // unsupported currency
+    ];
+    const e = unitEconomics(subs, []);
+    expect(e.activePayers).toBe(7);
+    expect(e.unknownCurrencyPayers).toBe(2);
+    const usd = e.mrrByCurrency.find((c) => c.currency === "usd")!;
+    expect(usd.activePayers).toBe(5); // the 2 unknowns are excluded, not counted
+    expect(usd.mrrMinor).toBe(5 * usdMonthlyMinor);
+  });
+
+  it("normalizes to USD only with an explicit, sourced FX rate", () => {
+    const noFx = unitEconomics(mixed, [{ estimated_cost_usd: 10, created_at: iso(0) }]);
+    expect(noFx.normalizedUsd).toBeNull(); // unknown, not zero
+
+    const fx = { usdPer: { eur: 1.1 }, source: "ECB", asOf: "2026-08-01" };
+    const e = unitEconomics(mixed, [{ estimated_cost_usd: 10, created_at: iso(0) }], { fx });
+    expect(e.normalizedUsd).not.toBeNull();
+    expect(e.normalizedUsd!.label).toBe("ESTIMATE");
+    expect(e.normalizedUsd!.fx.source).toBe("ECB");
+    const usdMinor = 5 * usdMonthlyMinor + 5 * eurMonthlyMinor * 1.1;
+    expect(e.normalizedUsd!.mrrUsd).toBe(round2(usdMinor / 100));
+    expect(e.normalizedUsd!.contributionPerPayerUsd).toBe(round2((usdMinor / 100 - 10) / 10));
+  });
+
+  it("leaves the normalized total unknown when a present currency has no FX rate", () => {
+    const fx = { usdPer: {}, source: "ECB", asOf: "2026-08-01" }; // no eur rate
+    const e = unitEconomics(mixed, [], { fx });
+    expect(e.normalizedUsd!.mrrUsd).toBeNull();
+    expect(e.normalizedUsd!.contributionPerPayerUsd).toBeNull();
+  });
+
+  it("suppresses a per-currency figure below MIN_COHORT payers", () => {
+    const e = unitEconomics([sub("m0", "active", "pro_monthly", "usd")], []);
+    const usd = e.mrrByCurrency.find((c) => c.currency === "usd")!;
+    expect(usd.activePayers).toBe(1);
+    expect(usd.mrr).toBeNull(); // suppressed — not enough people to show a figure
+    expect(e.aiCostUsd).toBeNull();
   });
 });
 
@@ -118,6 +181,11 @@ it("suppress() gates on MIN_COHORT", () => {
   expect(suppress(42, MIN_COHORT - 1)).toBeNull();
 });
 
-function sub(user: string, status: string, plan: string): SubRow {
-  return { user_id: user, status, plan_name: plan, created_at: iso(0) };
+function sub(
+  user: string,
+  status: string,
+  plan: string,
+  currency: string | null = "usd"
+): SubRow {
+  return { user_id: user, status, plan_name: plan, created_at: iso(0), currency };
 }

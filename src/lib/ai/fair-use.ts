@@ -7,7 +7,8 @@ import { estimateRouteCostUsd } from "@/lib/ai/cost";
  * Premium is "ongoing daily plans with fair-use safeguards" — never
  * "unlimited". The per-hour/per-day limits and the global spend ceiling protect
  * the system in a spike, but a single account generating at the daily cap every
- * day would exceed the economics of a €59.99/year plan. This module adds one
+ * day would exceed the economics of the yearly plan (USD-first $129.99/yr, or
+ * €119.99 for EU buyers — see src/lib/stripe/plans.ts). This module adds one
  * explicit monthly abuse cap: generous enough that ordinary and even heavy
  * daily use never reaches it, low enough to stop pathological/abusive use.
  *

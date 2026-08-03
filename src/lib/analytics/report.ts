@@ -99,7 +99,7 @@ export async function buildMetricsReport(
       admin
         .from("subscriptions")
         .select(
-          "user_id, status, plan_name, trial_used_at, cancel_at_period_end, created_at, trial_variant, trial_days"
+          "user_id, status, plan_name, trial_used_at, cancel_at_period_end, created_at, trial_variant, trial_days, currency"
         ),
       admin
         .from("ai_usage_events")
@@ -223,8 +223,21 @@ export function reportToCsv(report: MetricsReport): string {
   push("churn", "voluntary", report.churn.voluntary);
   push("churn", "involuntary", report.churn.involuntary);
   push("economics", "active_payers", report.economics.activePayers);
-  push("economics", "mrr_eur", report.economics.mrrEur);
-  push("economics", "contribution_per_user_eur", report.economics.contributionPerUserEur);
+  push("economics", "unknown_currency_payers", report.economics.unknownCurrencyPayers);
+  // Per-currency MRR is native and never summed into one figure.
+  for (const c of report.economics.mrrByCurrency) {
+    push("economics", `mrr_${c.currency}`, c.mrr);
+  }
+  push("economics", "ai_cost_usd", report.economics.aiCostUsd);
+  // A USD rollup only exists when an explicit FX rate was supplied.
+  if (report.economics.normalizedUsd) {
+    push("economics", "mrr_usd_estimate", report.economics.normalizedUsd.mrrUsd);
+    push(
+      "economics",
+      "contribution_per_payer_usd_estimate",
+      report.economics.normalizedUsd.contributionPerPayerUsd
+    );
+  }
   push("usage", "generations_p50", report.usage.generationsP50);
   push("usage", "generations_p90", report.usage.generationsP90);
   push("usage", "high_use_users", report.usage.highUseUsers);
