@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
 import { serverEnv } from "@/lib/env";
 import { entitlementFor } from "@/lib/stripe/plans";
+import { currencyFromRequest } from "@/lib/stripe/currency";
+import { resolvePrice } from "@/lib/stripe/price-resolver";
 import {
   chargeDateFor,
   resolveTrialConfig,
@@ -72,10 +74,15 @@ export async function POST(request: Request) {
   }
 
   const planName = parsed.data.interval === "monthly" ? "pro_monthly" : "pro_yearly";
-  const price =
-    parsed.data.interval === "monthly"
-      ? serverEnv.stripePriceProMonthly
-      : serverEnv.stripePriceProYearly;
+  // USD-first, EUR for EU/EEA buyers (gated by EUR_PRICING_ENABLED). The
+  // resolver returns the currency actually charged, with a USD fallback when a
+  // EUR price is not configured for this interval — so a missing EUR price can
+  // never break checkout.
+  const requestedCurrency = currencyFromRequest(request);
+  const { priceId: price, currency: chargedCurrency } = resolvePrice(
+    parsed.data.interval,
+    requestedCurrency
+  );
 
   // One trial per person, ever. A user who has already consumed a trial
   // (canceled, past_due, deleted checkout, interval switch) starts paid.
@@ -171,6 +178,7 @@ export async function POST(request: Request) {
       url: session.url,
       trial: trialEligible,
       trialDays: trialEligible ? trialConfig.days : 0,
+      currency: chargedCurrency,
       chargeDate: trialEligible
         ? chargeDateFor(trialConfig.days)
         : chargeDateFor(0),

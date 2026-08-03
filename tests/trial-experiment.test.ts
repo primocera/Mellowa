@@ -548,9 +548,10 @@ describe("commercial terms are untouched by the experiment", () => {
   const refund = readFileSync("src/app/refund/page.tsx", "utf8");
   const doc = readFileSync("docs/experiments/trial-length.md", "utf8");
 
-  it("keeps the canonical prices", () => {
-    expect(plans).toContain('price: "€9.99"');
-    expect(plans).toContain('price: "€59.99"');
+  it("keeps the canonical prices (USD primary, EUR region)", () => {
+    expect(plans).toContain('display: "$12.99"');
+    expect(plans).toContain('display: "$129.99"');
+    expect(plans).toContain('display: "€11.99"');
   });
 
   it("keeps the refund policy wording", () => {

@@ -73,13 +73,17 @@ describe("MW-01: exact plan output categories and honest boundaries", () => {
     expect(landing).toMatch(/When does the trial begin\?/);
   });
 
-  it("renders prices from the canonical Stripe plan configuration", () => {
-    expect(landing).toContain('import { PRICING } from "@/lib/stripe/plans"');
+  it("renders prices from the canonical, region-aware plan configuration", () => {
+    // Prices are resolved per region (USD default, EUR for EU/EEA) rather than
+    // a static EUR-only constant.
+    expect(landing).toContain('pricingFor');
+    expect(landing).toContain("serverCurrency");
     expect(landing).toContain("{PRICING.monthly.price}");
     expect(landing).toContain("{PRICING.yearly.price}");
     // No hardcoded plan-price literals left in JSX outside derived math copy.
     expect(landing).not.toMatch(/€9\.99<span/);
     expect(landing).not.toMatch(/€59\.99<span/);
+    expect(landing).not.toMatch(/\$12\.99<span/);
   });
 });
 

@@ -40,6 +40,22 @@ export const serverEnv = {
   get stripePriceProYearly() {
     return required("STRIPE_PRICE_PRO_YEARLY");
   },
+  // USD is primary: the currency-suffixed var wins, then the legacy unsuffixed
+  // var, so an env that only sets STRIPE_PRICE_PRO_MONTHLY keeps working.
+  get stripePriceProMonthlyUsd() {
+    return process.env.STRIPE_PRICE_PRO_MONTHLY_USD ?? required("STRIPE_PRICE_PRO_MONTHLY");
+  },
+  get stripePriceProYearlyUsd() {
+    return process.env.STRIPE_PRICE_PRO_YEARLY_USD ?? required("STRIPE_PRICE_PRO_YEARLY");
+  },
+  // EUR is optional (only where a EUR price exists). Null means "not offered" —
+  // checkout falls back to USD, never breaks.
+  get stripePriceProMonthlyEur(): string | null {
+    return process.env.STRIPE_PRICE_PRO_MONTHLY_EUR ?? null;
+  },
+  get stripePriceProYearlyEur(): string | null {
+    return process.env.STRIPE_PRICE_PRO_YEARLY_EUR ?? null;
+  },
   get appUrl() {
     return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   },

@@ -49,13 +49,18 @@ if (!secret) {
   process.exit(1);
 }
 
-// Mirrors BILLING_CONTRACT in src/lib/stripe/plans.ts. Kept in sync by
+// Mirrors BILLING_CONTRACT in src/lib/stripe/plans.ts (dual currency: USD is
+// primary, EUR is the EU/EEA region price). Kept in sync by
 // tests/billing-contract.test.ts, which fails if the two disagree.
+//
+// USD prices are REQUIRED (fall back to the legacy unsuffixed env var). EUR
+// prices are OPTIONAL — a currency+interval with no env id is skipped, not
+// failed, because checkout falls back to USD when a EUR price is absent.
 const CONTRACT = {
-  currency: "eur",
   plans: [
-    { label: "monthly", envVar: "STRIPE_PRICE_PRO_MONTHLY", minorUnits: 999, interval: "month", display: "€9.99" },
-    { label: "yearly", envVar: "STRIPE_PRICE_PRO_YEARLY", minorUnits: 5999, interval: "year", display: "€59.99" },
+    { label: "usd/monthly", currency: "usd", envVar: "STRIPE_PRICE_PRO_MONTHLY_USD", fallbackEnvVar: "STRIPE_PRICE_PRO_MONTHLY", minorUnits: 1299, interval: "month", display: "$12.99", required: true },
+    { label: "usd/yearly", currency: "usd", envVar: "STRIPE_PRICE_PRO_YEARLY_USD", fallbackEnvVar: "STRIPE_PRICE_PRO_YEARLY", minorUnits: 12999, interval: "year", display: "$129.99", required: true },
+    { label: "eur/monthly", currency: "eur", envVar: "STRIPE_PRICE_PRO_MONTHLY_EUR", minorUnits: 1199, interval: "month", display: "€11.99", required: false },
   ],
 };
 
@@ -72,9 +77,13 @@ if (mode === "LIVE" && !account.charges_enabled) {
 }
 
 for (const plan of CONTRACT.plans) {
-  const id = read(plan.envVar);
+  const id = read(plan.envVar) ?? (plan.fallbackEnvVar ? read(plan.fallbackEnvVar) : undefined);
   if (!id) {
-    failures.push(`${plan.envVar} is not set`);
+    if (plan.required) {
+      failures.push(`${plan.envVar} is not set`);
+    } else {
+      console.log(`SKIP ${plan.label.padEnd(11)} (${plan.envVar} not set — checkout falls back to USD)`);
+    }
     continue;
   }
 
@@ -87,9 +96,9 @@ for (const plan of CONTRACT.plans) {
   }
 
   const problems = [];
-  if (price.currency !== CONTRACT.currency) {
+  if (price.currency !== plan.currency) {
     problems.push(
-      `currency is "${price.currency}" but every surface promises ${plan.display} — ` +
+      `currency is "${price.currency}" but this surface promises ${plan.display} (${plan.currency}) — ` +
         `Stripe does not convert, so the customer would be billed in ${price.currency.toUpperCase()}`
     );
   }
@@ -105,7 +114,7 @@ for (const plan of CONTRACT.plans) {
 
   const status = problems.length === 0 ? "OK " : "FAIL";
   console.log(
-    `${status} ${plan.label.padEnd(8)} ${price.id}  ${price.unit_amount} ${price.currency} / ${price.recurring?.interval}`
+    `${status} ${plan.label.padEnd(11)} ${price.id}  ${price.unit_amount} ${price.currency} / ${price.recurring?.interval}`
   );
   for (const problem of problems) {
     console.log(`       ↳ ${problem}`);

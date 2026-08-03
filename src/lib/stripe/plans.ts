@@ -1,5 +1,7 @@
 /** Plan definitions and usage limits for the Mellowa trial-only model. */
 
+import { type Currency, DEFAULT_CURRENCY } from "@/lib/stripe/currency";
+
 export type PlanTier = "sample" | "premium";
 
 export type PremiumFeature =
@@ -162,47 +164,85 @@ export function premiumProblemFor(capability: string): string | null {
 }
 
 /**
- * MW-V10-02: PRICING deliberately carries no trial length. The length is
- * per-user (server-assigned, then pinned at checkout), so every surface reads it
- * from lib/stripe/trial-experiment instead. A constant here would be the easiest
- * way to show a 7-day cohort 3-day copy.
+ * Dual-currency catalog (Scalvya-style region pricing). Mellowa is USD-first;
+ * EU/EEA buyers are charged in EUR via a SEPARATE Stripe price object. Each
+ * currency+interval names its own env var and its own fixed minor-unit amount —
+ * there is no live FX conversion, so the display string and the charged amount
+ * are the same authored number. `scripts/verify-stripe-prices.mjs` checks each
+ * amount against the real Stripe object, and `tests/billing-contract.test.ts`
+ * pins the display strings to the minor units so a price can only change
+ * deliberately in both places.
+ *
+ * NOTE: only MONTHLY is configured for both currencies today (the account has a
+ * USD and a EUR monthly price). Yearly currently ships USD-only until a EUR
+ * yearly price id + amount are added below and to Stripe. EU buyers choosing
+ * yearly fall back to the USD yearly price (never a broken checkout).
  */
-export const PRICING = {
-  monthly: {
-    name: "Mellowa Monthly",
-    price: "€9.99",
-    cadence: "/month",
-    priceEnvVar: "STRIPE_PRICE_PRO_MONTHLY",
-    features: PREMIUM_FEATURES,
+export const CATALOG = {
+  usd: {
+    symbol: "$",
+    monthly: { minorUnits: 1299, display: "$12.99", interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY_USD" },
+    yearly: { minorUnits: 12999, display: "$129.99", interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY_USD" },
   },
-  yearly: {
-    name: "Mellowa Yearly",
-    price: "€59.99",
-    cadence: "/year",
-    priceEnvVar: "STRIPE_PRICE_PRO_YEARLY",
-    note: "Save 50% compared to monthly",
-    features: PREMIUM_FEATURES,
+  eur: {
+    symbol: "€",
+    // EUR monthly is the owner's fixed converted amount (~$12.99). Confirm the
+    // exact value against Stripe with `npm run verify-prices` before launch.
+    monthly: { minorUnits: 1199, display: "€11.99", interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY_EUR" },
+    // No EUR yearly price yet — checkout falls back to USD yearly. Kept here so
+    // the shape is uniform; update when a EUR yearly price exists.
+    yearly: { minorUnits: null, display: null, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY_EUR" },
   },
 } as const;
 
+export type Interval = "monthly" | "yearly";
+
+/** The display price string for a currency+interval (USD fallback). */
+export function priceDisplay(currency: Currency, interval: Interval): string {
+  return CATALOG[currency][interval].display ?? CATALOG[DEFAULT_CURRENCY][interval].display!;
+}
+
 /**
- * What the Stripe price objects MUST be, in machine-comparable form.
- *
- * Why this exists: the live prices were created in **USD** while every surface
- * in the product — landing, pricing, paywall, emails, Terms, Refund policy —
- * promised EUR. A user reading "€9.99" was sent to a checkout charging $9.99,
- * their bank converted at its own rate and added a foreign-transaction fee, so
- * the amount actually taken was never a number this product had shown them.
- * `release-check` passed throughout, because it verified only that the price
- * IDs were *set* — never what they cost or in what currency.
- *
- * `scripts/verify-stripe-prices.mjs` compares these values against the real
- * Stripe objects. The display strings above and the amounts here are pinned to
- * each other by `tests/billing-contract.test.ts`, so changing a price has to be
- * done deliberately in both places rather than drifting in one.
+ * PRICING shaped per currency, for a pricing/paywall surface. USD is the
+ * default so existing (region-unaware) callers keep working unchanged.
+ */
+export function pricingFor(currency: Currency = DEFAULT_CURRENCY) {
+  return {
+    currency,
+    monthly: {
+      name: "Mellowa Monthly",
+      price: priceDisplay(currency, "monthly"),
+      cadence: "/month",
+      features: PREMIUM_FEATURES,
+    },
+    yearly: {
+      name: "Mellowa Yearly",
+      // Yearly is USD-only for now; always show the USD yearly price.
+      price: priceDisplay(DEFAULT_CURRENCY, "yearly"),
+      cadence: "/year",
+      note: "Save 50% compared to monthly",
+      features: PREMIUM_FEATURES,
+    },
+  } as const;
+}
+
+/** Back-compat default (USD) export for surfaces that do not resolve a region. */
+export const PRICING = pricingFor(DEFAULT_CURRENCY);
+
+/**
+ * What the Stripe price objects MUST be, in machine-comparable form, per
+ * currency. `verify-stripe-prices.mjs` compares these against the live objects.
+ * A `minorUnits: null` entry means that currency+interval price is not offered
+ * (no Stripe object expected).
  */
 export const BILLING_CONTRACT = {
-  currency: "eur",
-  monthly: { minorUnits: 999, interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY" },
-  yearly: { minorUnits: 5999, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY" },
+  defaultCurrency: DEFAULT_CURRENCY,
+  usd: {
+    monthly: { minorUnits: 1299, interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY_USD" },
+    yearly: { minorUnits: 12999, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY_USD" },
+  },
+  eur: {
+    monthly: { minorUnits: 1199, interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY_EUR" },
+    yearly: { minorUnits: null, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY_EUR" },
+  },
 } as const;

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { readLegalConfig } from "@/lib/legal/config";
-import { PRICING } from "@/lib/stripe/plans";
+import { pricingFor } from "@/lib/stripe/plans";
+import { serverCurrency } from "@/lib/stripe/currency-server";
 import { TERMS, joinSentences } from "@/lib/content/terminology";
 import {
   publicTrialDays,
@@ -103,8 +104,11 @@ const FAQ = [
 const FOOTER_LINK =
   "inline-flex min-h-[44px] items-center rounded-lg px-3 transition hover:text-[#6D8C7D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2";
 
-export default function LandingPage() {
+export default async function LandingPage() {
   const legal = readLegalConfig();
+  // USD-first; EU/EEA visitors see EUR when EUR pricing is enabled.
+  const currency = await serverCurrency();
+  const PRICING = pricingFor(currency);
   // MW-V10-02: the landing page has no user, so it names the trial length only
   // while no cohort experiment is running (the default). Once one is, it
   // promises the exact length before checkout rather than guessing an arm.
@@ -127,14 +131,15 @@ export default function LandingPage() {
         offers: [
           {
             "@type": "Offer",
-            price: PRICING.monthly.price.replace("€", ""),
-            priceCurrency: "EUR",
+            price: PRICING.monthly.price.replace(/[^0-9.]/g, ""),
+            priceCurrency: currency.toUpperCase(),
             name: PRICING.monthly.name,
           },
           {
             "@type": "Offer",
-            price: PRICING.yearly.price.replace("€", ""),
-            priceCurrency: "EUR",
+            // Yearly is USD-only today.
+            price: PRICING.yearly.price.replace(/[^0-9.]/g, ""),
+            priceCurrency: "USD",
             name: PRICING.yearly.name,
           },
         ],

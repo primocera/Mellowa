@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Check } from "lucide-react";
-import { PRICING, premiumProblemFor } from "@/lib/stripe/plans";
+import { pricingFor, premiumProblemFor } from "@/lib/stripe/plans";
+import { serverCurrency } from "@/lib/stripe/currency-server";
 import { UpgradeButton } from "@/components/dailyflow/upgrade-button";
 import { isYearlyEmphasisEnabled } from "@/lib/flags";
 import { trialDisclosureForViewer } from "@/lib/stripe/trial-disclosure";
@@ -46,6 +47,8 @@ export default async function PricingPage() {
   // number. The checkout route re-checks both server-side either way.
   const { trialEligible, days: trialDays, chargeDate } =
     await trialDisclosureForViewer();
+  // USD-first; EU/EEA visitors see EUR when EUR pricing is enabled.
+  const PRICING = pricingFor(await serverCurrency());
   // MW-V9-08: by default (flag OFF) Monthly is presented first and carries the
   // visual emphasis; we don't aggressively steer to Yearly until retention and
   // unit economics justify it. FLAG_EMPHASIZE_YEARLY=1 flips the emphasis.

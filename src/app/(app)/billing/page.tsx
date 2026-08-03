@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/get-current-user";
 import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
-import { PRICING } from "@/lib/stripe/plans";
+import { pricingFor } from "@/lib/stripe/plans";
+import { serverCurrency } from "@/lib/stripe/currency-server";
 import { UpgradeButton } from "@/components/dailyflow/upgrade-button";
 import { ManageBilling } from "@/components/dailyflow/manage-billing";
 import { readLegalConfig } from "@/lib/legal/config";
@@ -74,6 +75,9 @@ export default async function BillingPage({
   const isActive = sub.status === "active";
   const isPastDue = sub.status === "past_due";
 
+  // USD-first; EU/EEA visitors see EUR when EUR pricing is enabled. Receipts
+  // and renewal emails format the real charged currency from Stripe.
+  const PRICING = pricingFor(await serverCurrency());
   const isYearly = sub.planName === "pro_yearly";
   const planLabel = isYearly ? PRICING.yearly.name : PRICING.monthly.name;
   const priceLabel = isYearly
