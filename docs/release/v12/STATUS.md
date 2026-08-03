@@ -38,8 +38,10 @@ Raw artifacts: `docs/release/evidence/v12/rc/`.
 1. ~~**Apply migrations 040 and 041** to live Supabase~~ — **DONE 2026-08-01**
    (reminder unsubscribe marker; web_vitals). App tolerated absence (failed
    closed) before; both now applied to the live project.
-2. **Live EUR transaction** (`P0-LIVE-TRANSACTION`) — **CLOSED via owner-accepted
-   risk 2026-08-01.** Real-money lifecycle verified **live** against the live
+2. **Live EUR transaction** (`P0-LIVE-TRANSACTION`) — **OPEN, accepted risk
+   (Primoz Cerar, 2026-08-01). An accepted risk is not closed** — the blocker
+   stays in `blockers` and is revisited before the paid cohort scales.
+   Real-money lifecycle verified **live** against the live
    9.99 EUR plan, confirmed on the Stripe dashboard:
    - Charge: €9.99 EUR Succeeded (Aug 1 1:03 PM); `customer.subscription.created` → 200; Premium granted; renews 2026-09-01. No duplicate charge.
    - Cancel: `cancel_at_period_end`; access retained to 2026-09-01; `customer.subscription.updated` → 200 (1:28 PM); one cancellation email, no dupes.

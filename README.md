@@ -31,8 +31,10 @@ before public paid scales.
 
 Open and accepted (owner-run):
 
-- `P0-LIVE-TRANSACTION` — no charge captured or refunded against the live
-  €9.99 plan; the order-resilient billing path (MW-V12-03) is now unit-tested.
+- `P0-LIVE-TRANSACTION` — charge, cancel, reactivate and refund were run **live**
+  against the €9.99 plan on 2026-08-01; the residual (accepted) is a live
+  payment failure→recovery and late-failure ordering (steps 5–6), covered in
+  code by the order-resilient billing path (MW-V12-03) and its tests.
 - `P1-REMINDER-REHEARSAL` — duplicate-cron and provider-failure not observed
   live; both have deterministic tests and a sharpened owner worksheet.
 - `P1-ROTATION-RESTORE` — key rotation and restore never rehearsed; now scripted
@@ -40,8 +42,9 @@ Open and accepted (owner-run):
 - `P1-AUTH-E2E-AT-HEAD` — the matrix runner is fail-closed and marker-guarded,
   but has not run unattended against a seeded env.
 
-Also owner-run before launch: apply **migrations 040 and 041**, run the
-production release-check, and measure cold-start + field vitals.
+Migrations **040 and 041** were applied to the live project on 2026-08-01
+(owner-attested). Still owner-run before launch: the production release-check
+and cold-start + field vitals.
 
 Full record: [`docs/launch-go-no-go-v11.md`](docs/launch-go-no-go-v11.md) ·
 machine-readable:

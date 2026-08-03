@@ -124,8 +124,8 @@
       "id": "migrations-applied",
       "action": "Apply each release's migrations to live Supabase before the release.",
       "status": "live_rehearsed",
-      "evidence": "Owner-attested through v9; 034/035 on 2026-07-23; 036-039 verified present by a read-only check on 2026-07-26.",
-      "note": "MW-V12 adds migrations 040 (reminders_unsubscribe_marker) and 041 (web_vitals). These are NOT YET APPLIED — the owner must apply both before this candidate is live, or the settings unsubscribe surface and the /api/vitals insert fail closed (the app tolerates both). Confirm via /api/health/ready."
+      "evidence": "Owner-attested through v9; 034/035 on 2026-07-23; 036-039 verified present by a read-only check on 2026-07-26; 040/041 applied to the live project on 2026-08-01 (owner-attested, commit dd3b935).",
+      "note": "MW-V12 added migrations 040 (reminders_unsubscribe_marker) and 041 (web_vitals). Both were applied to the live project on 2026-08-01 (owner-attested). Before that the app tolerated their absence (the settings unsubscribe surface and the /api/vitals insert fail closed). Confirm via /api/health/ready."
     },
     {
       "id": "manual-functional-testing",
@@ -162,10 +162,10 @@
     {
       "id": "P0-LIVE-TRANSACTION",
       "level": "P0",
-      "title": "No real transaction has been put through live Stripe end to end.",
+      "title": "Live payment failure->recovery (step 5) and late-failure-after-recovery ordering (step 6) have not been witnessed over a live wire; charge/cancel/reactivate/refund were done live on 2026-08-01.",
       "owner": "Owner",
       "blocks": ["public_paid"],
-      "acceptance": "Recorded owner evidence for charge, cancel, reactivate, payment recovery and refund against the live 9.99 EUR monthly plan."
+      "acceptance": "Recorded owner evidence for the remaining two steps — a live payment failure->recovery and a late-failure-after-recovery ordering test — against the live 9.99 EUR monthly plan (charge, cancel, reactivate and refund are already recorded live)."
     },
     {
       "id": "P1-REMINDER-REHEARSAL",
