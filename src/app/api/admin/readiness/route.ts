@@ -23,49 +23,37 @@ export async function GET(request: Request) {
   const present = (v: string | null | undefined) =>
     v ? { set: true, endsWith: v.slice(-4) } : { set: false };
 
+  // One price id per interval, each carrying USD + EUR currency_options.
   const prices = {
-    usd: {
-      monthly: present(serverEnv.stripePriceProMonthlyUsd),
-      yearly: present(serverEnv.stripePriceProYearlyUsd),
-    },
-    eur: {
-      monthly: present(serverEnv.stripePriceProMonthlyEur),
-      yearly: present(serverEnv.stripePriceProYearlyEur),
-    },
+    monthly: present(process.env.STRIPE_PRICE_PRO_MONTHLY),
+    yearly: present(process.env.STRIPE_PRICE_PRO_YEARLY),
   };
 
-  // USD is required; EUR is optional (checkout falls back to USD when absent).
-  const usdReady = prices.usd.monthly.set && prices.usd.yearly.set;
+  const usdReady = prices.monthly.set && prices.yearly.set;
   const eurEnabled = isEurPricingEnabled();
-  const eurMonthlyReady = prices.eur.monthly.set;
 
   const body = {
     ok: usdReady,
     pricing: {
+      model: "one price id per interval, USD + EUR currency_options",
       defaultCurrency: DEFAULT_CURRENCY,
       currencies: CURRENCIES,
       eurPricingEnabled: eurEnabled,
-      // When the EUR flag is on but no EUR monthly price is configured, EU
-      // buyers silently fall back to USD — surface that as a warning.
-      eurFallsBackToUsd: eurEnabled && !eurMonthlyReady,
       catalog: {
-        usd: {
-          monthly: CATALOG.usd.monthly.display,
-          yearly: CATALOG.usd.yearly.display,
-        },
-        eur: {
-          monthly: CATALOG.eur.monthly.display,
-          yearly: CATALOG.eur.yearly.display, // null — EUR yearly not offered yet
-        },
+        usd: { monthly: CATALOG.usd.monthly.display, yearly: CATALOG.usd.yearly.display },
+        eur: { monthly: CATALOG.eur.monthly.display, yearly: CATALOG.eur.yearly.display },
       },
       contract: BILLING_CONTRACT,
+      note: eurEnabled
+        ? "EUR pricing is ON — the monthly and yearly prices must each have a EUR currency_option (verify with `npm run verify-prices`), or EU buyers fall back to USD."
+        : "EUR pricing is OFF — every buyer pays USD.",
     },
     priceEnvVars: prices,
     stripeConfig: {
       secretKey: process.env.STRIPE_SECRET_KEY ? "set" : "missing",
       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET ? "set" : "missing",
     },
-    note: "Presence + config only. Run `npm run verify-prices` to compare the live Stripe amounts against BILLING_CONTRACT.",
+    note: "Presence + config only. Run `npm run verify-prices` to compare the live Stripe amounts (incl. EUR currency_options) against BILLING_CONTRACT.",
   };
 
   return NextResponse.json(body, { status: usdReady ? 200 : 503 });

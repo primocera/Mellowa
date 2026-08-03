@@ -6,7 +6,8 @@ import { acquireCronLease } from "@/lib/cron-lease";
 import { deliverEmail } from "@/lib/email/deliver";
 import { trialEndingEmail } from "@/lib/email/templates";
 import { getUserEmails } from "@/lib/email/recipients";
-import { PRICING } from "@/lib/stripe/plans";
+import { pricingFor, priceDisplay } from "@/lib/stripe/plans";
+import { toCurrency } from "@/lib/stripe/currency";
 import { isValidTimeZone, localCalendarDaysUntil } from "@/lib/dates/local-day";
 
 /**
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
 
   const { data: due } = await admin
     .from("subscriptions")
-    .select("id, user_id, trial_end, plan_name")
+    .select("id, user_id, trial_end, plan_name, currency")
     .eq("status", "trialing")
     .eq("trial_reminder_sent", false)
     .gt("trial_end", now.toISOString())
@@ -80,12 +81,16 @@ export async function GET(request: Request) {
     const daysUntilEnd = localCalendarDaysUntil(tz, trialEnd, now);
 
     // Exact charge disclosure (Prompt 19): "You'll be charged [PRICE] on
-    // [DATE] for [PLAN] unless you cancel before then."
-    const tier = row.plan_name === "pro_yearly" ? PRICING.yearly : PRICING.monthly;
+    // [DATE] for [PLAN] unless you cancel before then." Uses the currency the
+    // subscription is actually charged in (from Stripe, stored by the webhook);
+    // rows written before migration 042 read NULL and fall back to USD.
+    const currency = toCurrency(row.currency);
+    const interval = row.plan_name === "pro_yearly" ? "yearly" : "monthly";
+    const tier = pricingFor(currency)[interval];
     const { subject, html } = trialEndingEmail(
       {
         plan: tier.name,
-        price: tier.price,
+        price: priceDisplay(currency, interval),
         date: trialEnd.toLocaleDateString("en-GB", {
           timeZone: tz,
           day: "numeric",

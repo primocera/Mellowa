@@ -165,33 +165,32 @@ export function premiumProblemFor(capability: string): string | null {
 
 /**
  * Dual-currency catalog (Scalvya-style region pricing). Mellowa is USD-first;
- * EU/EEA buyers are charged in EUR via a SEPARATE Stripe price object. Each
- * currency+interval names its own env var and its own fixed minor-unit amount —
- * there is no live FX conversion, so the display string and the charged amount
- * are the same authored number. `scripts/verify-stripe-prices.mjs` checks each
- * amount against the real Stripe object, and `tests/billing-contract.test.ts`
- * pins the display strings to the minor units so a price can only change
- * deliberately in both places.
+ * EU/EEA buyers are charged in EUR. There is ONE Stripe price id per interval,
+ * each carrying a USD and a EUR amount as Stripe `currency_options` — checkout
+ * passes the buyer's currency on that same id. Each amount is fixed (no live FX
+ * conversion), so the display string and the charged amount are the same
+ * authored number. `scripts/verify-stripe-prices.mjs` checks each amount against
+ * the real Stripe price's currency_options, and `tests/billing-contract.test.ts`
+ * pins the display strings to the minor units.
  *
- * NOTE: only MONTHLY is configured for both currencies today (the account has a
- * USD and a EUR monthly price). Yearly currently ships USD-only until a EUR
- * yearly price id + amount are added below and to Stripe. EU buyers choosing
- * yearly fall back to the USD yearly price (never a broken checkout).
+ * NOTE: the EUR amount must be attached as a currency_option on BOTH the monthly
+ * and yearly prices before EUR_PRICING_ENABLED is turned on. `yearly.eur` below
+ * is null until the owner adds a EUR option + amount to the yearly price.
  */
 export const CATALOG = {
   usd: {
     symbol: "$",
-    monthly: { minorUnits: 1299, display: "$12.99", interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY_USD" },
-    yearly: { minorUnits: 12999, display: "$129.99", interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY_USD" },
+    monthly: { minorUnits: 1299, display: "$12.99", interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY" },
+    yearly: { minorUnits: 12999, display: "$129.99", interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY" },
   },
   eur: {
     symbol: "€",
-    // EUR monthly is the owner's fixed converted amount (~$12.99). Confirm the
-    // exact value against Stripe with `npm run verify-prices` before launch.
-    monthly: { minorUnits: 1199, display: "€11.99", interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY_EUR" },
-    // No EUR yearly price yet — checkout falls back to USD yearly. Kept here so
-    // the shape is uniform; update when a EUR yearly price exists.
-    yearly: { minorUnits: null, display: null, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY_EUR" },
+    // EUR monthly is the currency_option amount on the monthly price. Confirm
+    // against Stripe with `npm run verify-prices` before enabling EUR.
+    monthly: { minorUnits: 1199, display: "€11.99", interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY" },
+    // No EUR currency_option on the yearly price yet — yearly shows/charges USD
+    // until the owner adds one. Kept for a uniform shape.
+    yearly: { minorUnits: null, display: null, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY" },
   },
 } as const;
 
@@ -238,11 +237,11 @@ export const PRICING = pricingFor(DEFAULT_CURRENCY);
 export const BILLING_CONTRACT = {
   defaultCurrency: DEFAULT_CURRENCY,
   usd: {
-    monthly: { minorUnits: 1299, interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY_USD" },
-    yearly: { minorUnits: 12999, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY_USD" },
+    monthly: { minorUnits: 1299, interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY" },
+    yearly: { minorUnits: 12999, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY" },
   },
   eur: {
-    monthly: { minorUnits: 1199, interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY_EUR" },
-    yearly: { minorUnits: null, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY_EUR" },
+    monthly: { minorUnits: 1199, interval: "month", envVar: "STRIPE_PRICE_PRO_MONTHLY" },
+    yearly: { minorUnits: null, interval: "year", envVar: "STRIPE_PRICE_PRO_YEARLY" },
   },
 } as const;

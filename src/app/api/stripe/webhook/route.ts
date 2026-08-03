@@ -23,6 +23,7 @@ import {
   type TrialVariant,
 } from "@/lib/stripe/trial-experiment";
 import { shouldApplyStripeEvent } from "@/lib/stripe/event-order";
+import { planFromPriceId } from "@/lib/stripe/price-resolver";
 
 /**
  * Stripe webhook — keeps the subscriptions table in sync (Prompt 14).
@@ -128,11 +129,9 @@ export async function POST(request: Request) {
   }
 
   function intervalOf(subscription: Stripe.Subscription): AnalyticsProperties {
-    const priceId = subscription.items.data[0]?.price.id;
-    if (priceId === serverEnv.stripePriceProYearly)
-      return { surface: "billing", plan_interval: "yearly" };
-    if (priceId === serverEnv.stripePriceProMonthly)
-      return { surface: "billing", plan_interval: "monthly" };
+    const plan = planFromPriceId(subscription.items.data[0]?.price.id);
+    if (plan === "pro_yearly") return { surface: "billing", plan_interval: "yearly" };
+    if (plan === "pro_monthly") return { surface: "billing", plan_interval: "monthly" };
     return { surface: "billing" };
   }
 
@@ -241,16 +240,18 @@ export async function POST(request: Request) {
     const priceId = item?.price.id;
     // An unrecognized price is a configuration error — never silently treat
     // it as monthly. The event is marked failed and stays visible to ops.
-    let planName: "pro_monthly" | "pro_yearly";
-    if (priceId === serverEnv.stripePriceProYearly) {
-      planName = "pro_yearly";
-    } else if (priceId === serverEnv.stripePriceProMonthly) {
-      planName = "pro_monthly";
-    } else {
+    // Recognises both currencies + the legacy env ids (see planFromPriceId).
+    const planName = planFromPriceId(priceId);
+    if (!planName) {
       throw new Error(
         `configuration error: unknown Stripe price ${priceId ?? "<missing>"} on subscription ${subscription.id}`
       );
     }
+    // The currency actually charged. With currency_options the subscription's
+    // own `currency` field is the selected option (usd/eur), not the price's
+    // default currency — store that so renewal/trial emails show the buyer's
+    // real currency.
+    const chargedCurrency = subscription.currency ?? null;
 
     const toIso = (unix: number | null | undefined) =>
       unix ? new Date(unix * 1000).toISOString() : null;
@@ -304,6 +305,7 @@ export async function POST(request: Request) {
         trial_start: toIso(subscription.trial_start),
         trial_end: toIso(subscription.trial_end),
         cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+        currency: chargedCurrency,
         last_stripe_event_created: event.created,
         trial_used_at:
           existing?.trial_used_at ??

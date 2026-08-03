@@ -126,6 +126,10 @@ export async function POST(request: Request) {
       {
         customer: customerId,
         mode: "subscription",
+        // Same price id for every buyer; `currency` selects the matching
+        // currency_option (USD default, EUR for EU/EEA). Stripe charges the
+        // amount attached for that currency on this price.
+        currency: chargedCurrency,
         line_items: [{ price, quantity: 1 }],
         success_url: `${serverEnv.appUrl}/billing?status=success`,
         cancel_url: `${serverEnv.appUrl}/pricing?status=cancelled`,
@@ -168,7 +172,7 @@ export async function POST(request: Request) {
          */
         idempotencyKey: `checkout_${user.id}_${parsed.data.interval}_${
           trialEligible ? `trial${trialConfig.days}` : "paid"
-        }_${price}`,
+        }_${price}_${chargedCurrency}`,
       }
     );
 

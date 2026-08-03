@@ -49,18 +49,18 @@ if (!secret) {
   process.exit(1);
 }
 
-// Mirrors BILLING_CONTRACT in src/lib/stripe/plans.ts (dual currency: USD is
-// primary, EUR is the EU/EEA region price). Kept in sync by
-// tests/billing-contract.test.ts, which fails if the two disagree.
+// Mirrors BILLING_CONTRACT in src/lib/stripe/plans.ts. ONE price id per
+// interval, each carrying a USD default amount and an OPTIONAL EUR
+// currency_option (Scalvya's model). Kept in sync by
+// tests/billing-contract.test.ts.
 //
-// USD prices are REQUIRED (fall back to the legacy unsuffixed env var). EUR
-// prices are OPTIONAL — a currency+interval with no env id is skipped, not
-// failed, because checkout falls back to USD when a EUR price is absent.
+// `usd` is the price's default currency + unit_amount. `eur` (optional) is the
+// amount under price.currency_options.eur — absent is a warning, not a failure,
+// because checkout only sends EUR when EUR_PRICING_ENABLED is on.
 const CONTRACT = {
   plans: [
-    { label: "usd/monthly", currency: "usd", envVar: "STRIPE_PRICE_PRO_MONTHLY_USD", fallbackEnvVar: "STRIPE_PRICE_PRO_MONTHLY", minorUnits: 1299, interval: "month", display: "$12.99", required: true },
-    { label: "usd/yearly", currency: "usd", envVar: "STRIPE_PRICE_PRO_YEARLY_USD", fallbackEnvVar: "STRIPE_PRICE_PRO_YEARLY", minorUnits: 12999, interval: "year", display: "$129.99", required: true },
-    { label: "eur/monthly", currency: "eur", envVar: "STRIPE_PRICE_PRO_MONTHLY_EUR", minorUnits: 1199, interval: "month", display: "€11.99", required: false },
+    { label: "monthly", envVar: "STRIPE_PRICE_PRO_MONTHLY", interval: "month", usd: 1299, usdDisplay: "$12.99", eur: 1199, eurDisplay: "€11.99" },
+    { label: "yearly", envVar: "STRIPE_PRICE_PRO_YEARLY", interval: "year", usd: 12999, usdDisplay: "$129.99", eur: null, eurDisplay: null },
   ],
 };
 
@@ -77,33 +77,30 @@ if (mode === "LIVE" && !account.charges_enabled) {
 }
 
 for (const plan of CONTRACT.plans) {
-  const id = read(plan.envVar) ?? (plan.fallbackEnvVar ? read(plan.fallbackEnvVar) : undefined);
+  const id = read(plan.envVar);
   if (!id) {
-    if (plan.required) {
-      failures.push(`${plan.envVar} is not set`);
-    } else {
-      console.log(`SKIP ${plan.label.padEnd(11)} (${plan.envVar} not set — checkout falls back to USD)`);
-    }
+    failures.push(`${plan.envVar} is not set`);
     continue;
   }
 
   let price;
   try {
-    price = await stripe.prices.retrieve(id);
+    // expand currency_options so the EUR amount is present on the object.
+    price = await stripe.prices.retrieve(id, { expand: ["currency_options"] });
   } catch (error) {
     failures.push(`${plan.envVar} (${id}) could not be retrieved: ${error.message}`);
     continue;
   }
 
   const problems = [];
-  if (price.currency !== plan.currency) {
+  // USD is the price's default currency + unit_amount.
+  if (price.currency !== "usd") {
     problems.push(
-      `currency is "${price.currency}" but this surface promises ${plan.display} (${plan.currency}) — ` +
-        `Stripe does not convert, so the customer would be billed in ${price.currency.toUpperCase()}`
+      `default currency is "${price.currency}" but USD is primary — it should be usd (${plan.usdDisplay})`
     );
   }
-  if (price.unit_amount !== plan.minorUnits) {
-    problems.push(`amount is ${price.unit_amount} but the product promises ${plan.minorUnits}`);
+  if (price.unit_amount !== plan.usd) {
+    problems.push(`USD amount is ${price.unit_amount} but the product promises ${plan.usd} (${plan.usdDisplay})`);
   }
   if (price.recurring?.interval !== plan.interval) {
     problems.push(`interval is "${price.recurring?.interval}" but should be "${plan.interval}"`);
@@ -112,9 +109,24 @@ for (const plan of CONTRACT.plans) {
   if (mode === "LIVE" && !price.livemode) problems.push("a TEST price is configured in live env");
   if (mode === "TEST" && price.livemode) problems.push("a LIVE price is configured in test env");
 
+  // EUR currency_option (optional): warn if absent, fail if present but wrong.
+  const eurOption = price.currency_options?.eur;
+  let eurNote = "eur: none";
+  if (plan.eur != null) {
+    if (!eurOption) {
+      console.log(`WARN ${plan.label.padEnd(8)} no EUR currency_option — EU buyers will fall back to USD until you add ${plan.eurDisplay}`);
+    } else if (eurOption.unit_amount !== plan.eur) {
+      problems.push(`EUR currency_option is ${eurOption.unit_amount} but the product promises ${plan.eur} (${plan.eurDisplay})`);
+    } else {
+      eurNote = `eur ${eurOption.unit_amount}`;
+    }
+  } else if (eurOption) {
+    eurNote = `eur ${eurOption.unit_amount} (not in contract yet)`;
+  }
+
   const status = problems.length === 0 ? "OK " : "FAIL";
   console.log(
-    `${status} ${plan.label.padEnd(11)} ${price.id}  ${price.unit_amount} ${price.currency} / ${price.recurring?.interval}`
+    `${status} ${plan.label.padEnd(8)} ${price.id}  ${price.unit_amount} ${price.currency} / ${price.recurring?.interval}  · ${eurNote}`
   );
   for (const problem of problems) {
     console.log(`       ↳ ${problem}`);

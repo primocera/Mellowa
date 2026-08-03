@@ -95,8 +95,11 @@ describe("the price verifier is wired up and checks the right things", () => {
     expect(script).toContain(String(BILLING_CONTRACT.usd.monthly.minorUnits));
     expect(script).toContain(String(BILLING_CONTRACT.usd.yearly.minorUnits));
     expect(script).toContain(String(BILLING_CONTRACT.eur.monthly.minorUnits));
-    expect(script).toContain('currency: "usd"');
-    expect(script).toContain('currency: "eur"');
+  });
+
+  it("checks the EUR amount via the price's currency_options (Model B)", () => {
+    expect(script).toContain("currency_options");
+    expect(script).toContain("currency_options?.eur");
   });
 });
 
@@ -113,10 +116,10 @@ describe("a price change must not strand users behind a cached idempotency key",
     ).toContain("${price}");
   });
 
-  it("still varies by user, interval and trial length", () => {
+  it("still varies by user, interval, trial length and currency", () => {
     const start = route.indexOf("idempotencyKey:");
     const key = route.slice(start, route.indexOf("\n      }", start));
-    for (const part of ["${user.id}", "interval", "trial"]) {
+    for (const part of ["${user.id}", "interval", "trial", "chargedCurrency"]) {
       expect(key, `the key no longer varies by ${part}`).toContain(part);
     }
   });
