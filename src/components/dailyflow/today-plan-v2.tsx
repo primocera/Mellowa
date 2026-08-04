@@ -156,10 +156,14 @@ export function TodayPlanV2({
   plan,
   showMacros,
   completedKeys = [],
+  isPremium = false,
 }: {
   plan: PlanRow;
   showMacros: boolean;
   completedKeys?: string[];
+  /** Whole-day adjust is Premium-only; free/sample users see the prompt up
+   *  front instead of committing into a server-side paywall. */
+  isPremium?: boolean;
 }) {
   const [meals, setMeals] = useState<MealCardType[]>(plan.meal_cards ?? []);
   // Per-card hide control (Prompt 7): hiding persists as the account-wide
@@ -194,7 +198,6 @@ export function TodayPlanV2({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMeals(plan.meal_cards ?? []);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMovement(plan.movement_plan);
   }, [plan.id, plan.meal_cards, plan.movement_plan]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -1199,7 +1202,7 @@ export function TodayPlanV2({
             </button>
           </div>
         </div>
-      ) : (
+      ) : isPremium ? (
         <button
           onClick={() => setRepairOpen(true)}
           disabled={simplifying}
@@ -1208,6 +1211,29 @@ export function TodayPlanV2({
           <Feather className="h-4 w-4" />
           Adjust the rest of today
         </button>
+      ) : (
+        // Whole-day adjust is Premium-only. Show the prompt up front rather than
+        // letting a free/sample user fill in the sheet and commit into a 402.
+        <div className="rounded-2xl border border-[#E5E1DA] bg-white px-4 py-4">
+          <div className="flex items-center gap-2">
+            <Feather className="h-4 w-4 text-[#7C9A92]" />
+            <p className="text-sm font-medium text-[#1F2937]">
+              Adjust the whole day — a Premium feature
+            </p>
+          </div>
+          <p className="mt-1.5 text-sm text-[#6B7280]">
+            {entitlementMessage("premium_required")}
+          </p>
+          <Link
+            href="/billing"
+            onClick={() =>
+              trackClient("premium_value_explained", { surface: "today" })
+            }
+            className="mt-3 inline-flex items-center justify-center rounded-xl bg-[#7C9A92] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#6D8C7D]"
+          >
+            See Premium plans
+          </Link>
+        </div>
       )}
     </div>
   );

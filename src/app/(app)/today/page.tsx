@@ -7,6 +7,7 @@ import { LowEnergyDayCard } from "@/components/dailyflow/low-energy-day-card";
 import { isValidTimeZone, localDateFor } from "@/lib/dates/local-day";
 import { TimezoneRepair } from "@/components/dailyflow/timezone-repair";
 import { planProvenanceSummary } from "@/lib/plan/provenance";
+import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
 import { ButtonLink, Callout, EmptyState } from "@/components/ui";
 
 /** Human date for a stored plan_date (YYYY-MM-DD). Never a guessed value. */
@@ -185,6 +186,12 @@ export default async function TodayPage() {
     .eq("daily_plan_id", plan.id);
   const completedKeys = (completions ?? []).map((c) => c.item_key);
 
+  // Whole-day adjust is Premium-only (enforced server-side in the repair route).
+  // Pass the tier so a free/sample user sees the Premium prompt up front instead
+  // of filling in the adjust sheet and committing into a 402. Fail-closed: any
+  // unverifiable status resolves to not-Premium.
+  const { isPremium } = await getUserSubscriptionStatus(user.id);
+
   return (
     <div className="space-y-4">
       {timezoneNeedsRepair && <TimezoneRepair />}
@@ -196,6 +203,7 @@ export default async function TodayPage() {
         plan={plan}
         showMacros={showMacros}
         completedKeys={completedKeys}
+        isPremium={isPremium}
       />
       <PlanProvenance
         promptVersion={plan.prompt_version}

@@ -396,7 +396,7 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
         } else {
           setError(
             data.error === "onboarding_required"
-              ? "Finish the short setup before creating a plan. Your check-in draft will stay here."
+              ? "Finish the short setup first — open it from You → Plan preferences → Start onboarding. Your check-in draft stays saved here."
               : "Mellowa couldn't shape a new plan just now. Your check-in is saved on this device — try again in a few minutes."
           );
         }
