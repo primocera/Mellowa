@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import {
   isPassing,
@@ -7,6 +8,14 @@ import {
   type ReleaseManifest,
   type ManifestViolation,
 } from "@/lib/release/manifest";
+
+/** The complete, ordered set of migration numbers actually on disk. */
+function migrationsOnDisk(): string[] {
+  return readdirSync("supabase/migrations")
+    .filter((f) => f.endsWith(".sql"))
+    .map((f) => f.slice(0, 3))
+    .sort();
+}
 
 /**
  * MW-V11-00: the release manifest is the single source of release truth, and
@@ -337,6 +346,45 @@ describe("candidate lifecycle and supersession (MW-V12-01)", () => {
       documentationFiles: ["M docs/notes.md"],
     };
     expect(validateReleaseManifest(m)).toEqual([]);
+  });
+
+  it("fails a draft candidate that also names a frozen rcSha", () => {
+    const m = validManifest();
+    m.candidateLifecycle = "draft";
+    m.rcSha = SHA; // contradiction: nothing is frozen, yet a SHA is frozen
+    expect(rules(validateReleaseManifest(m))).toContain("malformed");
+  });
+});
+
+describe("migration completeness (never just one known number)", () => {
+  it("fails when the manifest omits a migration that is on disk", () => {
+    const m = validManifest();
+    m.migrations = ["001"];
+    const violations = validateReleaseManifest(m, { migrationsOnDisk: ["001", "002"] });
+    expect(rules(violations)).toContain("incomplete_migrations");
+    expect(violations.some((v) => v.message.includes("002"))).toBe(true);
+  });
+
+  it("fails when the manifest lists a migration that is not on disk", () => {
+    const m = validManifest();
+    m.migrations = ["001", "999"];
+    const violations = validateReleaseManifest(m, { migrationsOnDisk: ["001"] });
+    expect(rules(violations)).toContain("incomplete_migrations");
+  });
+
+  it("fails when the order disagrees with disk", () => {
+    const m = validManifest();
+    m.migrations = ["002", "001"];
+    const violations = validateReleaseManifest(m, { migrationsOnDisk: ["001", "002"] });
+    expect(rules(violations)).toContain("incomplete_migrations");
+  });
+
+  it("accepts the complete, ordered set", () => {
+    const m = validManifest();
+    m.migrations = ["001", "002", "003"];
+    expect(
+      validateReleaseManifest(m, { migrationsOnDisk: ["001", "002", "003"] }),
+    ).toEqual([]);
   });
 
   it("fails a drift classification whose SHAs do not match the manifest", () => {
@@ -818,16 +866,61 @@ describe("the human launch documents agree with the manifest", () => {
   });
 });
 
-describe("the draft v13 candidate manifest", () => {
+describe("the superseded v13 candidate manifest", () => {
   const V13_PATH = "docs/release/manifest.v13.json";
   const manifest = JSON.parse(readFileSync(V13_PATH, "utf8")) as ReleaseManifest;
 
-  it("is internally consistent", () => {
-    const violations = validateReleaseManifest(manifest);
+  it("is internally consistent, and enumerates the COMPLETE on-disk migration set", () => {
+    // MW-06: the migration list is checked against every file on disk, not one
+    // known number — this is what catches "manifest stops at 041 while 042
+    // shipped".
+    const violations = validateReleaseManifest(manifest, {
+      migrationsOnDisk: migrationsOnDisk(),
+    });
     expect(
       violations,
       `v13 manifest violations: ${violations.map((v) => `${v.rule}: ${v.message}`).join(" | ")}`,
     ).toEqual([]);
+    expect(manifest.migrations).toEqual(migrationsOnDisk());
+    expect(manifest.migrations).toContain("042");
+  });
+
+  it("is SUPERSEDED with no active verdict, because product code moved past the RC", () => {
+    expect(manifest.candidateLifecycle).toBe("superseded");
+    expect(manifest.supersededNote?.trim()).toBeTruthy();
+    for (const [tier, verdict] of Object.entries(manifest.verdicts)) {
+      expect(["NO-GO", "UNASSESSED"], `${tier} must not be active`).toContain(verdict);
+    }
+  });
+
+  it("automatically supersedes whenever real git HEAD has moved past the frozen RC", () => {
+    // MW-06: query the ACTUAL git HEAD (not a hand-entered productHeadSha) and
+    // diff rcSha..HEAD. If any product-code file changed, the frozen RC cannot
+    // certify HEAD, so the manifest must be superseded with no active verdict.
+    const rc = manifest.rcSha;
+    if (!rc) return;
+    const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+    if (head === rc) return; // freshly cut candidate — nothing to prove
+    const diff = execFileSync("git", ["diff", "--name-only", rc, head], {
+      encoding: "utf8",
+    }).trim();
+    const changed = diff ? diff.split("\n") : [];
+    const productCode = changed.filter(
+      (p) =>
+        /^(src|app|e2e|scripts|tests|supabase|public|styles)\//.test(p) ||
+        /^(package\.json|package-lock\.json|tsconfig\.json|next\.config\.(ts|mjs)|middleware\.ts|vitest\.config\.ts|playwright\.config\.ts|eslint\.config\.mjs)$/.test(p),
+    );
+    if (productCode.length > 0) {
+      const superseded =
+        manifest.candidateLifecycle === "superseded" || Boolean(manifest.supersededNote?.trim());
+      expect(
+        superseded,
+        `HEAD ${head.slice(0, 7)} changed ${productCode.length} product-code file(s) after RC ${rc.slice(0, 7)}, but the manifest is not superseded`,
+      ).toBe(true);
+      for (const verdict of Object.values(manifest.verdicts)) {
+        expect(["NO-GO", "UNASSESSED"]).toContain(verdict);
+      }
+    }
   });
 
   it("records the v12 baseline and a real 40-char candidate that is not the baseline", () => {
@@ -876,6 +969,25 @@ describe("the draft v13 candidate manifest", () => {
     for (const r of manifest.acceptedRisks ?? []) {
       expect(open, `${r.blockerId} accepted but not open`).toContain(r.blockerId);
       expect(closed, `${r.blockerId} accepted AND closed`).not.toContain(r.blockerId);
+    }
+  });
+
+  it("the active human sign-off/handoff docs agree the candidate is superseded", () => {
+    // MW-06: a human doc must not keep certifying a candidate the manifest has
+    // superseded, and any SHA it names for the candidate must be the manifest's.
+    for (const path of [
+      "docs/release/v13/MW-FINAL-signoff.md",
+      "docs/release/v13/HANDOFF-v13.md",
+    ]) {
+      const doc = readFileSync(path, "utf8");
+      expect(doc, `${path} does not acknowledge supersession`).toMatch(/SUPERSEDED/);
+      // If the doc names a 40-char SHA as the candidate, it must be the RC.
+      const shas = doc.match(/\b[0-9a-f]{40}\b/g) ?? [];
+      for (const sha of shas) {
+        expect(sha, `${path} names ${sha.slice(0, 7)}, not the manifest RC`).toBe(
+          manifest.rcSha,
+        );
+      }
     }
   });
 });

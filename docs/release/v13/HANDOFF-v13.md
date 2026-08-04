@@ -1,5 +1,10 @@
 # Mellowa v13 — handoff for the next prompt-pack author
 
+> **SUPERSEDED (2026-08-04, MW-06).** The v13 RC `940cb94` is superseded by later
+> product code (USD-first pricing + EUR options, migration 042, and the
+> branch-`v14` MW-02..MW-06 hardening). Any v13 launch verdict is now UNASSESSED
+> pending a new candidate (MW-09); see `manifest.v13.json`.
+
 Written 2026-08-03. Everything below is **done and on `main`** unless marked
 BLOCKED/OWNER. Use this to know what NOT to re-commission and where the open
 threads are. Candidate: the v13 work sits on `main` past the v12 base `74080e0`.

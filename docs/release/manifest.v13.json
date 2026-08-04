@@ -3,8 +3,9 @@
   "release": "v13",
   "baselineSha": "74080e0073d2215f84ba8356b44af33747449ff0",
   "rcSha": "940cb94a69a171a4174a06fa96bf60959b5d8542",
-  "candidateLifecycle": "draft",
-  "reconciledAtUtc": "2026-08-03T00:00:00Z",
+  "candidateLifecycle": "superseded",
+  "supersededNote": "Product code changed after the frozen RC 940cb94: USD-first dual-currency pricing and EUR currency_options (980db28, 07d09c7, 6199103), a public readiness route and secret-free EUR script (83ec88b, 90cc5d4), migration 042 (subscription currency), and the branch-v14 MW-02..MW-06 launch-hardening (currency-truth pricing, multi-currency revenue, fail-closed checkout/quota, fail-closed EUR/product readiness, and this evidence-integrity pass). The RC's evidence no longer certifies HEAD, so every tier is UNASSESSED until MW-09 cuts a new candidate.",
+  "reconciledAtUtc": "2026-08-04T00:00:00Z",
   "buildId": "local production build at the RC (no deploy id; Vercel deploy is owner-run)",
   "candidateNote": "v13 launch-hardening pass on branch launch/v13 over the v12 candidate (74080e0). Code/test/security changes: MW-P0-01/02 (journal-reflection output guard + one corrective retry + usage finalize/release, plus a 9-test route-level regression suite), MW-P0-03 (Next 16.2.10->16.2.12 + sharp/postcss overrides; production npm audit is now 0 vulnerabilities; a direct protected-route auth test), MW-P0-04 (release-truth reconciliation + a doc<->manifest consistency gate), and MW-P1-08 (root metadata standardized to the adaptive-day wedge). MW-P1-05/06/07/09/10/P2-11 are documentation/decision/runbook work; the owner-run items (authenticated E2E matrix, live billing rehearsal, cold-start + field vitals) remain blocked/owner-only. Every automated gate that can run without production secrets was RE-RUN at this exact SHA and is recorded below with real counts. The final sign-off document commit sits docs-only on top of this rcSha; the code and gate results are the rcSha's.",
   "migrations": [
@@ -12,7 +13,7 @@
     "011", "012", "013", "014", "015", "016", "017", "018", "019", "020",
     "021", "022", "023", "024", "025", "026", "027", "028", "029", "030",
     "031", "032", "033", "034", "035", "036", "037", "038", "039", "040",
-    "041"
+    "041", "042"
   ],
   "suites": [
     {
@@ -261,9 +262,9 @@
     }
   ],
   "verdicts": {
-    "automated_code_gate": "CONDITIONAL GO",
-    "capped_beta": "CONDITIONAL GO",
-    "public_paid": "CONDITIONAL GO"
+    "automated_code_gate": "UNASSESSED",
+    "capped_beta": "UNASSESSED",
+    "public_paid": "UNASSESSED"
   },
   "rollback": "Flag-based and data-safe. FLAG_MONTHLY_FAIR_USE=0, FLAG_PLAN_REPAIR=0, FLAG_WEEKLY_REFLECTION=0, FLAG_EMPHASIZE_YEARLY unset, FLAG_TRIAL_LENGTH_EXPERIMENT=0, plus per-surface UI reverts. Every migration is additive and re-runnable; 040/041 are additive and the app tolerates their absence. The Next 16.2.12 patch and the sharp/postcss overrides are drop-in; reverting package.json + lockfile restores 16.2.10 if ever needed.",
   "documents": [

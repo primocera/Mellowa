@@ -1,7 +1,15 @@
 # Mellowa v13 — launch sign-off (MW-FINAL)
 
+> **SUPERSEDED (2026-08-04, MW-06).** Product code changed after RC `940cb94`
+> (USD-first dual-currency pricing + EUR options, the readiness route, migration
+> 042, and the branch-`v14` MW-02..MW-06 launch-hardening). This candidate no
+> longer certifies HEAD, so **every verdict below is UNASSESSED** until MW-09
+> cuts a new candidate. The verdicts in this document are the historical v13
+> decision; the machine manifest (`manifest.v13.json`,
+> `candidateLifecycle: "superseded"`) is the current truth.
+
 **Candidate:** `940cb94a69a171a4174a06fa96bf60959b5d8542` (branch `launch/v13`,
-lifecycle **draft**) · **Baseline:** `74080e0` (v12) · **Date:** 2026-08-03.
+lifecycle **superseded**) · **Baseline:** `74080e0` (v12) · **Date:** 2026-08-03.
 Machine source of truth: [`docs/release/manifest.v13.json`](../manifest.v13.json),
 validated by `tests/release-manifest.test.ts`. Where this human summary and the
 manifest differ, the manifest is right.

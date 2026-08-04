@@ -27,7 +27,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-const MANIFEST_PATH = "docs/release/manifest.v11.json";
+const MANIFEST_PATH = "docs/release/manifest.v13.json";
 
 /**
  * A changed path is product code if it can alter what the app does or how it is

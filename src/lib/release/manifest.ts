@@ -296,6 +296,7 @@ export interface ManifestViolation {
     | "unfrozen_candidate"
     | "superseded_active_verdict"
     | "candidate_drift"
+    | "incomplete_migrations"
     | "sensitive_reference"
     | "malformed";
   message: string;
@@ -325,6 +326,7 @@ const UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
  */
 export function validateReleaseManifest(
   manifest: ReleaseManifest,
+  opts: { migrationsOnDisk?: readonly string[] } = {},
 ): ManifestViolation[] {
   const violations: ManifestViolation[] = [];
   const fail = (rule: ManifestViolation["rule"], message: string) =>
@@ -361,6 +363,19 @@ export function validateReleaseManifest(
     !CANDIDATE_LIFECYCLES.includes(manifest.candidateLifecycle)
   ) {
     fail("malformed", `unknown candidateLifecycle "${manifest.candidateLifecycle}"`);
+  }
+  // A "draft" candidate means nothing is frozen — so it cannot also name a
+  // frozen rcSha. This is the exact contradictory state the v13 record was in:
+  // lifecycle "draft" while carrying a frozen RC and active verdicts. A draft
+  // must have rcSha null (which already forbids GO below); once a SHA is frozen
+  // the lifecycle is "frozen" or, after HEAD moves, "superseded".
+  if (manifest.candidateLifecycle === "draft" && manifest.rcSha !== null) {
+    fail(
+      "malformed",
+      `candidateLifecycle is "draft" but rcSha ${manifest.rcSha.slice(0, 7)} is ` +
+        "frozen — a draft candidate has nothing frozen; mark it \"frozen\" or " +
+        "\"superseded\"",
+    );
   }
   const isSuperseded = lifecycle === "superseded" || !!manifest.supersededNote?.trim();
 
@@ -668,6 +683,41 @@ export function validateReleaseManifest(
           `${tier} is GO but no release candidate is frozen (rcSha is null)`,
         );
       }
+    }
+  }
+
+  // ---- migration completeness -------------------------------------------
+  // When the caller supplies the migrations actually on disk, the manifest must
+  // enumerate the COMPLETE ordered set — not merely contain one known number.
+  // This is the rule that catches "manifest stops at 041 while 042 shipped".
+  if (opts.migrationsOnDisk) {
+    const disk = [...opts.migrationsOnDisk];
+    const declared = manifest.migrations;
+    const missing = disk.filter((d) => !declared.includes(d));
+    const extra = declared.filter((d) => !disk.includes(d));
+    if (missing.length > 0) {
+      fail(
+        "incomplete_migrations",
+        `manifest.migrations is missing on-disk migration(s): ${missing.join(", ")}`,
+      );
+    }
+    if (extra.length > 0) {
+      fail(
+        "incomplete_migrations",
+        `manifest.migrations lists migration(s) not on disk: ${extra.join(", ")}`,
+      );
+    }
+    // Order must match the on-disk order for the migrations they share.
+    const declaredInDisk = declared.filter((d) => disk.includes(d));
+    if (
+      missing.length === 0 &&
+      extra.length === 0 &&
+      JSON.stringify(declaredInDisk) !== JSON.stringify(disk)
+    ) {
+      fail(
+        "incomplete_migrations",
+        "manifest.migrations order does not match the on-disk migration order",
+      );
     }
   }
 
