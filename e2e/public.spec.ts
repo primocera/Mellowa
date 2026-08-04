@@ -25,8 +25,10 @@ test("no horizontal overflow on mobile", async ({ page }) => {
 
 test("pricing shows exact prices and payment disclosure near CTA", async ({ page }) => {
   await page.goto("/pricing");
-  await expect(page.getByText("€9.99").first()).toBeVisible();
-  await expect(page.getByText("€59.99").first()).toBeVisible();
+  // USD-primary catalog (MW-02): the anonymous, non-EU test visitor is quoted
+  // USD. Old €9.99/€59.99 literals were removed with the dual-currency work.
+  await expect(page.getByText("$12.99/month").first()).toBeVisible();
+  await expect(page.getByText("$129.99/year").first()).toBeVisible();
   await expect(page.getByText(/payment method required/i).first()).toBeVisible();
   // No absolute "unlimited" promise (fair-use copy instead).
   await expect(page.locator("body")).not.toContainText(/unlimited personalized/i);
