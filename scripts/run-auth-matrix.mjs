@@ -49,6 +49,19 @@ function loadEnvLocal() {
 }
 loadEnvLocal();
 
+// MW-08: never run the authenticated matrix against LIVE Stripe. The matrix
+// creates checkout sessions, so a live secret key here is a hard stop in EVERY
+// mode — billing journeys must only ever touch Stripe TEST mode.
+const stripeKey = process.env.STRIPE_SECRET_KEY ?? "";
+if (stripeKey.startsWith("sk_live")) {
+  console.error(
+    "BLOCKED: STRIPE_SECRET_KEY is a LIVE key. The authenticated matrix runs " +
+      "checkout in Stripe TEST mode only and must never touch live billing.",
+  );
+  process.exit(1);
+}
+const stripeTestMode = stripeKey.startsWith("sk_test");
+
 const configured =
   process.env.E2E_SUPABASE_TEST === "1" &&
   !!process.env.E2E_TEST_EMAIL &&
@@ -66,10 +79,30 @@ if (!configured) {
   process.exit(0);
 }
 
+// MW-08: the RC matrix includes a Premium trial checkout, which needs Stripe
+// TEST mode. A missing/non-test key in RC is BLOCKED, never a silent skip.
+if (RC && !stripeTestMode) {
+  console.error(
+    "BLOCKED (RC): STRIPE_SECRET_KEY (sk_test_…) is required for the checkout " +
+      "journey in RC mode. This did NOT run — it is not a pass.",
+  );
+  process.exit(1);
+}
+
 // Isolation: force the non-production marker check in the seed script.
 process.env.E2E_REQUIRE_SEED_MARKER = "1";
 
 const sha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+
+/** Next.js version, so evidence names the framework the run exercised. */
+const nextVersion = (() => {
+  try {
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    return pkg.dependencies?.next ?? pkg.devDependencies?.next ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+})();
 
 // The covered journeys' title needles come straight from the matrix file — only
 // covered journeys carry a titleNeedle, so this is the authoritative list of
@@ -170,6 +203,16 @@ const evidence = {
   sha,
   generatedAtUtc: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
   mode: RC ? "rc" : "advisory",
+  // MW-08: tie the run to the exact framework, target class and test-mode, so
+  // evidence can never be mistaken for a run at another SHA/build or against a
+  // different (e.g. production) target.
+  nextVersion,
+  buildId: process.env.VERCEL_DEPLOYMENT_ID ?? process.env.BUILD_ID ?? null,
+  target: "disposable non-production Supabase (marker-gated), Stripe TEST mode",
+  testModeConfirmed: {
+    supabaseTest: process.env.E2E_SUPABASE_TEST === "1",
+    stripeTestMode,
+  },
   viewports: ["desktop", "mobile(375)", "mobile-320"],
   totals: { total, passed, failed, skipped },
   requiredJourneys: requiredNeedles.map((needle) => ({
@@ -180,7 +223,9 @@ const evidence = {
   records: allRecords,
 };
 
-const dir = "docs/release/evidence/v12/auth-matrix";
+// Evidence is written per release line and keyed by the exact SHA, so a run can
+// never be silently reused for a different candidate (MW-08).
+const dir = "docs/release/evidence/v13/auth-matrix";
 mkdirSync(dir, { recursive: true });
 const out = `${dir}/${sha}.json`;
 writeFileSync(out, JSON.stringify(evidence, null, 2));
