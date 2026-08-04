@@ -4,11 +4,20 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-# DailyFlow AI — Project Rules
+# Mellowa — Project Rules
 
-DailyFlow AI is a consumer wellness web app that creates realistic daily plans for food, energy, mood, habits, hydration, movement, stress resets, and sleep routines.
+Mellowa is a consumer general-wellbeing web app that helps people follow a gentle daily routine for food, energy, mood, habits, hydration, movement, stress resets and sleep — and, crucially, **reshapes the plan when the day changes** instead of leaving a stale to-do list behind.
 
-**Core promise:** A simple daily plan for food, energy, mood and habits.
+> Historical note: this project was previously named "DailyFlow AI". "DailyFlow" survives only in labeled migration history and internal folder paths; it must not appear in customer-visible copy or in these agent instructions as the product name. The product is **Mellowa** (live at mellowa.app).
+
+**Core promise:** A realistic wellbeing plan for the day you actually have.
+
+## The adaptive-day mechanism (what makes Mellowa Mellowa)
+- The plan is not a fixed checklist. When the day changes, Mellowa **reshapes what is left** — a single pass over the remaining part of the day — rather than regenerating from scratch.
+- **Completed items are kept.** Adjusting the rest of the day never erases what the user already did.
+- **Undo is free.** Reversing an adjustment costs no paid generation.
+- On a low-capacity day, the plan gets **lighter** (fewer things to do), never heavier.
+- **Preference learning is visible, editable and removable.** The plan reuses what worked before, and the user stays in control of what it learned — they can see it, change it and delete it.
 
 ## Target users
 - Busy women aged 25–45
@@ -16,7 +25,7 @@ DailyFlow AI is a consumer wellness web app that creates realistic daily plans f
 - People who want simple meals and habits without strict dieting
 - People who need a gentle daily structure based on mood, energy, stress and schedule
 
-## DailyFlow is NOT
+## Mellowa is NOT
 - a medical app
 - a therapy app
 - an eating disorder recovery tool
@@ -37,6 +46,12 @@ The app helps users create:
 9. Weekly plan and shopping list
 10. Habit tracking and gentle progress review
 
+## Free vs paid (the commercial truth)
+- **Free:** creating an account and completing the wellbeing setup is free, plus **one lifetime sample** daily plan (and one lifetime sample section adjustment) to preview the product. No payment method is required for the free sample.
+- **Trial:** a Premium trial begins **only when the user chooses a plan** and continues to checkout — not at signup. The exact charge date and amount (in the user's currency) are shown before checkout, and one trial per person, ever.
+- **Premium:** continues the daily and weekly loops — ongoing daily plans, whole-day adjustment with free Undo, make-today-lighter, preference learning, saved meals/leftovers/shopping drafts, weekly plans with a reflection, journal reflections and progress insights — all with **fair-use safeguards** (never "unlimited").
+- Pricing is USD-first with an EUR region price; every price/saving figure a surface shows is derived from the one catalog per currency (`src/lib/stripe/plans.ts`), never a hardcoded literal or a "Save 50%" claim.
+
 ## Technical stack
 - Next.js App Router
 - TypeScript (strict)
@@ -44,7 +59,7 @@ The app helps users create:
 - Supabase Auth and Postgres, with RLS for data protection
 - AI provider route for generation
 - Zod for input/output validation
-- Stripe Billing for subscriptions (monthly + yearly)
+- Stripe Billing for subscriptions (monthly + yearly), USD-first with an EUR region price via `currency_options`
 - Vercel deployment
 
 ## Safety and product rules (MANDATORY)
@@ -67,6 +82,7 @@ The app helps users create:
 - Use structured JSON for generated plans; store AI outputs in jsonb columns.
 - Keep components small and reusable.
 - Use clear error handling and loading states.
+- Billing, entitlement, trial eligibility, quota and security checks must **fail closed** when state cannot be verified — never treat a failed read as "no subscription", "no trial used" or "zero usage".
 - Keep UI warm, calm, minimal and mobile-first.
 
 ## UI rules

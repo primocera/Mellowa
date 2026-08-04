@@ -5,7 +5,7 @@ import "server-only";
  * off in Vercel without a deploy: set FLAG_<NAME>=0|false to disable.
  * Everything defaults ON — flags are kill switches, not launch gates.
  */
-const KNOWN_FLAGS = [
+export const KNOWN_FLAGS = [
   "weekly_plan",
   "journal_reflection",
   "meal_regeneration",
@@ -33,9 +33,11 @@ export function isFlagEnabled(flag: FeatureFlag): boolean {
 /**
  * MW-V9-08: yearly-plan emphasis is OPT-IN and defaults OFF. Until retention
  * and unit economics justify it, pricing presents Monthly first and does not
- * aggressively steer to the 50%-off Yearly plan. Set FLAG_EMPHASIZE_YEARLY=1
- * to turn on a factual "best value" emphasis. This is the inverse of the
- * kill-switch flags above (default ON): here the safe default is no nudge.
+ * aggressively steer to the Yearly plan. Set FLAG_EMPHASIZE_YEARLY=1 to turn on
+ * a factual "best value" emphasis (the real saving is derived from the catalog,
+ * ~16.6% at current amounts — see src/lib/stripe/plans.ts, never "50%"). This is
+ * the inverse of the kill-switch flags above (default ON): the safe default is
+ * no nudge.
  */
 export function isYearlyEmphasisEnabled(): boolean {
   const raw = process.env.FLAG_EMPHASIZE_YEARLY;

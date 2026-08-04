@@ -8,7 +8,11 @@ vi.mock("@/lib/ai/generate-json", () => ({
   generateStructuredJson: (...args: unknown[]) => generateMock(...args),
 }));
 
-const insertMock = vi.fn(async (_row: unknown) => ({ error: null }));
+// Typed signature so `mock.calls[0][0]` keeps its row type, without an unused
+// parameter in the implementation (which the lint rule flags).
+const insertMock = vi.fn<(row: unknown) => Promise<{ error: null }>>(
+  async () => ({ error: null }),
+);
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
     from: () => ({ insert: insertMock }),

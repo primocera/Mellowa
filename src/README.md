@@ -1,5 +1,5 @@
 
-## DailyFlow folder structure
+## Mellowa folder structure
 
 - `src/app/(auth)` — login/signup routes
 - `src/app/(app)` — authenticated app: dashboard, onboarding, today, check-in, weekly-plan, meal-rhythm, habits, journal, progress, settings, billing

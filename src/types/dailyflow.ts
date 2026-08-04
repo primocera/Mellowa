@@ -1,5 +1,17 @@
-// TODO: Replace/align with Supabase generated types (`supabase gen types typescript`)
-// once the schema is deployed. These mirror supabase/migrations/001_initial_schema.sql.
+// Hand-maintained row types. These are the app's canonical DB shapes and are
+// kept in sync with supabase/migrations/* by hand; per-query row shapes in
+// billing/analytics code intentionally narrow to just the columns they read.
+//
+// OWNED ISSUE (owner-run, not a floating TODO): replace this file with generated
+// types once the CLI can reach the deployed schema.
+//   Command:     supabase gen types typescript --project-id <ref> > src/types/db.ts
+//   Blocked on:  owner Supabase access (SUPABASE_ACCESS_TOKEN + project ref);
+//                cannot run from CI without those secrets.
+//   Acceptance:  db.ts is generated from the live schema; this file re-exports
+//                the generated Row types (no shape drift), typecheck passes, and
+//                the Subscription type includes every column migrations added
+//                (e.g. `currency` from 042, trial_* fields). Tracked for MW-09/
+//                launch follow-up rather than blocking the beta.
 
 export interface Profile {
   id: string;
