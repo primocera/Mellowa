@@ -32,6 +32,11 @@ jobs:
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_ci_placeholder
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: tests/release-manifest.test.ts diffs the frozen v13 RC
+          # commit (940cb94) against HEAD. The default shallow clone omits it, so
+          # the diff fails with "bad object" and the whole job goes red.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
