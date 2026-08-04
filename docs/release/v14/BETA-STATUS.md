@@ -1,11 +1,36 @@
-# Mellowa — Beta is LIVE (v14)
+# Mellowa — Beta v14: CONDITIONAL GO (capped beta, ≤50)
 
-**Status: launched to production, invite-only (≤50).** As of **2026-08-04**.
-Live at **https://mellowa.app**. `main` @ `cfa2064` (and later). Deployed via Vercel.
+**Formal verdict: `capped_beta` = CONDITIONAL GO** (via accepted risk, see below).
+**`public_paid` = NO-GO** (live-billing / rotation / reminder blockers still open).
+As of **2026-08-04**. Live at **https://mellowa.app**. `main` @ `cfa2064`+.
 
 > **Read this before writing any v15 prompts.** The v14 work below is **done,
 > shipped, and validated in production** — do not generate prompts to re-do it.
-> Beta is already live; only propose *net-new* work for v15.
+> Only propose *net-new* work for v15.
+
+## Formal go/no-go (accepted risk)
+
+`capped_beta`'s only blocker is **`P1-AUTH-E2E-AT-HEAD`** — the unattended
+authenticated E2E matrix has never run (no disposable non-prod Supabase target;
+it is never run against production). It is **accepted, not met**, so the beta is
+**CONDITIONAL GO — never a clean GO** — and this must be **cleared, not carried**,
+before any public/paid expansion.
+
+```json
+{
+  "blockerId": "P1-AUTH-E2E-AT-HEAD",
+  "acceptedBy": "Primoz Cerar",
+  "acceptedOnUtc": "2026-08-04T00:00:00Z",
+  "tiers": ["capped_beta"],
+  "rationale": "The unattended authenticated E2E matrix has not run at this SHA because no disposable non-production Supabase target exists, and it is never run against production. It is accepted for the capped beta only because the same authenticated journeys — signup, onboarding, sample plan, full plan, whole-day adjust with free Undo, checkout, trial disclosure, billing and a live EUR charge — were exercised by hand against mellowa.app at this SHA on 2026-08-04 and passed, and the deterministic safety, entitlement and fail-closed paths they cover are unit-tested (1364 vitest, 75 public E2E, eval suite, build). Residual unknowns are the journal-reflection entitlement/safety journey and cross-account isolation under the automated sweep; the beta is invite-only and capped at 50, which bounds exposure. To be cleared, not carried, before any public or paid expansion by standing up a seeded non-prod Supabase and running npm run test:e2e:matrix at the release SHA."
+}
+```
+
+**Not yet in the machine-validated manifest.** `manifest.v13.json` is superseded
+(MW-06) and no v14 RC manifest was cut (MW-09, owner-gated). The record above is
+the owner's accepted-risk decision in prose; cutting `manifest.v14.json` at
+`cfa2064` — carrying this accepted risk, the suite results, and owner evidence —
+is the remaining formal step to make it machine-checked.
 
 ---
 
