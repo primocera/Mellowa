@@ -5,7 +5,11 @@ import {
   findMealAllergenViolations,
   SEVERE_ALLERGY_MESSAGE,
 } from "@/lib/safety/allergens";
-import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
+import {
+  severeAllergyBlock,
+  isSevereAllergy,
+  stripMealsForSevereAllergy,
+} from "@/lib/safety/severe-allergy";
 import type { MealCardType } from "@/schemas/ai-output-v2";
 
 describe("severe allergy detection (Prompt 8)", () => {
@@ -41,6 +45,38 @@ describe("severe allergy detection (Prompt 8)", () => {
   it("boundary message recommends professional guidance, no meal advice", () => {
     expect(SEVERE_ALLERGY_MESSAGE).toMatch(/dietitian|specialist/i);
     expect(SEVERE_ALLERGY_MESSAGE).not.toMatch(/we suggest .*meal/i);
+  });
+
+  it("isSevereAllergy mirrors the flag and the text signal", () => {
+    expect(isSevereAllergy({ allergies: ["nuts"], allergies_severe: true })).toBe(true);
+    expect(
+      isSevereAllergy({ allergies: ["peanut anaphylaxis"], allergies_severe: false })
+    ).toBe(true);
+    expect(isSevereAllergy({ allergies: ["lactose"], allergies_severe: false })).toBe(false);
+    expect(isSevereAllergy({ allergies: null, allergies_severe: null })).toBe(false);
+  });
+});
+
+describe("severe-allergy daily plan (meals stripped, rest kept)", () => {
+  it("empties meal_cards and appends the boundary message to the safety note", () => {
+    const plan = {
+      meal_cards: [{ title: "Peanut stew" }, { title: "Cashew salad" }],
+      safety_note: "Move gently today.",
+      movement_moment: { name: "A short walk" },
+      encouragement: "You're doing enough.",
+    };
+    const out = stripMealsForSevereAllergy(plan);
+    expect(out.meal_cards).toEqual([]);
+    expect(out.safety_note).toBe(`Move gently today. ${SEVERE_ALLERGY_MESSAGE}`);
+    // Non-meal sections are untouched — this is the whole point of the change.
+    expect(out.movement_moment).toEqual({ name: "A short walk" });
+    expect(out.encouragement).toBe("You're doing enough.");
+  });
+
+  it("sets the boundary message even when there was no prior safety note", () => {
+    const out = stripMealsForSevereAllergy({ meal_cards: [{}], safety_note: null });
+    expect(out.meal_cards).toEqual([]);
+    expect(out.safety_note).toBe(SEVERE_ALLERGY_MESSAGE);
   });
 });
 

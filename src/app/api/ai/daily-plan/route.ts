@@ -33,7 +33,7 @@ import { AiGenerationError } from "@/lib/ai/errors";
 import { canGenerateDailyPlan, getUserPlan } from "@/lib/stripe/subscription";
 import { deliverEmail } from "@/lib/email/deliver";
 import { sampleReadyEmail } from "@/lib/email/templates";
-import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
+import { isSevereAllergy, stripMealsForSevereAllergy } from "@/lib/safety/severe-allergy";
 import { resolvePlanDate } from "@/lib/dates/local-day";
 import { guardAiRoute } from "@/lib/ai/guard";
 import {
@@ -69,9 +69,12 @@ export async function POST(request: Request) {
     );
   }
 
-  // Severe allergies: plans with specific meals are not generated (Prompt 8).
-  const severeBlock = severeAllergyBlock(profile);
-  if (severeBlock) return NextResponse.json(severeBlock, { status: 200 });
+  // Severe allergies: the daily plan still generates, but WITHOUT specific
+  // meals (v14 fix). Automated ingredient/label/cross-contamination checks
+  // can't be trusted at this level, so meals are stripped deterministically
+  // after generation (see below) — the movement, calm-reset, hydration and
+  // sleep sections still reach the user. Meal-only routes keep the full block.
+  const severeAllergy = isSevereAllergy(profile);
 
   // 3. Validate check-in input
   let body: unknown;
@@ -246,6 +249,15 @@ export async function POST(request: Request) {
   );
   if (learnedHints) modeInstruction += `\n${learnedHints}`;
 
+  // Severe-allergy users get a meal-free plan. Ask the model to keep the
+  // summary and encouragement free of specific foods/recipes so the plan reads
+  // coherently once meals are stripped. The format still requires a meal card;
+  // it is discarded deterministically below and never reaches the user.
+  if (severeAllergy) {
+    modeInstruction +=
+      "\nThe user has a SEVERE / life-threatening food allergy. Do NOT build the day around food. Keep plan_summary, encouragement and every non-meal section free of specific foods, meals, recipes or ingredients. Center the day on movement, a calm reset, hydration and the evening wind-down instead.";
+  }
+
   // Accumulate provider token truth across the initial call and any retries so
   // the ledger records the real, summed cost of the whole generation (Prompt 11).
   let genIn = 0;
@@ -325,11 +337,14 @@ export async function POST(request: Request) {
       }
     }
 
-    // Deterministic allergen gate (Prompt 5): never trust the prompt alone.
-    // One regeneration with explicit exclusions; if it still fails, return a
-    // safe error rather than a risky recipe.
+    // Severe allergy: remove meals deterministically rather than running the
+    // violation gate. The gate would regenerate/fail-close on the discarded
+    // meals and could block the whole plan — the exact behaviour this replaces.
+    // Everything else (movement, reset, hydration, sleep) is kept.
     const allergies = (typedProfile.allergies ?? []).filter(Boolean);
-    if (allergies.length) {
+    if (severeAllergy) {
+      stripMealsForSevereAllergy(plan);
+    } else if (allergies.length) {
       let violations = findPlanAllergenViolations(plan.meal_cards, allergies);
       if (violations.length) {
         console.error("[safety] allergen violation, regenerating", {

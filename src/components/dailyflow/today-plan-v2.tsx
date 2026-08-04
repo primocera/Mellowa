@@ -702,6 +702,18 @@ export function TodayPlanV2({
         <h2 className="px-1 text-sm font-medium uppercase tracking-wide text-[#9CA3AF]">
           Meals that fit today
         </h2>
+        {meals.length === 0 && (
+          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <p className="text-sm text-[#6B7280]">
+              Because you told us about a severe or life-threatening allergy,
+              Mellowa doesn&apos;t suggest specific meals or recipes — automated
+              checks can&apos;t guarantee ingredient, label or
+              cross-contamination safety at that level. A registered dietitian or
+              allergy specialist can help you build a safe meal routine. The rest
+              of today&apos;s plan is below.
+            </p>
+          </div>
+        )}
         {meals.map((meal, mealIndex) => (
           <div
             key={`${meal.meal_type}-${mealIndex}`}
@@ -1066,9 +1078,12 @@ export function TodayPlanV2({
                 ["less_time", "Less time"],
                 ["lower_energy", "Lower energy"],
                 ["context_changed", "Different context"],
-                ["meal_not_working", "Meals don't work"],
+                // No meal section for severe-allergy plans, so hide the meal reason.
+                ...(meals.length > 0
+                  ? [["meal_not_working", "Meals don't work"]]
+                  : []),
                 ["calmer_version", "Need a calmer version"],
-              ] as const
+              ] as [string, string][]
             ).map(([code, label]) => (
               <button
                 key={code}
