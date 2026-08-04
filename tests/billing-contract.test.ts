@@ -78,10 +78,15 @@ describe("pricingFor reflects the requested currency", () => {
 
 describe("the price verifier is wired up and checks the right things", () => {
   const script = readFileSync("scripts/verify-stripe-prices.mjs", "utf8");
+  // MW-05: the pass/fail RULES were extracted into a pure, unit-tested module
+  // (tests/price-verify.test.ts). The script does the Stripe I/O and delegates
+  // every judgement to it, so the "checks the right things" assertions read the
+  // decision module.
+  const contract = readFileSync("scripts/price-verify-contract.mjs", "utf8");
 
   it("compares currency, amount, interval and livemode", () => {
     for (const check of ["price.currency", "price.unit_amount", "price.recurring?.interval", "price.livemode"]) {
-      expect(script, `the verifier does not check ${check}`).toContain(check);
+      expect(contract, `the verifier does not check ${check}`).toContain(check);
     }
   });
 
@@ -92,18 +97,32 @@ describe("the price verifier is wired up and checks the right things", () => {
   it("is read-only — it must never create or modify a Stripe object", () => {
     for (const mutation of [".create(", ".update(", ".del(", ".cancel("]) {
       expect(script, `the verifier calls ${mutation}`).not.toContain(mutation);
+      expect(contract, `the contract module calls ${mutation}`).not.toContain(mutation);
     }
   });
 
   it("mirrors the amounts in BILLING_CONTRACT (both currencies)", () => {
-    expect(script).toContain(String(BILLING_CONTRACT.usd.monthly.minorUnits));
-    expect(script).toContain(String(BILLING_CONTRACT.usd.yearly.minorUnits));
-    expect(script).toContain(String(BILLING_CONTRACT.eur.monthly.minorUnits));
+    expect(contract).toContain(String(BILLING_CONTRACT.usd.monthly.minorUnits));
+    expect(contract).toContain(String(BILLING_CONTRACT.usd.yearly.minorUnits));
+    expect(contract).toContain(String(BILLING_CONTRACT.eur.monthly.minorUnits));
   });
 
   it("checks the EUR amount via the price's currency_options (Model B)", () => {
-    expect(script).toContain("currency_options");
-    expect(script).toContain("currency_options?.eur");
+    expect(contract).toContain("currency_options");
+    expect(contract).toContain("currency_options?.eur");
+  });
+
+  it("fails closed on a missing EUR option when EUR pricing is enabled", () => {
+    // The core MW-05 fix: not a warning when eurRequired.
+    expect(contract).toContain("eurRequired");
+    expect(contract).toMatch(/EUR currency_option is missing but EUR pricing is ENABLED/);
+    expect(script).toMatch(/EUR_PRICING_ENABLED/);
+  });
+
+  it("verifies the price's product ownership on the shared Stripe account", () => {
+    expect(script).toMatch(/expand: \["currency_options", "product"\]/);
+    expect(contract).toContain("evaluateProductOwnership");
+    expect(contract).toMatch(/metadata\?\.app/);
   });
 });
 

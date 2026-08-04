@@ -21,26 +21,39 @@ export async function GET() {
 
   const configured = prices.monthly && prices.yearly;
   const eurEnabled = isEurPricingEnabled();
+  // MW-05: checkout charges EUR with NO USD fallback, so enabling EUR without
+  // verified EUR currency_options would mischarge EU buyers. This public
+  // endpoint cannot reach Stripe, so it fails closed: when EUR is ON it is only
+  // "ready" once the owner has run `npm run verify-prices` against production
+  // and set EUR_PRICING_VERIFIED=1. When EUR is OFF this marker is irrelevant.
+  const eurVerified = process.env.EUR_PRICING_VERIFIED === "1";
+  const eurReady = !eurEnabled || eurVerified;
+  const ok = configured && eurReady;
 
   const body = {
-    ok: configured,
+    ok,
     pricing: {
       model: "one price id per interval, USD + EUR currency_options",
       defaultCurrency: DEFAULT_CURRENCY,
       currencies: CURRENCIES,
       eurPricingEnabled: eurEnabled,
+      // Whether the owner has attested EUR currency_options were verified on
+      // live Stripe. Meaningful only while eurPricingEnabled is true.
+      eurPricingVerified: eurVerified,
       catalog: {
         usd: { monthly: CATALOG.usd.monthly.display, yearly: CATALOG.usd.yearly.display },
         eur: { monthly: CATALOG.eur.monthly.display, yearly: CATALOG.eur.yearly.display },
       },
       contract: BILLING_CONTRACT,
       note: eurEnabled
-        ? "EUR pricing is ON — the monthly and yearly prices must each have a EUR currency_option (verify with `npm run verify-prices`), or EU buyers fall back to USD."
-        : "EUR pricing is OFF — every buyer pays USD.",
+        ? eurVerified
+          ? "EUR pricing is ON and verified — EU buyers are charged EUR from the price's EUR currency_option."
+          : "NOT READY: EUR pricing is ON but not verified. Run `npm run verify-prices` against production and set EUR_PRICING_VERIFIED=1. Checkout charges EUR with no USD fallback, so unverified EUR options would mischarge EU buyers."
+        : "EUR pricing is OFF — every buyer sees and pays USD.",
     },
     priceEnvVarsConfigured: prices,
     note: "Public config view (no secrets, no price ids). Run `npm run verify-prices` to compare the live Stripe amounts (incl. EUR currency_options) against BILLING_CONTRACT.",
   };
 
-  return NextResponse.json(body, { status: configured ? 200 : 503 });
+  return NextResponse.json(body, { status: ok ? 200 : 503 });
 }

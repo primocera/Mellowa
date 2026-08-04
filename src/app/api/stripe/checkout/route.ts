@@ -119,9 +119,10 @@ export async function POST(request: Request) {
 
   const planName = parsed.data.interval === "monthly" ? "pro_monthly" : "pro_yearly";
   // USD-first, EUR for EU/EEA buyers (gated by EUR_PRICING_ENABLED). The
-  // resolver returns the currency actually charged, with a USD fallback when a
-  // EUR price is not configured for this interval — so a missing EUR price can
-  // never break checkout.
+  // resolver returns the currency actually charged; there is NO silent USD
+  // fallback. When EUR is enabled the EUR currency_option must exist on the
+  // price (enforced by verify-prices + the readiness endpoint, MW-05), so the
+  // displayed amount and the charged amount always agree.
   const requestedCurrency = currencyFromRequest(request);
   const { priceId: price, currency: chargedCurrency } = resolvePrice(
     parsed.data.interval,

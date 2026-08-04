@@ -3,11 +3,12 @@
  *
  * Mellowa is USD-first (primary market is the US). EU/EEA buyers are charged in
  * EUR so their cards do not fail 3DS on a foreign-currency charge, everyone else
- * pays USD. Each currency is a SEPARATE Stripe price object with its own fixed
- * amount — there is no live FX conversion; the EUR amount is frozen at the value
- * the owner set. Checkout selects the price id that matches the resolved
- * currency, and falls back to USD if a EUR price is not configured for that
- * interval, so a missing EUR id can never break checkout.
+ * pays USD. There is ONE price id per interval carrying a USD amount and an EUR
+ * currency_option; checkout passes the resolved currency so Stripe selects the
+ * matching amount. There is NO live FX conversion and NO silent USD fallback:
+ * when EUR is enabled the EUR currency_option MUST exist (enforced fail-closed
+ * by `npm run verify-prices` and the readiness endpoint), so display and charge
+ * always agree.
  *
  * The whole EUR path is gated behind EUR_PRICING_ENABLED. With the flag off (the
  * safe default) every buyer sees and pays USD.
