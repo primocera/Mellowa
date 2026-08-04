@@ -185,6 +185,18 @@ export function TodayPlanV2({
   const [movement, setMovement] = useState<MovementMomentType | null>(
     plan.movement_plan
   );
+  // Meals and movement are the only sections held in local state (for per-card
+  // regenerate / hide). After an adjustment the parent server component
+  // refreshes with the repaired plan, but that local state was seeded at mount,
+  // so without this sync the two most prominent sections would keep showing the
+  // pre-adjustment content while every prop-rendered section updated — the plan
+  // would look unchanged. Re-seed whenever the server sends a new plan version.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMeals(plan.meal_cards ?? []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMovement(plan.movement_plan);
+  }, [plan.id, plan.meal_cards, plan.movement_plan]);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [simplifying, setSimplifying] = useState(false);
