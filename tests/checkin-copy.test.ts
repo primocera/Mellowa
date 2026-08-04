@@ -48,7 +48,14 @@ describe("daily check-in copy (CE-7)", () => {
 
   it("states that drafts survive errors", () => {
     expect(form).toContain("Your check-in is saved on this device");
-    expect(form).toContain("Your check-in draft will stay here.");
+    expect(form).toContain("Your check-in draft stays saved here.");
+  });
+
+  it("onboarding-required error tells the user where to finish setup", () => {
+    // Skipping onboarding otherwise leaves the user stuck on a generic
+    // "finish setup" message with no path to it.
+    expect(form).toMatch(/Plan preferences/);
+    expect(form).toMatch(/Start onboarding/);
   });
 
   it("MW-03: sample entitlement is disclosed before generation", () => {
