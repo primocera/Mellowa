@@ -93,30 +93,39 @@ content as a growth metric:
 Thresholds without cohort evidence are **hypotheses**, labelled as such. A green
 build is not proof people will pay; a beta verdict does not authorize public paid.
 
-## 8. The honest bottom line
+## 8. The honest bottom line — THE #1 JOB IS MARKETING
 
-The product and its safeguards are essentially done. **What's missing is users,
-not code.** The two remaining paid-launch gates are owner actions in the real
-world — chiefly running the authenticated E2E matrix against a throwaway Supabase
-(≈ one afternoon) plus the live-money rehearsal. The capped beta is ready to
-**deploy** now. The highest-leverage next step is therefore (a) ship the capped
-beta, and (b) **marketing to drive traffic to mellowa.app** — not another prompt
-pack. (See `PROMPT_PACK_SCOPE_NOTE.md`: do not re-open the same three items.)
+**The product is done. The single most important thing now is MARKETING —
+getting real people to mellowa.app.** Not another prompt pack, not more billing
+hardening, not more evidence machinery. Those are finished. What moves the
+business from here is **traffic and users**, full stop.
+
+The product and its safeguards are essentially complete; **what's missing is
+users, not code.** The two remaining paid-launch gates are owner actions in the
+real world — chiefly running the authenticated E2E matrix against a throwaway
+Supabase (≈ one afternoon) plus the live-money rehearsal — and the capped beta is
+ready to **deploy** now. But even those are secondary to the real bottleneck:
+
+> **Priority order: (1) MARKETING / traffic to mellowa.app, (2) ship the capped
+> beta, (3) the owner's two live gates for public paid.** Everything a prompt
+> pack can build here already exists (see `PROMPT_PACK_SCOPE_NOTE.md`: do not
+> re-open the same three items).
 
 ## 9. Recommendation & exact remaining owner actions
 
-**Recommendation — Mellowa: CONTINUE CAPPED BETA (deploy it), plan marketing.**
+**Recommendation — Mellowa: MARKET IT. Then continue/ship the capped beta.**
 
 In order:
-1. Review this branch's diff; merge `v15-launch-closure` when satisfied (owner).
-2. **Deploy the capped beta** (LAUNCH-01) with the bounded invite cohort.
-3. Run the **authenticated E2E matrix** against a throwaway non-production
-   Supabase; pin `passed_locally` at `bb08786`.
-4. Run the **live-money rehearsal** (A–H) on real Stripe; record via
+1. **MARKETING / traffic acquisition to mellowa.app — the #1 priority.** This is
+   the actual bottleneck; the product is ready for the people it needs.
+2. Review this branch's diff; merge `v15-launch-closure` (owner).
+3. **Deploy the capped beta** (LAUNCH-01) with the bounded invite cohort.
+4. Run the **authenticated E2E matrix** against a throwaway non-production
+   Supabase; pin `passed_locally` at the candidate SHA.
+5. Run the **live-money rehearsal** (A–H) on real Stripe; record via
    `rehearsal:validate`.
-5. Only after 3 + 4 are recorded, cut the machine-validated manifest and
+6. Only after 4 + 5 are recorded, cut the machine-validated manifest and
    re-evaluate the **public-paid** verdict.
-6. In parallel with the beta: **marketing / traffic acquisition** to mellowa.app.
 
-Prompts cannot do 2–5; they are owner actions. This packet does not deploy,
-push, migrate or mutate any live service.
+Prompts cannot do 3–6; they are owner actions. No prompt can do 1 either — that
+is real-world go-to-market work, and it is what matters most right now.
