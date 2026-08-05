@@ -50,6 +50,10 @@ vi.mock("@/lib/supabase/admin", () => ({
 vi.mock("@/lib/stripe/client", () => ({
   getStripe: () => ({
     customers: {
+      // Recovery search runs before create on the new-customer path. Default:
+      // no existing Mellowa customer, so the create path is taken. Not tracked
+      // in stripeCalls — these tests assert create/session ordering only.
+      search: async () => ({ data: [] as unknown[] }),
       create: async () => {
         h.stripeCalls.push("customers.create");
         if (h.customerCreateError) throw h.customerCreateError;

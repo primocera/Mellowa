@@ -5,6 +5,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
 import { serverEnv } from "@/lib/env";
 import { entitlementFor } from "@/lib/stripe/plans";
+import {
+  MELLOWA_APP,
+  customerIdempotencyKey,
+  findMellowaCustomer,
+} from "@/lib/stripe/customer";
 import { currencyFromRequest } from "@/lib/stripe/currency";
 import { resolvePrice } from "@/lib/stripe/price-resolver";
 import { classifyBillingRead } from "@/lib/stripe/billing-state";
@@ -22,12 +27,12 @@ const CheckoutInput = z.object({
  * Stripe mutation. Stable machine `code`, `retryable`, and safe user copy — no
  * raw Supabase/Stripe message ever reaches the client.
  */
-function billingUnavailable(code: string) {
+function billingUnavailable(code: string, retryable = true) {
   return NextResponse.json(
     {
       error: code,
       code,
-      retryable: true,
+      retryable,
       message:
         "We couldn't confirm your billing status right now. Please try again in a moment.",
     },
@@ -93,11 +98,49 @@ export async function POST(request: Request) {
   // Reuse the same Stripe customer across the account's lifetime.
   let customerId = row?.stripe_customer_id ?? null;
   if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: user.email ?? undefined,
-      metadata: { supabase_user_id: user.id },
-    });
-    customerId = customer.id;
+    // MW-02: before creating, recover a Mellowa-owned customer that a PREVIOUS
+    // attempt created but failed to link (an orphan), so a retry converges on
+    // one customer instead of minting a duplicate. Ownership is metadata
+    // (supabase_user_id + app), never email.
+    const recovery = await findMellowaCustomer(stripe, user.id);
+    if (recovery.kind === "unavailable") {
+      // The lookup itself failed — fail closed rather than create a customer we
+      // could not prove was absent.
+      console.error("[stripe] customer_lookup_unavailable", {
+        event: "customer_lookup_unavailable",
+        user_id: user.id,
+      });
+      return billingUnavailable("customer_lookup_failed");
+    }
+    if (recovery.kind === "multiple") {
+      // Two or more live Mellowa customers for one user: never guess which one
+      // to charge. Fail closed (not client-retryable) and emit an ids-only
+      // reconciliation signal — no email or other PII.
+      console.error("[stripe] customer_reconciliation_required", {
+        event: "customer_reconciliation_required",
+        user_id: user.id,
+        stripe_customer_ids: recovery.customerIds,
+      });
+      return billingUnavailable("customer_reconciliation_required", false);
+    }
+
+    if (recovery.kind === "found") {
+      customerId = recovery.customerId;
+    } else {
+      // Genuinely new. Create with product-ownership metadata and a stable,
+      // non-PII idempotency key so a retry inside Stripe's 24h window — and two
+      // concurrent first-checkout requests — return the SAME customer instead
+      // of a second one (Stripe does not dedupe customers by email).
+      const customer = await stripe.customers.create(
+        {
+          email: user.email ?? undefined,
+          metadata: { supabase_user_id: user.id, app: MELLOWA_APP },
+        },
+        { idempotencyKey: customerIdempotencyKey(user.id) }
+      );
+      customerId = customer.id;
+    }
+
     // Verify the link persisted BEFORE opening checkout. If the upsert fails the
     // Stripe customer exists but is unlinked; proceeding risks a second,
     // orphaned customer on the next attempt. Fail closed and emit a PII-safe
@@ -114,6 +157,30 @@ export async function POST(request: Request) {
         code: linkErr.code ?? "upsert_failed",
       });
       return billingUnavailable("customer_link_failed");
+    }
+
+    // Resolve a concurrent-request race: re-read the row and, if another request
+    // linked a DIFFERENT valid Mellowa customer first, adopt theirs rather than
+    // overwrite a good link. The now-redundant customer is left for owner
+    // reconciliation — never auto-deleted, since it may already be referenced.
+    const { data: confirmRow, error: confirmErr } = await admin
+      .from("subscriptions")
+      .select("stripe_customer_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (confirmErr) {
+      console.error("[stripe] customer_link_confirm_failed", {
+        event: "customer_link_confirm_failed",
+        user_id: user.id,
+        code: confirmErr.code ?? "read_failed",
+      });
+      return billingUnavailable("customer_link_failed");
+    }
+    if (
+      confirmRow?.stripe_customer_id &&
+      confirmRow.stripe_customer_id !== customerId
+    ) {
+      customerId = confirmRow.stripe_customer_id;
     }
   }
 
