@@ -55,8 +55,9 @@ running.
 - **Cohort data is a variant code and a day count.** No check-in value, plan
   content, journal text or inferred state is attached to an assignment or to any
   experiment event.
-- **Commercial terms unchanged.** €9.99 / €59.99, the refund policy and the
-  yearly-emphasis default are untouched by this experiment.
+- **Commercial terms unchanged.** The catalog prices (USD-first $12.99 / $129.99,
+  EU/EEA €11.99 / €119.99 — see `src/lib/stripe/plans.ts`), the refund policy and
+  the yearly-emphasis default are untouched by this experiment.
 
 ## What is measured
 

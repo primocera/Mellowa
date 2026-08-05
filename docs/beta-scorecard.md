@@ -100,7 +100,7 @@ Three moments, all consented, all neutral, none triggered by sensitive content:
    you actually wanted? What would you have carried that it missed?
 3. **After a cancellation.** Never blocking or delaying the cancellation itself.
    What stopped being worth it? Was anything unclear, uncomfortable or unsafe?
-   Was €9.99 a month justified by what you got?
+   Was the monthly price justified by what you got?
 
 Questions stay non-clinical and never ask about mood, symptoms or health
 outcomes. Cancellation is never delayed, gated or made contingent on answering.

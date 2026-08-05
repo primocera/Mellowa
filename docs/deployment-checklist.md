@@ -38,7 +38,7 @@ Ko je `mellow.app` zakupljena in vezana na Vercel projekt, popravi na VSEH mesti
 | `STRIPE_SECRET_KEY` | ⏳ nov ločen Stripe account "Mellowa" (ne ConversionForge) |
 | `STRIPE_WEBHOOK_SECRET` | ⏳ iz produkcijskega webhook endpointa |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | ⏳ |
-| `STRIPE_PRICE_PRO_MONTHLY` / `_YEARLY` | ⏳ price ID-ja iz Stripe products (€9.99/mo, €59.99/yr) |
+| `STRIPE_PRICE_PRO_MONTHLY` / `_YEARLY` | ⏳ price ID-ja iz Stripe products (USD-first $12.99/mo, $129.99/yr; EU/EEA €11.99/€119.99 preko currency_options) |
 
 ## Supabase
 - [x] Migracija `supabase/migrations/001_initial_schema.sql` pognana
@@ -50,7 +50,7 @@ Ko je `mellow.app` zakupljena in vezana na Vercel projekt, popravi na VSEH mesti
 
 ## Stripe (ko prideš do plačil — SKUPAJ z domeno, glej dogovor)
 1. **Nov ločen Stripe account "Mellowa"** (Create separate account, NE isto kot ConversionForge) — čist branding, keyi, webhook
-2. Product "Mellowa Premium": monthly €9.99 + yearly €59.99 → price ID-ja v env
+2. Product "Mellowa Premium": monthly $12.99 + yearly $129.99 (USD-first; EU/EEA €11.99/€119.99 preko currency_options) → price ID-ja v env
 3. Webhook endpoint `https://mellow.app/api/stripe/webhook` (ali začasno `https://mellowaa.vercel.app/api/stripe/webhook` če greš prej), eventi: `checkout.session.completed`, `customer.subscription.created/updated/deleted`, `invoice.payment_failed`, `invoice.payment_succeeded`
 4. Signing secret → `STRIPE_WEBHOOK_SECRET` → redeploy
 5. Lokalni test: `stripe listen --forward-to localhost:3000/api/stripe/webhook`

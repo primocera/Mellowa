@@ -29,10 +29,11 @@ This file is committed to the repository.
 
 **Pre-conditions**
 - Live Stripe in live mode: secret key, webhook endpoint
-  (`/api/stripe/webhook`, subscribed events) with its signing secret, live EUR
-  prices `STRIPE_PRICE_PRO_MONTHLY` (€9.99) and `STRIPE_PRICE_PRO_YEARLY`
-  (€59.99).
-- Migrations `001`–`039` applied to the live project — confirm with
+  (`/api/stripe/webhook`, subscribed events) with its signing secret, and the
+  live prices `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_PRO_YEARLY`. Each is
+  USD-first ($12.99 / $129.99) with EUR `currency_options` (€11.99 / €119.99)
+  for EU/EEA buyers — confirm both with `npm run verify-prices`.
+- Migrations `001`–`042` applied to the live project — confirm with
   `/api/health/ready`, which checks the RPC overloads the app actually calls,
   not just that two tables exist.
 - `npm run release-check` run with production env pulled, reporting ready.
@@ -50,9 +51,9 @@ also a rollback trigger in `launch-go-no-go-v11.md` §5.
 
 | Condition | Why it stops the rehearsal |
 |---|---|
-| A charge in any currency other than EUR | Stripe does not convert; a EUR-promised, USD-charged customer is the exact P0-PRICE-CURRENCY defect. Verify with `npm run verify-prices` before starting |
+| A charge whose currency does not match the buyer's region — USD for the default region, EUR only for an EU/EEA buyer when EUR pricing is enabled | Stripe does not convert; a displayed-currency ≠ charged-currency customer is the P0-PRICE-CURRENCY defect. Verify with `npm run verify-prices` before starting |
 | Any charge on a date or of an amount the user was not shown | The disclosure contract is broken; this is also an immediate stop for the trial-length experiment |
-| An amount that is not €9.99 (monthly) or €59.99 (yearly) | The charged price disagrees with the billing contract |
+| An amount that does not match the catalog for the buyer's currency — $12.99 / $129.99 (USD), or €11.99 / €119.99 for an EU/EEA buyer | The charged price disagrees with the billing contract in `src/lib/stripe/plans.ts` |
 | Two charges for one checkout | Idempotency has failed; a live launch would double-bill real people |
 | The app grants Premium with no subscription row, or the reverse | Entitlement is not pinned to billing state |
 | A Scalvya/Frost (foreign-product) event mutating a Mellowa row, sending Mellowa mail, or appearing in Mellowa analytics | Cross-product isolation has failed on the shared Stripe account |
@@ -73,7 +74,7 @@ A row where the two differ is a finding even if the flow continued.
 
 | # | Step | Expected | Observed |
 |---|---|---|---|
-| 1 | Live checkout and first charge | Exact charge disclosure shown before confirm; €9.99 captured in Stripe on exactly the disclosed date; webhook grants Premium with no duplicate row | __ |
+| 1 | Live checkout and first charge | Exact charge disclosure shown before confirm; the disclosed catalog amount for the buyer's currency ($12.99 default, €11.99 for EU/EEA) captured in Stripe on exactly the disclosed date; webhook grants Premium with no duplicate row | __ |
 | 2 | Cancel (billing portal or `/api/stripe/cancel`) | `cancel_at_period_end`; read access retained until period end; the trial banner stands down so two notices never contradict | __ |
 | 3 | Unsubscribe from optional email | Suppression recorded; the daily reminder stops; billing and account mail still arrives | __ |
 | 4 | Reactivate | Subscription active again; **no second charge** | __ |

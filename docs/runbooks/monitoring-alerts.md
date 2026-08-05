@@ -26,8 +26,10 @@ upsell, never a silent throttle.
 `syntheticMonthlyCostUsd(mix)` estimates per-user AI cost including the safety
 classification before every daily plan and the one bounded retry. Run the admin
 scorecard's p50/p90 + high-use count against these to see whether real retained
-usage stays inside the €59.99/yr (~€5/mo) economics before changing or promoting
-pricing. **Do not change €9.99/€59.99 without four-week evidence + owner sign-off.**
+usage stays inside the current subscription economics — the catalog in
+`src/lib/stripe/plans.ts` (USD-first $12.99/mo · $129.99/yr; EU/EEA €11.99/mo ·
+€119.99/yr) — before changing or promoting pricing. **Do not change the catalog
+prices without four-week evidence + owner sign-off.**
 
 ## Alert set (owner-configured; Claude Code does not wire live alerting)
 
