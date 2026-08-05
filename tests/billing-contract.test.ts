@@ -129,8 +129,11 @@ describe("the price verifier is wired up and checks the right things", () => {
 describe("a price change must not strand users behind a cached idempotency key", () => {
   const route = readFileSync("src/app/api/stripe/checkout/route.ts", "utf8");
 
+  // The route now has TWO idempotency keys: the customer-create key (MW-02,
+  // deliberately price-independent) and the checkout-session key. Anchor these
+  // assertions to the session key specifically.
   it("includes the price in the checkout idempotency key", () => {
-    const start = route.indexOf("idempotencyKey:");
+    const start = route.indexOf("idempotencyKey: `checkout");
     expect(start, "no idempotency key on the checkout session").toBeGreaterThan(-1);
     const key = route.slice(start, route.indexOf("\n      }", start));
     expect(
@@ -140,7 +143,7 @@ describe("a price change must not strand users behind a cached idempotency key",
   });
 
   it("still varies by user, interval, trial length and currency", () => {
-    const start = route.indexOf("idempotencyKey:");
+    const start = route.indexOf("idempotencyKey: `checkout");
     const key = route.slice(start, route.indexOf("\n      }", start));
     for (const part of ["${user.id}", "interval", "trial", "chargedCurrency"]) {
       expect(key, `the key no longer varies by ${part}`).toContain(part);

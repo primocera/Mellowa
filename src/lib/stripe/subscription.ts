@@ -19,6 +19,16 @@ export type SubscriptionStatus =
   | "unpaid"
   | "incomplete";
 
+/**
+ * MW-03: did the billing-provider read SUCCEED?
+ * - `available`   → the status below is verified truth.
+ * - `unavailable` → the read failed. `status` is forced to a safe "none" (no
+ *   premium is ever assumed we could not confirm), but callers MUST NOT present
+ *   that as a definitive Free/Sample plan, and MUST deny new generation even if
+ *   a separate usage-count read happens to succeed.
+ */
+export type BillingAvailability = "available" | "unavailable";
+
 export interface UserSubscriptionStatus {
   plan: PlanTier;
   status: SubscriptionStatus;
@@ -37,6 +47,12 @@ export interface UserSubscriptionStatus {
   planName: string | null;
   /** Canonical access matrix for this status (Prompt 3). */
   entitlement: Entitlement;
+  /**
+   * MW-03: whether billing could be verified at all. When `unavailable`, the
+   * UI must show a temporary-problem state (not Free/Sample) and every new
+   * generation is denied.
+   */
+  billing: BillingAvailability;
 }
 
 /**
@@ -58,6 +74,10 @@ export async function getUserSubscriptionStatus(
   // MW-04: fail closed on a read error. An unverifiable status resolves to
   // "none", whose entitlement grants no premium generation — we never assume
   // Premium (or a trial) we could not confirm.
+  // MW-03: additionally surface the read outcome as `billing`, so callers can
+  // distinguish "verified no subscription" (Free/Sample) from "could not verify"
+  // (temporary-problem state) instead of collapsing both into "none".
+  const billing: BillingAvailability = error ? "unavailable" : "available";
   const status = (error ? "none" : (data?.status as SubscriptionStatus)) ?? "none";
   const entitlement = entitlementFor(status);
   const isPremium = entitlement.generate;
@@ -87,6 +107,7 @@ export async function getUserSubscriptionStatus(
     cancelAtPeriodEnd: data?.cancel_at_period_end ?? false,
     planName: data?.plan_name ?? null,
     entitlement,
+    billing,
   };
 }
 
@@ -122,8 +143,11 @@ async function countThisMonth(userId: string, table: "weekly_plans"): Promise<nu
 }
 
 export async function canGenerateDailyPlan(userId: string): Promise<boolean> {
-  const plan = await getUserPlan(userId);
-  if (plan === "premium") return true;
+  const sub = await getUserSubscriptionStatus(userId);
+  // MW-03: an unavailable billing read denies new generation even if the usage
+  // count below reads cleanly — "could not verify" is never a sample allowance.
+  if (sub.billing === "unavailable") return false;
+  if (sub.plan === "premium") return true;
   // Sample: one lifetime preview plan. Fail closed if the quota read failed —
   // a count we could not verify must never grant a generation.
   const used = await countAllTime(userId, "daily_plans");
@@ -132,16 +156,18 @@ export async function canGenerateDailyPlan(userId: string): Promise<boolean> {
 }
 
 export async function canGenerateWeeklyPlan(userId: string): Promise<boolean> {
-  const plan = await getUserPlan(userId);
+  const sub = await getUserSubscriptionStatus(userId);
+  if (sub.billing === "unavailable") return false; // MW-03: fail closed
   const used = await countThisMonth(userId, "weekly_plans");
   if (used === null) return false; // fail closed on an unverifiable quota
-  return used < PLAN_LIMITS[plan].weeklyPlansPerMonth;
+  return used < PLAN_LIMITS[sub.plan].weeklyPlansPerMonth;
 }
 
 export async function canUsePremiumFeature(
   userId: string,
   feature: PremiumFeature
 ): Promise<boolean> {
-  const plan = await getUserPlan(userId);
-  return PLAN_LIMITS[plan].premiumFeatures.includes(feature);
+  const sub = await getUserSubscriptionStatus(userId);
+  if (sub.billing === "unavailable") return false; // MW-03: fail closed
+  return PLAN_LIMITS[sub.plan].premiumFeatures.includes(feature);
 }

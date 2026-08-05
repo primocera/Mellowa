@@ -47,6 +47,13 @@ describe("canGenerateDailyPlan fails closed on an unverifiable quota", () => {
     expect(await canGenerateDailyPlan("u1")).toBe(false);
   });
 
+  it("DENIES when the SUBSCRIPTION read errors, even if usage reads as 0 (MW-03)", async () => {
+    // billing unavailable must not fall through to the sample allowance.
+    h.subRead = { data: null, error: { code: "PGRST500" } };
+    h.count = 0;
+    expect(await canGenerateDailyPlan("u1")).toBe(false);
+  });
+
   it("allows the one lifetime sample when the real count is 0", async () => {
     h.count = 0;
     expect(await canGenerateDailyPlan("u1")).toBe(true);

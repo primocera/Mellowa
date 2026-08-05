@@ -94,7 +94,30 @@ export default async function BillingPage({
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="font-medium text-[#1F2937]">Your plan</h2>
 
-        {sub.isPremium ? (
+        {sub.billing === "unavailable" ? (
+          // MW-03: billing could not be verified. Never show a definitive
+          // Free/Sample label, a new-trial CTA or a "pay today" claim to a
+          // possibly-paying user during a provider outage — show a temporary
+          // problem and a retry. Saved plans/journal/history stay accessible
+          // via the rest of the app.
+          <>
+            <p className="mt-2 inline-block rounded-full bg-[#FEF3C7] px-3 py-1 text-sm font-medium text-[#92400E]">
+              Membership status unavailable
+            </p>
+            <p className="mt-3 text-sm text-[#6B7280]">
+              We couldn&rsquo;t confirm your membership right now. This is a
+              temporary problem on our side — not a change to your account, a
+              cancellation or a charge. Your saved plans, journal and history are
+              still available. Please try again in a moment.
+            </p>
+            <Link
+              href="/billing"
+              className="mt-4 inline-block rounded-xl border border-[#E5E1DA] bg-white px-4 py-2 text-sm font-medium text-[#1F2937] transition hover:border-[#7C9A92]/50"
+            >
+              Try again
+            </Link>
+          </>
+        ) : sub.isPremium ? (
           <>
             <p className="mt-2 inline-block rounded-full bg-[#DCFCE7] px-3 py-1 text-sm font-medium text-[#166534]">
               {isTrialing ? "Trial active" : "Mellowa Premium"}
