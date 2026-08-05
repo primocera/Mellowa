@@ -111,7 +111,9 @@ describe("the live transaction rehearsal is executable", () => {
   });
 
   it("aborts on the isolation and currency failures MW-V12-03 hardened", () => {
-    expect(transaction).toMatch(/currency other than EUR/i);
+    // MW-01: USD-first dual-currency — the stop condition is now a currency that
+    // does not match the buyer's region, not "anything other than EUR".
+    expect(transaction).toMatch(/currency does not match the buyer.?s region/i);
     expect(transaction).toMatch(/foreign-product\) event mutating a Mellowa row/i);
     expect(transaction).toMatch(/email the flow did not expect/i);
   });
