@@ -133,7 +133,7 @@ describe("a price change must not strand users behind a cached idempotency key",
   // deliberately price-independent) and the checkout-session key. Anchor these
   // assertions to the session key specifically.
   it("includes the price in the checkout idempotency key", () => {
-    const start = route.indexOf("idempotencyKey: `checkout");
+    const start = route.indexOf("idempotencyKey: `mellowa_checkout");
     expect(start, "no idempotency key on the checkout session").toBeGreaterThan(-1);
     const key = route.slice(start, route.indexOf("\n      }", start));
     expect(
@@ -143,7 +143,7 @@ describe("a price change must not strand users behind a cached idempotency key",
   });
 
   it("still varies by user, interval, trial length and currency", () => {
-    const start = route.indexOf("idempotencyKey: `checkout");
+    const start = route.indexOf("idempotencyKey: `mellowa_checkout");
     const key = route.slice(start, route.indexOf("\n      }", start));
     for (const part of ["${user.id}", "interval", "trial", "chargedCurrency"]) {
       expect(key, `the key no longer varies by ${part}`).toContain(part);

@@ -244,12 +244,16 @@ export async function POST(request: Request) {
         line_items: [{ price, quantity: 1 }],
         success_url: `${serverEnv.appUrl}/billing?status=success`,
         cancel_url: `${serverEnv.appUrl}/pricing?status=cancelled`,
-        metadata: { supabase_user_id: user.id, plan_name: planName },
+        // XAPP-01: tag the app namespace on the session AND the subscription so
+        // every object this checkout mints is provably Mellowa-owned on the
+        // shared Stripe account — never inferred from email.
+        metadata: { supabase_user_id: user.id, plan_name: planName, app: MELLOWA_APP },
         subscription_data: {
           ...(trialEligible ? { trial_period_days: trialConfig.days } : {}),
           metadata: {
             supabase_user_id: user.id,
             plan_name: planName,
+            app: MELLOWA_APP,
             // Allowlisted variant code only — the webhook re-validates it
             // against the same allowlist before storing anything.
             ...(trialEligible ? { trial_variant: trialConfig.variant } : {}),
@@ -281,7 +285,7 @@ export async function POST(request: Request) {
          * and the double-click protection this exists for is unaffected: two
          * clicks a second apart still send identical parameters.
          */
-        idempotencyKey: `checkout_${user.id}_${parsed.data.interval}_${
+        idempotencyKey: `mellowa_checkout_${user.id}_${parsed.data.interval}_${
           trialEligible ? `trial${trialConfig.days}` : "paid"
         }_${price}_${chargedCurrency}`,
       }
