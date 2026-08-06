@@ -39,9 +39,9 @@ re-scaffold them.
 
 | Item | Status | Closes only when… |
 |---|---|---|
-| Authenticated E2E matrix (`test:e2e:public` / `:auth`) | **blocked (no non-prod env here)** | owner runs it once against a throwaway non-production Supabase and pins `passed_locally` at the candidate SHA |
-| Live-money rehearsal (A–H) | **not_run** | owner runs the ordered sequence on real Stripe and records it via `rehearsal-record.json` + `npm run rehearsal:validate` |
-| Router advisory GHSA-qwww-vcr4-c8h2 | **accepted** (`review_by: 2026-11-04`) | react-router leaves 7.x; not reachable meanwhile (client SPA, guarded by `check:router`) |
+| Authenticated E2E matrix (`npm run test:e2e:matrix`, `scripts/run-auth-matrix.mjs`; public journeys `test:e2e:public` / `test:e2e:journey`) | **blocked (no non-prod env here)** | owner runs it once against a throwaway non-production Supabase and pins the pass at the candidate SHA |
+| Live-money rehearsal (A–H) | **not_run** | owner runs the ordered sequence on real Stripe per `docs/runbooks/live-transaction-rehearsal.md` and records the result into `docs/launch-go-no-go-v11.md` §3 (`P0-LIVE-TRANSACTION`) |
+| Next.js dependency advisories | **resolved by upgrade** (`docs/security-next-advisories-v13.md`) | already patched (Next 16.2.12 + transitive overrides); Mellowa has no `react-router`, so no router advisory applies |
 | `npm run eval`, `npm audit --omit=dev`, `npm run release-manifest` | **not_run this session** | owner runs on the release machine when cutting the machine-validated manifest |
 
 ## 4. Blockers
@@ -122,8 +122,9 @@ In order:
 3. **Deploy the capped beta** (LAUNCH-01) with the bounded invite cohort.
 4. Run the **authenticated E2E matrix** against a throwaway non-production
    Supabase; pin `passed_locally` at the candidate SHA.
-5. Run the **live-money rehearsal** (A–H) on real Stripe; record via
-   `rehearsal:validate`.
+5. Run the **live-money rehearsal** (A–H) on real Stripe per
+   `docs/runbooks/live-transaction-rehearsal.md`; record the result into
+   `docs/launch-go-no-go-v11.md` §3.
 6. Only after 4 + 5 are recorded, cut the machine-validated manifest and
    re-evaluate the **public-paid** verdict.
 
