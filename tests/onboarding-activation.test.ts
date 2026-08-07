@@ -38,14 +38,36 @@ describe("privacy-safe funnel instrumentation", () => {
 });
 
 describe("time-to-value affordances", () => {
-  it("shows an honest time estimate and autosave state", () => {
+  it("shows an honest time estimate and resume state", () => {
     expect(wizard).toContain("About 2 minutes");
-    expect(wizard).toContain("Saved on this device");
+    // MW-95-05: honest copy — answers live in the tab, not persisted storage.
+    expect(wizard).toContain("Your place is kept on this device");
+    expect(wizard).not.toContain("Saved on this device");
   });
 
-  it("keeps a local resumable draft and clears it on completion", () => {
-    expect(wizard).toContain("mellowa.onboarding.draft.v1");
-    expect(wizard).toContain("localStorage.removeItem(DRAFT_KEY)");
+  it("persists only a non-sensitive step index and purges the legacy draft", () => {
+    // MW-95-05: only the step index is written to localStorage; sensitive
+    // answers are never serialized, and the retired full-draft key is removed.
+    expect(wizard).toContain('localStorage.setItem(PROGRESS_KEY, JSON.stringify({ step }))');
+    expect(wizard).toContain("localStorage.removeItem(LEGACY_DRAFT_KEY)");
+    // The old full-draft write must be gone entirely.
+    expect(wizard).not.toContain("JSON.stringify(draft)");
+    // No sensitive field name may appear in any localStorage.setItem call.
+    const setItemCalls = [...wizard.matchAll(/localStorage\.setItem\([^;]*\)/g)].map((m) => m[0]);
+    for (const call of setItemCalls) {
+      for (const field of [
+        "allergies",
+        "allergies_severe",
+        "stress_baseline",
+        "sleep_quality_baseline",
+        "energy_baseline",
+        "disliked_ingredients",
+        "work_schedule",
+        "food_preferences",
+      ]) {
+        expect(call.includes(field), `setItem leaks ${field}: ${call}`).toBe(false);
+      }
+    }
   });
 
   it("adds no urgency or completion-pressure copy", () => {

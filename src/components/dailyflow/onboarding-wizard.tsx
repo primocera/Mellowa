@@ -18,9 +18,15 @@ import {
 } from "@/lib/onboarding/validation";
 import { trackClient } from "@/lib/analytics/client";
 
-// Prompt 12: resume an interrupted first run. The draft is non-sensitive
-// onboarding input; we clear it as soon as the profile is saved.
-const DRAFT_KEY = "mellowa.onboarding.draft.v1";
+// MW-95-05: onboarding answers include allergies, a severe-allergy flag and
+// stress/sleep/energy baselines — sensitive profile data that must NEVER sit in
+// long-lived, same-origin-readable localStorage. Those values are held in memory
+// only. The ONLY thing persisted for resume is a non-sensitive step index, so a
+// refresh returns the user to their place (answers are re-entered — see the
+// honest "kept on this device" copy below). The old full-draft key is removed on
+// load without its value ever being read into telemetry.
+const LEGACY_DRAFT_KEY = "mellowa.onboarding.draft.v1";
+const PROGRESS_KEY = "mellowa.onboarding.progress.v2";
 
 const STEPS = [
   "Your rhythm",
@@ -181,38 +187,46 @@ export function OnboardingWizard() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Resume a previous draft on mount, then persist on every change so a
-  // refresh doesn't lose work. `loaded` gates persistence until after the
-  // one-time read, so we never overwrite a saved draft with the initial state.
+  // MW-95-05: on mount, restore ONLY the non-sensitive step index, and purge any
+  // legacy full-draft key without reading its value. `loaded` gates persistence
+  // until after the one-time read. Sensitive answers live in `draft` (memory)
+  // and are intentionally NOT restored from storage.
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
-    let restored: Partial<Draft> | null = null;
+    let restoredStep = 0;
     try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (raw) restored = JSON.parse(raw) as Partial<Draft>;
+      // Remove the retired sensitive draft, if a previous version left one. Its
+      // value is never parsed, logged or sent anywhere — just deleted.
+      localStorage.removeItem(LEGACY_DRAFT_KEY);
+      const raw = localStorage.getItem(PROGRESS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { step?: number };
+        if (typeof parsed.step === "number" && Number.isInteger(parsed.step)) {
+          restoredStep = Math.min(Math.max(parsed.step, 0), STEPS.length - 1);
+        }
+      }
     } catch {
-      /* ignore malformed drafts */
+      /* ignore malformed/unavailable storage */
     }
     // One-time hydration from storage — the documented exception to the
     // no-setState-in-effect rule (react.dev "you might not need an effect").
     /* eslint-disable react-hooks/set-state-in-effect */
-    if (restored) setDraft((d) => ({ ...d, ...restored }));
+    if (restoredStep > 0) setStep(restoredStep);
     setLoaded(true);
     /* eslint-enable react-hooks/set-state-in-effect */
-    // Funnel start (Prompt 21). Fired once on mount; a restored draft is a
-    // resume, a fresh INITIAL is a new start — both count as an onboarding
-    // start for the activation funnel. Only the enumerated `surface` property
-    // is sent; never any field value the user typed.
+    // Funnel start (Prompt 21). Fired once on mount. Only the enumerated
+    // `surface` property is sent; never any field value the user typed.
     trackClient("onboarding_started", { surface: "onboarding" });
   }, []);
   useEffect(() => {
     if (!loaded) return;
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      // Persist the step index ONLY — never any answer.
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify({ step }));
     } catch {
       /* storage may be unavailable; onboarding still works in-memory */
     }
-  }, [draft, loaded]);
+  }, [step, loaded]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -327,7 +341,8 @@ export function OnboardingWizard() {
     }
 
     try {
-      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(PROGRESS_KEY);
+      localStorage.removeItem(LEGACY_DRAFT_KEY);
     } catch {
       /* best effort */
     }
@@ -355,7 +370,11 @@ export function OnboardingWizard() {
             Step {step + 1} of {STEPS.length} • {STEPS[step]}
           </p>
           <p className="text-xs text-[#9CA3AF]">
-            {step === 0 ? "About 2 minutes" : loaded ? "Saved on this device" : ""}
+            {step === 0
+              ? "About 2 minutes"
+              : loaded
+                ? "Your place is kept on this device — answers stay in this tab"
+                : ""}
           </p>
         </div>
         <div className="flex gap-1.5">
