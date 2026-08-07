@@ -331,8 +331,15 @@ export function OnboardingWizard() {
     } catch {
       /* best effort */
     }
-    // Activation milestone (Prompt 21) — carries no field values, only surface.
-    trackClient("onboarding_completed", { surface: "onboarding" });
+    // Activation milestone (MW-95-03) — server-authoritative. The browser asks
+    // the server to record it; the server emits only after confirming the
+    // baseline write is durable, and the call is idempotent on retry. Best
+    // effort: a failed record never blocks the hand-off to the first plan.
+    try {
+      await fetch("/api/onboarding/complete", { method: "POST" });
+    } catch {
+      /* the server reconciles activation from the baseline row if this misses */
+    }
     // Hand straight off to the prefilled check-in so the free sample plan is
     // the very next step (no dead end, no upsell wall).
     router.push("/check-in");

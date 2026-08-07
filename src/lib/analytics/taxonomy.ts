@@ -111,6 +111,11 @@ export type AppEvent = (typeof EVENT_NAMES)[number];
 export const SERVER_AUTHORITATIVE_EVENTS = new Set<AppEvent>([
   "signup_completed",
   "email_verified",
+  // MW-95-03: activation milestone. A browser must not be able to assert it —
+  // only the server, after the wellbeing_profiles baseline write is durable,
+  // may emit it (see /api/onboarding/complete). onboarding_started stays a
+  // client view.
+  "onboarding_completed",
   "sample_plan_generated",
   "checkout_completed",
   "trial_started",

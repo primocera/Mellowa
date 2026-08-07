@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CLIENT_EVENTS, type AppEvent } from "@/lib/analytics/taxonomy";
+import {
+  CLIENT_EVENTS,
+  SERVER_AUTHORITATIVE_EVENTS,
+  type AppEvent,
+} from "@/lib/analytics/taxonomy";
 
 /** Onboarding first-value activation (Launch v6, Prompt 21). */
 
@@ -9,15 +13,18 @@ const checkinPage = readFileSync("src/app/(app)/check-in/page.tsx", "utf8");
 const checkinForm = readFileSync("src/components/dailyflow/checkin-form.tsx", "utf8");
 
 describe("privacy-safe funnel instrumentation", () => {
-  it("onboarding start/complete are client-recordable milestone events", () => {
-    for (const e of ["onboarding_started", "onboarding_completed"] as AppEvent[]) {
-      expect(CLIENT_EVENTS.has(e), `${e} must be client-recordable`).toBe(true);
-    }
+  it("onboarding_started is a client view; onboarding_completed is server-authoritative (MW-95-03)", () => {
+    expect(CLIENT_EVENTS.has("onboarding_started" as AppEvent)).toBe(true);
+    // A browser must not be able to assert activation.
+    expect(SERVER_AUTHORITATIVE_EVENTS.has("onboarding_completed" as AppEvent)).toBe(true);
+    expect(CLIENT_EVENTS.has("onboarding_completed" as AppEvent)).toBe(false);
   });
 
-  it("fires both milestones with only the enumerated surface property", () => {
+  it("fires the start milestone client-side and asks the server to record completion", () => {
     expect(wizard).toContain('trackClient("onboarding_started", { surface: "onboarding" })');
-    expect(wizard).toContain('trackClient("onboarding_completed", { surface: "onboarding" })');
+    // Completion is a server call, not a client claim.
+    expect(wizard).toContain('fetch("/api/onboarding/complete", { method: "POST" })');
+    expect(wizard).not.toContain('trackClient("onboarding_completed"');
   });
 
   it("never passes a typed field value into an analytics call", () => {
