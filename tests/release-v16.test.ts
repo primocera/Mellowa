@@ -1,0 +1,126 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+import {
+  isPassing,
+  validateReleaseManifest,
+  type ReleaseManifest,
+} from "@/lib/release/manifest";
+import { renderStatusPage } from "../scripts/render-release-status.mjs";
+
+/**
+ * MW-95-02: the current v16 release record.
+ *
+ * v13 is superseded and leaves the current tiers unassessed. v16 is a DRAFT — no
+ * candidate is frozen yet — so no tier may carry an active verdict, and the human
+ * status page must be a byte-for-byte render of the machine manifest so the two
+ * can never drift. The immutable RC workflow (release-candidate.yml) is what
+ * makes the authenticated gate fail closed independent of the mutable RC_GATE
+ * variable, so the workflow source is contract-tested too.
+ */
+
+const V16_PATH = "docs/release/manifest.v16.json";
+const STATUS_PATH = "docs/release/v16/STATUS.md";
+const RC_WORKFLOW_PATH = ".github/workflows/release-candidate.yml";
+
+function migrationsOnDisk(): string[] {
+  return readdirSync("supabase/migrations")
+    .filter((f) => f.endsWith(".sql"))
+    .map((f) => f.slice(0, 3))
+    .sort();
+}
+
+const manifest = JSON.parse(readFileSync(V16_PATH, "utf8")) as ReleaseManifest;
+
+describe("the current v16 manifest", () => {
+  it("is internally consistent and enumerates the COMPLETE on-disk migration set", () => {
+    const violations = validateReleaseManifest(manifest, {
+      migrationsOnDisk: migrationsOnDisk(),
+    });
+    expect(
+      violations,
+      `v16 manifest violations: ${violations.map((v) => `${v.rule}: ${v.message}`).join(" | ")}`,
+    ).toEqual([]);
+    expect(manifest.migrations).toEqual(migrationsOnDisk());
+  });
+
+  it("is a DRAFT with nothing frozen and no active verdict", () => {
+    expect(manifest.candidateLifecycle).toBe("draft");
+    expect(manifest.rcSha).toBeNull();
+    for (const [tier, verdict] of Object.entries(manifest.verdicts)) {
+      expect(["NO-GO", "UNASSESSED"], `${tier} must not be active in a draft`).toContain(
+        verdict,
+      );
+    }
+  });
+
+  it("records no passing suite (a draft has no frozen evidence to certify)", () => {
+    for (const s of manifest.suites) {
+      expect(isPassing(s.status), `${s.id} claims a pass without a frozen candidate`).toBe(
+        false,
+      );
+    }
+  });
+
+  it("keeps both owner gates open and unrun", () => {
+    const ids = manifest.blockers.map((b) => b.id);
+    expect(ids).toContain("P1-AUTH-E2E-AT-HEAD");
+    expect(ids).toContain("P0-LIVE-TRANSACTION");
+    for (const o of manifest.ownerEvidence) {
+      expect(isPassing(o.status), `owner item ${o.id} must not claim a pass`).toBe(false);
+    }
+  });
+});
+
+describe("the human status page is generated from the manifest", () => {
+  it("matches a fresh render byte for byte (no hand edits, no drift)", () => {
+    const onDisk = readFileSync(STATUS_PATH, "utf8");
+    const fresh = renderStatusPage(manifest) + "\n";
+    expect(onDisk).toBe(fresh);
+  });
+
+  it("does not state a verdict the manifest does not hold", () => {
+    const page = readFileSync(STATUS_PATH, "utf8");
+    for (const tier of ["automated_code_gate", "capped_beta", "public_paid"] as const) {
+      expect(page).toContain(manifest.verdicts[tier]);
+    }
+    // A draft must never render a bare GO for a tier.
+    expect(page).not.toMatch(/\|\s*GO\s*\|/);
+  });
+});
+
+describe("the immutable RC workflow fails closed on skipped auth", () => {
+  const wf = readFileSync(RC_WORKFLOW_PATH, "utf8");
+
+  it("triggers only on explicit candidates (dispatch SHA or rc/* tag)", () => {
+    expect(wf).toMatch(/workflow_dispatch:/);
+    expect(wf).toMatch(/candidate_sha:/);
+    expect(wf).toMatch(/tags:\s*\n\s*-\s*"rc\/\*"/);
+  });
+
+  it("requires the seeded auth environment and exits non-zero when it is absent", () => {
+    // The load-bearing property: no dependence on the mutable RC_GATE variable
+    // for the fail-closed decision — the workflow itself exits 1.
+    expect(wf).toMatch(/Require seeded authenticated environment/);
+    expect(wf).toMatch(/exit 1/);
+    // The auth matrix step must be present and not conditional on RC_GATE.
+    expect(wf).toMatch(/Authenticated E2E matrix \(required\)/);
+  });
+
+  it("refuses live Stripe and production Supabase", () => {
+    expect(wf).toMatch(/sk_live_\*/);
+    expect(wf).toMatch(/Non-production guard/);
+  });
+
+  it("uses least-privilege permissions and pins the exact candidate SHA", () => {
+    expect(wf).toMatch(/permissions:\s*\n\s*contents:\s*read/);
+    expect(wf).toMatch(/ref:\s*\$\{\{\s*steps\.ref\.outputs\.sha\s*\}\}/);
+  });
+
+  it("validates the manifest and the status-page sync before any suite", () => {
+    const validateIdx = wf.indexOf("Validate release manifest");
+    const lintIdx = wf.indexOf("Lint");
+    expect(validateIdx).toBeGreaterThan(-1);
+    expect(lintIdx).toBeGreaterThan(validateIdx);
+    expect(wf).toMatch(/render-release-status\.mjs .* --check/);
+  });
+});

@@ -1,0 +1,115 @@
+{
+  "schema": 1,
+  "release": "v16",
+  "baselineSha": "432ed18235bf473bd2e38fcbc7546213536d4175",
+  "rcSha": null,
+  "candidateLifecycle": "draft",
+  "reconciledAtUtc": "2026-08-07T00:00:00Z",
+  "buildId": null,
+  "migrations": [
+    "001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
+    "011", "012", "013", "014", "015", "016", "017", "018", "019", "020",
+    "021", "022", "023", "024", "025", "026", "027", "028", "029", "030",
+    "031", "032", "033", "034", "035", "036", "037", "038", "039", "040",
+    "041", "042"
+  ],
+  "suites": [
+    {
+      "id": "lint",
+      "command": "npm run lint",
+      "required": true,
+      "status": "not_run",
+      "note": "Runs per-commit in ordinary CI (advisory) and is frozen with SHA-pinned evidence only when the immutable release-candidate workflow cuts an RC. No frozen candidate exists yet, so no result is recorded as candidate evidence."
+    },
+    {
+      "id": "typecheck",
+      "command": "npm run typecheck",
+      "required": true,
+      "status": "not_run",
+      "note": "Per-commit in CI; frozen only at an RC via .github/workflows/release-candidate.yml."
+    },
+    {
+      "id": "unit-contract-safety",
+      "command": "npx vitest run",
+      "required": true,
+      "status": "not_run",
+      "note": "Per-commit in CI; frozen only at an RC. The RC workflow fails if zero tests are discovered."
+    },
+    {
+      "id": "eval-gate",
+      "command": "npm run eval",
+      "required": true,
+      "status": "not_run",
+      "note": "Safety plus golden fit/variety gates; no LLM judges safety. Frozen only at an RC."
+    },
+    {
+      "id": "production-build",
+      "command": "npm run build",
+      "required": true,
+      "status": "not_run",
+      "note": "Per-commit in CI; frozen only at an RC."
+    },
+    {
+      "id": "e2e-public",
+      "command": "npm run test:e2e:public",
+      "required": true,
+      "status": "not_run",
+      "note": "Public browser journeys, per-commit in CI; frozen only at an RC."
+    },
+    {
+      "id": "e2e-authenticated",
+      "command": "npm run test:e2e:matrix",
+      "required": true,
+      "status": "blocked",
+      "note": "BLOCKED: the authenticated matrix needs a seeded non-production Supabase + Stripe test mode. The immutable RC workflow REQUIRES this suite — missing seeded secrets or zero discovered tests fail the RC run, independent of the mutable RC_GATE variable. Owner-run per docs/release/v15/STATUS-AND-DECISION.md and scripts/run-auth-matrix.mjs; superseded-candidate evidence never carries forward. Tracked by P1-AUTH-E2E-AT-HEAD."
+    },
+    {
+      "id": "release-check",
+      "command": "npm run release-check",
+      "required": true,
+      "status": "blocked",
+      "note": "Fails closed without the production env pulled, by design. Owner runs it with the real environment; it prints presence only, never a value."
+    }
+  ],
+  "ownerEvidence": [
+    {
+      "id": "authenticated-e2e-matrix",
+      "action": "Run the full authenticated E2E matrix once, unattended, against a throwaway non-production Supabase, pinned at the frozen candidate SHA.",
+      "status": "not_run",
+      "note": "No frozen v16 candidate exists yet. When cut, the immutable RC workflow runs this against non-production fixtures only and refuses live Stripe / production Supabase."
+    },
+    {
+      "id": "live-transaction",
+      "action": "One real low-value transaction end to end on live Stripe: charge, cancel, reactivate, payment recovery, refund, per docs/runbooks/live-transaction-rehearsal.md.",
+      "status": "not_run",
+      "note": "Owner-run on the release machine and recorded into docs/launch-go-no-go-v11.md. Claude never executes live money."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "P1-AUTH-E2E-AT-HEAD",
+      "level": "P1",
+      "title": "The full authenticated matrix has not run in one unattended sweep at a frozen v16 candidate.",
+      "owner": "Eng + Owner (env)",
+      "blocks": ["capped_beta", "public_paid"],
+      "acceptance": "The full authenticated matrix run at the frozen v16 candidate SHA with raw artifacts, via npm run test:e2e:matrix against a seeded non-production Supabase."
+    },
+    {
+      "id": "P0-LIVE-TRANSACTION",
+      "level": "P0",
+      "title": "A live payment failure to recovery and the late-failure-after-recovery ordering have not been witnessed over a live wire at v16.",
+      "owner": "Owner",
+      "blocks": ["public_paid"],
+      "acceptance": "Recorded owner evidence for the full charge to cancel to reactivate to recovery to refund sequence on the live plan, per docs/runbooks/live-transaction-rehearsal.md."
+    }
+  ],
+  "verdicts": {
+    "automated_code_gate": "UNASSESSED",
+    "capped_beta": "UNASSESSED",
+    "public_paid": "UNASSESSED"
+  },
+  "rollback": "Flag-based and data-safe. FLAG_PLAN_REPAIR=0, FLAG_WEEKLY_REFLECTION=0, FLAG_TRIAL_LENGTH_EXPERIMENT=0, plus per-surface UI reverts and the beta-capacity intake switch. Every migration is additive and re-runnable. Code rollback target for the shipped product line is 6fe3980 (v14).",
+  "documents": [
+    "docs/release/v16/STATUS.md"
+  ]
+}

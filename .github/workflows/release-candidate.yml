@@ -1,0 +1,152 @@
+name: Release Candidate (immutable gate)
+
+# MW-95-02: an immutable release-candidate gate that CANNOT report green when the
+# authenticated journeys were skipped.
+#
+# The ordinary CI workflow (ci.yml) stays usable day to day: a missing seeded
+# environment is tolerated on a normal push, and its release gate depends on the
+# mutable repository variable RC_GATE. That variable is too easy to leave unset —
+# an RC could go green having checked nothing.
+#
+# This workflow removes that failure mode. It runs ONLY for an explicit release
+# candidate — a manual dispatch naming the exact SHA, or a signed `rc/*` tag — and
+# for those runs the authenticated E2E matrix is REQUIRED. Missing seeded secrets
+# or zero discovered tests FAIL the run, with no dependence on RC_GATE. It never
+# uses live Stripe or a production Supabase.
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: "Exact 40-char commit SHA to certify as the release candidate"
+        required: true
+        type: string
+  push:
+    tags:
+      - "rc/*"
+
+# Least privilege: this workflow only reads the repo and writes its own run
+# artifacts. It needs no write access to contents, packages or deployments.
+permissions:
+  contents: read
+
+concurrency:
+  group: rc-${{ github.event.inputs.candidate_sha || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    name: Certify release candidate
+    runs-on: ubuntu-latest
+    env:
+      # Build-time placeholders only. The non-production guard below refuses to
+      # proceed if any of these resolve to a live/production indicator.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_APP_URL: https://mellowa.app
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_rc_placeholder
+    steps:
+      - name: Resolve candidate ref
+        id: ref
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            REF="${{ github.event.inputs.candidate_sha }}"
+            if ! printf '%s' "$REF" | grep -Eq '^[0-9a-f]{40}$'; then
+              echo "::error title=Bad candidate SHA::candidate_sha must be a full 40-character commit SHA."
+              exit 1
+            fi
+          else
+            REF="${{ github.sha }}"
+          fi
+          echo "sha=$REF" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          # Certify the EXACT commit, and fetch full history so the manifest's
+          # drift/migration checks and any rcSha..HEAD diff resolve.
+          ref: ${{ steps.ref.outputs.sha }}
+          fetch-depth: 0
+
+      # Fail closed if the environment looks like production or live billing.
+      # A release candidate must be certified against throwaway fixtures only.
+      - name: Non-production guard (refuse live Stripe / production Supabase)
+        env:
+          E2E_STRIPE_SECRET_KEY: ${{ secrets.E2E_STRIPE_SECRET_KEY }}
+          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+        run: |
+          fail=0
+          case "$E2E_STRIPE_SECRET_KEY" in
+            sk_live_*)
+              echo "::error title=Live Stripe refused::E2E_STRIPE_SECRET_KEY is a LIVE key. The RC gate runs in Stripe TEST mode only."
+              fail=1 ;;
+          esac
+          # A production Supabase project ref must never be the RC target.
+          case "$E2E_SUPABASE_URL" in
+            *prod*|*production*)
+              echo "::error title=Production Supabase refused::E2E_SUPABASE_URL looks like a production project."
+              fail=1 ;;
+          esac
+          if [ "$fail" = "1" ]; then exit 1; fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Release-truth first: the manifest must be internally consistent before
+      # any suite result could be recorded against it.
+      - name: Validate release manifest
+        run: npm run release-manifest
+
+      - name: Status page is in sync with the manifest
+        run: node scripts/render-release-status.mjs docs/release/manifest.v16.json --check
+
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit / contract / safety
+        run: npm run test
+      - name: Eval gate
+        run: npm run eval
+      - name: Production build
+        run: npm run build
+      - name: Public browser journeys
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e:public
+
+      # The load-bearing difference from ci.yml: for an RC the authenticated
+      # matrix is REQUIRED. Missing seeded secrets fail the run outright, with no
+      # dependence on the mutable RC_GATE variable.
+      - name: Require seeded authenticated environment
+        run: |
+          if [ -z "${{ secrets.E2E_TEST_USER_EMAIL }}" ] || [ -z "${{ secrets.E2E_SUPABASE_URL }}" ]; then
+            echo "::error title=RC gate::Authenticated E2E cannot run — no seeded non-production test-user environment. A release candidate MUST run it; this run fails closed."
+            exit 1
+          fi
+
+      - name: Authenticated E2E matrix (required)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+          E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+          # Force the fail-closed matrix runner regardless of the mutable var.
+          RC_GATE: "1"
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+          npm run test:e2e:matrix
+
+      - name: Upload sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rc-evidence-${{ steps.ref.outputs.sha }}
+          path: |
+            docs/release/manifest.v16.json
+            docs/release/v16/STATUS.md
+          if-no-files-found: warn
