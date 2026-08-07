@@ -54,6 +54,14 @@ vi.mock("@/lib/stripe/client", () => ({
       // no existing Mellowa customer, so the create path is taken. Not tracked
       // in stripeCalls — these tests assert create/session ordering only.
       search: async () => ({ data: [] as unknown[] }),
+      // MW-95-01: every customer id (stored, recovered, created) is proven owned
+      // by exact metadata before it can reach Checkout. Default the retrieve to
+      // an owned Mellowa customer so these ordering tests exercise the happy
+      // ownership path; ownership-failure paths have their own suite.
+      retrieve: async (id: string) => ({
+        id,
+        metadata: { app: "mellowa", supabase_user_id: "u1" },
+      }),
       create: async () => {
         h.stripeCalls.push("customers.create");
         if (h.customerCreateError) throw h.customerCreateError;

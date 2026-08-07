@@ -9,6 +9,7 @@ import {
   MELLOWA_APP,
   customerIdempotencyKey,
   findMellowaCustomer,
+  verifyMellowaCustomerOwnership,
 } from "@/lib/stripe/customer";
 import { currencyFromRequest } from "@/lib/stripe/currency";
 import { resolvePrice } from "@/lib/stripe/price-resolver";
@@ -97,6 +98,38 @@ export async function POST(request: Request) {
 
   // Reuse the same Stripe customer across the account's lifetime.
   let customerId = row?.stripe_customer_id ?? null;
+
+  // MW-95-01: a stored `stripe_customer_id` is NOT ownership proof on a shared
+  // Stripe account — the row could point at a foreign, wrong-user or untagged
+  // customer. Verify the stored id against exact metadata BEFORE it can open
+  // Checkout. A live customer that fails the predicate fails closed for owner
+  // reconciliation; a resource_missing/deleted id is an orphan we recover from.
+  if (customerId) {
+    const owned = await verifyMellowaCustomerOwnership(stripe, customerId, user.id);
+    if (owned.kind === "unavailable") {
+      console.error("[stripe] customer_ownership_unavailable", {
+        event: "customer_ownership_unavailable",
+        user_id: user.id,
+        source: "stored_row",
+      });
+      return billingUnavailable("billing_unavailable");
+    }
+    if (owned.kind === "mismatch") {
+      console.error("[stripe] customer_reconciliation_required", {
+        event: "customer_reconciliation_required",
+        user_id: user.id,
+        source: "stored_row",
+      });
+      return billingUnavailable("customer_reconciliation_required", false);
+    }
+    if (owned.kind === "missing") {
+      // The stored id resolves to nothing chargeable: treat it as an orphan and
+      // fall through to recovery, which converges on one owned customer.
+      customerId = null;
+    }
+    // owned → keep the verified id and skip recovery entirely.
+  }
+
   if (!customerId) {
     // MW-02: before creating, recover a Mellowa-owned customer that a PREVIOUS
     // attempt created but failed to link (an orphan), so a retry converges on
@@ -141,6 +174,31 @@ export async function POST(request: Request) {
       customerId = customer.id;
     }
 
+    // MW-95-01: same ownership predicate at this boundary too. The search-found
+    // and freshly-created customers should already be owned, but proving it here
+    // means one rule guards every path — a search/create anomaly can never reach
+    // Checkout unverified.
+    const recoveredOwned = await verifyMellowaCustomerOwnership(
+      stripe,
+      customerId,
+      user.id
+    );
+    if (recoveredOwned.kind !== "owned") {
+      console.error("[stripe] customer_ownership_unverified_after_recovery", {
+        event: "customer_ownership_unverified_after_recovery",
+        user_id: user.id,
+        result: recoveredOwned.kind,
+      });
+      // A live mismatch is a reconciliation case; missing/unavailable is
+      // transient. Fail closed either way before any Checkout mutation.
+      return billingUnavailable(
+        recoveredOwned.kind === "mismatch"
+          ? "customer_reconciliation_required"
+          : "billing_unavailable",
+        recoveredOwned.kind !== "mismatch"
+      );
+    }
+
     // Verify the link persisted BEFORE opening checkout. If the upsert fails the
     // Stripe customer exists but is unlinked; proceeding risks a second,
     // orphaned customer on the next attempt. Fail closed and emit a PII-safe
@@ -180,7 +238,30 @@ export async function POST(request: Request) {
       confirmRow?.stripe_customer_id &&
       confirmRow.stripe_customer_id !== customerId
     ) {
-      customerId = confirmRow.stripe_customer_id;
+      // MW-95-01: a concurrent request won the link race. Presence in Mellowa's
+      // subscriptions table is NOT ownership proof — verify the winner against
+      // exact metadata before adopting it. A foreign/wrong-user/untagged winner
+      // fails closed for reconciliation; a transient read fails closed retryable.
+      const winnerOwned = await verifyMellowaCustomerOwnership(
+        stripe,
+        confirmRow.stripe_customer_id,
+        user.id
+      );
+      if (winnerOwned.kind !== "owned") {
+        console.error("[stripe] customer_reconciliation_required", {
+          event: "customer_reconciliation_required",
+          user_id: user.id,
+          source: "concurrent_winner",
+          result: winnerOwned.kind,
+        });
+        return billingUnavailable(
+          winnerOwned.kind === "mismatch"
+            ? "customer_reconciliation_required"
+            : "billing_unavailable",
+          winnerOwned.kind !== "mismatch"
+        );
+      }
+      customerId = winnerOwned.customerId;
     }
   }
 
