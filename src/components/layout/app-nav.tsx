@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { trackClient } from "@/lib/analytics/client";
+import { hubForPath, type Hub } from "@/lib/nav/hubs";
+import type { NavEntitlement } from "@/lib/nav/entitlement";
 import clsx from "clsx";
 
 // MW-V9-01: four calm primary destinations chosen by daily job and frequency,
@@ -19,25 +21,28 @@ import clsx from "clsx";
 // plan, meal rhythm, shopping, movement, resets, habits, journal, patterns,
 // billing, settings, privacy) live inside these hubs and stay reachable by
 // their original URLs.
-const NAV_ITEMS = [
-  { href: "/today", label: "Today", icon: Sun, surface: "today" },
-  { href: "/plan", label: "Week", icon: CalendarDays, surface: "week" },
-  { href: "/library", label: "Saved", icon: BookHeart, surface: "saved" },
-  { href: "/you", label: "You", icon: User, surface: "you" },
-] as const;
+const NAV_ITEMS: {
+  href: string;
+  label: string;
+  icon: typeof Sun;
+  surface: string;
+  hub: Hub;
+}[] = [
+  { href: "/today", label: "Today", icon: Sun, surface: "today", hub: "today" },
+  { href: "/plan", label: "Week", icon: CalendarDays, surface: "week", hub: "week" },
+  { href: "/library", label: "Saved", icon: BookHeart, surface: "saved", hub: "saved" },
+  { href: "/you", label: "You", icon: User, surface: "you", hub: "you" },
+];
 
-/** Coarse billing category for analytics — never identity or plan content. */
-export type NavEntitlement =
-  | "free"
-  | "trialing"
-  | "premium"
-  | "past_due"
-  | "canceled"
-  | "unknown";
+export type { NavEntitlement } from "@/lib/nav/entitlement";
 
 export function AppNav({ entitlement = "unknown" }: { entitlement?: NavEntitlement }) {
   const pathname = usePathname();
   const router = useRouter();
+  // MW-95-04: one resolver decides the active hub for BOTH nav variants, so a
+  // detail route (/weekly-plan, /billing, …) lights its canonical parent and an
+  // unknown route lights none. No route can highlight two hubs.
+  const activeHub = hubForPath(pathname);
 
   function onNavigate(surface: string) {
     // primary_nav_viewed: destination + entitlement category only (MW-V9-01).
@@ -58,16 +63,16 @@ export function AppNav({ entitlement = "unknown" }: { entitlement?: NavEntitleme
         <Link href="/today" className="mb-8 px-2 text-lg font-semibold tracking-tight text-[#1F2937]">
           Mellowa
         </Link>
-        <nav className="flex flex-1 flex-col gap-1">
-          {NAV_ITEMS.map(({ href, label, icon: Icon, surface }) => (
+        <nav aria-label="Primary" className="flex flex-1 flex-col gap-1">
+          {NAV_ITEMS.map(({ href, label, icon: Icon, surface, hub }) => (
             <Link
               key={href}
               href={href}
-              aria-current={pathname.startsWith(href) ? "page" : undefined}
+              aria-current={activeHub === hub ? "page" : undefined}
               onClick={() => onNavigate(surface)}
               className={clsx(
                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
-                pathname.startsWith(href)
+                activeHub === hub
                   ? "bg-[#7C9A92]/10 font-medium text-[#6D8C7D]"
                   : "text-[#6B7280] hover:bg-[#FAF7F2] hover:text-[#1F2937]"
               )}
@@ -86,17 +91,20 @@ export function AppNav({ entitlement = "unknown" }: { entitlement?: NavEntitleme
         </button>
       </aside>
 
-      {/* Mobile bottom nav — five evenly spaced destinations */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-[#EDE9E2] bg-white px-2 py-2 md:hidden">
-        {NAV_ITEMS.map(({ href, label, icon: Icon, surface }) => (
+      {/* Mobile bottom nav — four evenly spaced destinations */}
+      <nav
+        aria-label="Primary"
+        className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-[#EDE9E2] bg-white px-2 py-2 md:hidden"
+      >
+        {NAV_ITEMS.map(({ href, label, icon: Icon, surface, hub }) => (
           <Link
             key={href}
             href={href}
-            aria-current={pathname.startsWith(href) ? "page" : undefined}
+            aria-current={activeHub === hub ? "page" : undefined}
             onClick={() => onNavigate(surface)}
             className={clsx(
               "flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1 text-[11px]",
-              pathname.startsWith(href) ? "text-[#6D8C7D]" : "text-[#6B7280]"
+              activeHub === hub ? "text-[#6D8C7D]" : "text-[#6B7280]"
             )}
           >
             <Icon className="h-5 w-5" />
