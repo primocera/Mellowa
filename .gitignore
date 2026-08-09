@@ -59,3 +59,6 @@ PROGRESS.md
 # CI and new contributors have the canonical variable list (MW-V10-08: a test
 # reads it, and it was silently absent in CI).
 !.env.example
+
+# Owner secret scratch file — never commit
+env local.txt
