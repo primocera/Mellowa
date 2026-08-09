@@ -75,8 +75,10 @@
     {
       "id": "authenticated-e2e-matrix",
       "action": "Run the full authenticated E2E matrix once, unattended, against a throwaway non-production Supabase, pinned at the frozen candidate SHA.",
-      "status": "not_run",
-      "note": "No frozen v16 candidate exists yet. When cut, the immutable RC workflow runs this against non-production fixtures only and refuses live Stripe / production Supabase."
+      "status": "local_pass",
+      "evidence": "docs/release/evidence/v13/auth-matrix/a59aa4e41a536e8df8181db0e1ed140e00835c99.json",
+      "sha": "a59aa4e41a536e8df8181db0e1ed140e00835c99",
+      "note": "Run at committed HEAD a59aa4e against a disposable non-production Supabase (marker-gated, gmkcqqfmerefrnphszib) in Stripe TEST mode: 93 passed / 0 failed / 27 skipped, every required journey green. Evidence: docs/release/evidence/v13/auth-matrix/a59aa4e41a536e8df8181db0e1ed140e00835c99.json. This is a local owner-run, NOT a workflow-frozen RC — formal closure of P1-AUTH-E2E-AT-HEAD still requires the immutable release-candidate.yml run at a frozen candidate SHA. Not a preview_pass (no deployed preview) and not live Stripe."
     },
     {
       "id": "live-transaction",

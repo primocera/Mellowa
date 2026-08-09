@@ -41,7 +41,7 @@ UNASSESSED is not a weak GO. No candidate is frozen, so no verdict can be read f
 
 | Id | Status | Action |
 |---|---|---|
-| authenticated-e2e-matrix | not_run | Run the full authenticated E2E matrix once, unattended, against a throwaway non-production Supabase, pinned at the frozen candidate SHA. |
+| authenticated-e2e-matrix | local_pass | Run the full authenticated E2E matrix once, unattended, against a throwaway non-production Supabase, pinned at the frozen candidate SHA. |
 | live-transaction | not_run | One real low-value transaction end to end on live Stripe: charge, cancel, reactivate, payment recovery, refund, per docs/runbooks/live-transaction-rehearsal.md. |
 
 ## Rollback

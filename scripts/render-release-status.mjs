@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Render the human release-status page deterministically FROM the machine
  * manifest (MW-95-02).

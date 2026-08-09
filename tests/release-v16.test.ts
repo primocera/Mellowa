@@ -61,13 +61,24 @@ describe("the current v16 manifest", () => {
     }
   });
 
-  it("keeps both owner gates open and unrun", () => {
+  it("keeps both owner gates as open blockers pending the formal freeze", () => {
     const ids = manifest.blockers.map((b) => b.id);
     expect(ids).toContain("P1-AUTH-E2E-AT-HEAD");
     expect(ids).toContain("P0-LIVE-TRANSACTION");
-    for (const o of manifest.ownerEvidence) {
-      expect(isPassing(o.status), `owner item ${o.id} must not claim a pass`).toBe(false);
-    }
+  });
+
+  it("records the authenticated E2E matrix as a real local owner-run, but not the live rehearsal", () => {
+    const byId = Object.fromEntries(manifest.ownerEvidence.map((o) => [o.id, o]));
+    // The authenticated matrix was run locally against a seeded non-production
+    // Supabase and passed -- recorded honestly as local_pass with SHA-pinned
+    // evidence, NOT a workflow-frozen RC.
+    expect(byId["authenticated-e2e-matrix"].status).toBe("local_pass");
+    expect(byId["authenticated-e2e-matrix"].note).toMatch(/a59aa4e/);
+    // The live-money rehearsal has NOT been recorded: a charge appearing in
+    // Stripe is not the full charge-cancel-reactivate-recover-refund sequence.
+    expect(isPassing(byId["live-transaction"].status), "live rehearsal must not claim a pass").toBe(
+      false,
+    );
   });
 });
 

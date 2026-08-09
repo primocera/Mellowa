@@ -1,0 +1,726 @@
+{
+  "sha": "a59aa4e41a536e8df8181db0e1ed140e00835c99",
+  "generatedAtUtc": "2026-08-09T17:38:21Z",
+  "mode": "rc",
+  "nextVersion": "16.2.12",
+  "buildId": null,
+  "target": "disposable non-production Supabase (marker-gated), Stripe TEST mode",
+  "testModeConfirmed": {
+    "supabaseTest": true,
+    "stripeTestMode": true
+  },
+  "viewports": [
+    "desktop",
+    "mobile(375)",
+    "mobile-320"
+  ],
+  "totals": {
+    "total": 120,
+    "passed": 93,
+    "failed": 0,
+    "skipped": 27
+  },
+  "requiredJourneys": [
+    {
+      "needle": "settings data controls",
+      "passed": true
+    },
+    {
+      "needle": "sign out ends the session",
+      "passed": true
+    },
+    {
+      "needle": "expired session redirects to login",
+      "passed": true
+    },
+    {
+      "needle": "pricing reflects trial state",
+      "passed": true
+    },
+    {
+      "needle": "disclosed identically on pricing and billing",
+      "passed": true
+    },
+    {
+      "needle": "already used their trial sees pay-today copy",
+      "passed": true
+    },
+    {
+      "needle": "sample-used check-in points to Premium",
+      "passed": true
+    },
+    {
+      "needle": "offers exactly one way forward",
+      "passed": true
+    },
+    {
+      "needle": "shows one Now action",
+      "passed": true
+    },
+    {
+      "needle": "active subscription reaches Today without a trial banner",
+      "passed": true
+    },
+    {
+      "needle": "skips the completed item without hiding it",
+      "passed": true
+    },
+    {
+      "needle": "double tap on Done completes once",
+      "passed": true
+    },
+    {
+      "needle": "Undo reverses the completion",
+      "passed": true
+    },
+    {
+      "needle": "states there is nothing left, neutrally",
+      "passed": true
+    },
+    {
+      "needle": "says history is readable",
+      "passed": true
+    },
+    {
+      "needle": "keeps history readable and offers plans",
+      "passed": true
+    },
+    {
+      "needle": "shows one notice, not a trial countdown",
+      "passed": true
+    },
+    {
+      "needle": "offers timezone repair",
+      "passed": true
+    }
+  ],
+  "runs": [
+    {
+      "spec": "e2e/daily-journey.spec.ts",
+      "seededState": "per-test",
+      "count": 36
+    },
+    {
+      "spec": "e2e/journeys.spec.ts",
+      "seededState": "plan-ready",
+      "count": 21
+    },
+    {
+      "spec": "e2e/journeys.spec.ts",
+      "seededState": "trial-eligible",
+      "count": 21
+    },
+    {
+      "spec": "e2e/journeys.spec.ts",
+      "seededState": "trial-used",
+      "count": 21
+    },
+    {
+      "spec": "e2e/journeys.spec.ts",
+      "seededState": "sample-used",
+      "count": 21
+    }
+  ],
+  "records": [
+    {
+      "title": "offers exactly one way forward, reachable by keyboard",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "offers exactly one way forward, reachable by keyboard",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "offers exactly one way forward, reachable by keyboard",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "shows one Now action; the full plan stays reachable",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "a double tap on Done completes once and reads as done once",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "Undo reverses the completion and says nothing about success",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "no celebration, streak or adherence language anywhere on Today",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "shows one Now action; the full plan stays reachable",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "a double tap on Done completes once and reads as done once",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "Undo reverses the completion and says nothing about success",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "no celebration, streak or adherence language anywhere on Today",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "shows one Now action; the full plan stays reachable",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "a double tap on Done completes once and reads as done once",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "Undo reverses the completion and says nothing about success",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "no celebration, streak or adherence language anywhere on Today",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "active subscription reaches Today without a trial banner",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "active subscription reaches Today without a trial banner",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "active subscription reaches Today without a trial banner",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "skips the completed item without hiding it from the full plan",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "skips the completed item without hiding it from the full plan",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "skips the completed item without hiding it from the full plan",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "states there is nothing left, neutrally, with the plan still open",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "states there is nothing left, neutrally, with the plan still open",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "states there is nothing left, neutrally, with the plan still open",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "says history is readable and gives one route to billing",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "says history is readable and gives one route to billing",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "says history is readable and gives one route to billing",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "keeps history readable and offers plans without pressure",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "keeps history readable and offers plans without pressure",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "keeps history readable and offers plans without pressure",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "shows one notice, not a trial countdown as well",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "shows one notice, not a trial countdown as well",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "shows one notice, not a trial countdown as well",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "offers timezone repair instead of a wrong day",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "offers timezone repair instead of a wrong day",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "offers timezone repair instead of a wrong day",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "login → dashboard → consent state → settings data controls",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "pricing reflects trial state for the signed-in user",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "assigned trial length is disclosed identically on pricing and billing",
+      "project": "mobile",
+      "status": "skipped"
+    },
+    {
+      "title": "a user who already used their trial sees pay-today copy only",
+      "project": "mobile",
+      "status": "skipped"
+    },
+    {
+      "title": "sign out ends the session and returns to login",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "an expired session redirects to login instead of rendering",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "sample-used check-in points to Premium, not another free sample",
+      "project": "mobile",
+      "status": "skipped"
+    },
+    {
+      "title": "login → dashboard → consent state → settings data controls",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "pricing reflects trial state for the signed-in user",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "assigned trial length is disclosed identically on pricing and billing",
+      "project": "desktop",
+      "status": "skipped"
+    },
+    {
+      "title": "a user who already used their trial sees pay-today copy only",
+      "project": "desktop",
+      "status": "skipped"
+    },
+    {
+      "title": "sign out ends the session and returns to login",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "an expired session redirects to login instead of rendering",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "sample-used check-in points to Premium, not another free sample",
+      "project": "desktop",
+      "status": "skipped"
+    },
+    {
+      "title": "login → dashboard → consent state → settings data controls",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "pricing reflects trial state for the signed-in user",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "assigned trial length is disclosed identically on pricing and billing",
+      "project": "mobile-320",
+      "status": "skipped"
+    },
+    {
+      "title": "a user who already used their trial sees pay-today copy only",
+      "project": "mobile-320",
+      "status": "skipped"
+    },
+    {
+      "title": "sign out ends the session and returns to login",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "an expired session redirects to login instead of rendering",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "sample-used check-in points to Premium, not another free sample",
+      "project": "mobile-320",
+      "status": "skipped"
+    },
+    {
+      "title": "login → dashboard → consent state → settings data controls",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "pricing reflects trial state for the signed-in user",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "assigned trial length is disclosed identically on pricing and billing",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "a user who already used their trial sees pay-today copy only",
+      "project": "mobile",
+      "status": "skipped"
+    },
+    {
+      "title": "sign out ends the session and returns to login",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "an expired session redirects to login instead of rendering",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "sample-used check-in points to Premium, not another free sample",
+      "project": "mobile",
+      "status": "skipped"
+    },
+    {
+      "title": "login → dashboard → consent state → settings data controls",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "pricing reflects trial state for the signed-in user",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "assigned trial length is disclosed identically on pricing and billing",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "a user who already used their trial sees pay-today copy only",
+      "project": "desktop",
+      "status": "skipped"
+    },
+    {
+      "title": "sign out ends the session and returns to login",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "an expired session redirects to login instead of rendering",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "sample-used check-in points to Premium, not another free sample",
+      "project": "desktop",
+      "status": "skipped"
+    },
+    {
+      "title": "login → dashboard → consent state → settings data controls",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "pricing reflects trial state for the signed-in user",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "assigned trial length is disclosed identically on pricing and billing",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "a user who already used their trial sees pay-today copy only",
+      "project": "mobile-320",
+      "status": "skipped"
+    },
+    {
+      "title": "sign out ends the session and returns to login",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "an expired session redirects to login instead of rendering",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "sample-used check-in points to Premium, not another free sample",
+      "project": "mobile-320",
+      "status": "skipped"
+    },
+    {
+      "title": "login → dashboard → consent state → settings data controls",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "pricing reflects trial state for the signed-in user",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "assigned trial length is disclosed identically on pricing and billing",
+      "project": "mobile",
+      "status": "skipped"
+    },
+    {
+      "title": "a user who already used their trial sees pay-today copy only",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "sign out ends the session and returns to login",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "an expired session redirects to login instead of rendering",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "sample-used check-in points to Premium, not another free sample",
+      "project": "mobile",
+      "status": "skipped"
+    },
+    {
+      "title": "login → dashboard → consent state → settings data controls",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "pricing reflects trial state for the signed-in user",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "assigned trial length is disclosed identically on pricing and billing",
+      "project": "desktop",
+      "status": "skipped"
+    },
+    {
+      "title": "a user who already used their trial sees pay-today copy only",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "sign out ends the session and returns to login",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "an expired session redirects to login instead of rendering",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "sample-used check-in points to Premium, not another free sample",
+      "project": "desktop",
+      "status": "skipped"
+    },
+    {
+      "title": "login → dashboard → consent state → settings data controls",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "pricing reflects trial state for the signed-in user",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "assigned trial length is disclosed identically on pricing and billing",
+      "project": "mobile-320",
+      "status": "skipped"
+    },
+    {
+      "title": "a user who already used their trial sees pay-today copy only",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "sign out ends the session and returns to login",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "an expired session redirects to login instead of rendering",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "sample-used check-in points to Premium, not another free sample",
+      "project": "mobile-320",
+      "status": "skipped"
+    },
+    {
+      "title": "login → dashboard → consent state → settings data controls",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "pricing reflects trial state for the signed-in user",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "assigned trial length is disclosed identically on pricing and billing",
+      "project": "mobile",
+      "status": "skipped"
+    },
+    {
+      "title": "a user who already used their trial sees pay-today copy only",
+      "project": "mobile",
+      "status": "skipped"
+    },
+    {
+      "title": "sign out ends the session and returns to login",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "an expired session redirects to login instead of rendering",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "sample-used check-in points to Premium, not another free sample",
+      "project": "mobile",
+      "status": "passed"
+    },
+    {
+      "title": "login → dashboard → consent state → settings data controls",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "pricing reflects trial state for the signed-in user",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "assigned trial length is disclosed identically on pricing and billing",
+      "project": "desktop",
+      "status": "skipped"
+    },
+    {
+      "title": "a user who already used their trial sees pay-today copy only",
+      "project": "desktop",
+      "status": "skipped"
+    },
+    {
+      "title": "sign out ends the session and returns to login",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "an expired session redirects to login instead of rendering",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "sample-used check-in points to Premium, not another free sample",
+      "project": "desktop",
+      "status": "passed"
+    },
+    {
+      "title": "login → dashboard → consent state → settings data controls",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "pricing reflects trial state for the signed-in user",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "assigned trial length is disclosed identically on pricing and billing",
+      "project": "mobile-320",
+      "status": "skipped"
+    },
+    {
+      "title": "a user who already used their trial sees pay-today copy only",
+      "project": "mobile-320",
+      "status": "skipped"
+    },
+    {
+      "title": "sign out ends the session and returns to login",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "an expired session redirects to login instead of rendering",
+      "project": "mobile-320",
+      "status": "passed"
+    },
+    {
+      "title": "sample-used check-in points to Premium, not another free sample",
+      "project": "mobile-320",
+      "status": "passed"
+    }
+  ]
+}
