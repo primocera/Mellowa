@@ -5,6 +5,29 @@ realistic plan for food, energy, mood and habits — adapted to how the day
 actually feels. Not a diet app, macro tracker, therapy tool or medical
 service.
 
+## Update — v16 (2026-08-09)
+
+**The path to launch is clean and the release loop is closed:**
+
+1. **Freeze a candidate** — the automated gates are green (unit/contract/safety
+   1500/1500) and the authenticated E2E matrix passed at candidate `a59aa4e`
+   (93/0/27, seeded non-production Supabase, Stripe TEST mode). The P1 E2E gate
+   is **closed** with committed artifacts.
+2. **Open the capped beta** — beta needs no live charge; a bounded cohort keeps
+   the blast radius small while the first real transactions come through.
+3. **The live gate closes itself from real traffic** — real beta checkouts,
+   cancels and refunds are `observed` production evidence, which closes
+   `P0-LIVE-TRANSACTION` naturally. No manual re-rehearsing, and **no more Stripe
+   code changes** — billing is frozen at v16 (the churn source is the fix).
+
+`P0-LIVE-TRANSACTION` is an **owner-accepted risk** for public paid (carry-forward),
+so future release packs must not re-open it or re-touch the billing path. See
+[`docs/release/v16/OWNER-DECISION-BILLING-FROZEN.md`](docs/release/v16/OWNER-DECISION-BILLING-FROZEN.md)
+and [`docs/release/manifest.v16.json`](docs/release/manifest.v16.json). Honest
+readiness: capped beta gated only on cutting the candidate; public paid 7.9 with
+the accepted P0. 9.5 also requires mature retention value, which only real usage
+produces.
+
 ## Update — v13 (2026-08-03)
 
 The **v13 launch-hardening pass** is merged to `main` (journal-reflection output
