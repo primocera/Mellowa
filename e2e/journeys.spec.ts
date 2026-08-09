@@ -189,7 +189,10 @@ test("sign out ends the session and returns to login", async ({ page }) => {
   await page.goto("/you");
   await assertIdentity(page, { route: /\/you/ });
 
-  await page.getByRole("button", { name: /^Sign out$/ }).click();
+  // The /you page renders its own Sign out button in #main, and the persistent
+  // sidebar renders another — so an unscoped role query matches two elements.
+  // Click the one on the page under test (the #main SignOutButton).
+  await page.locator("#main").getByRole("button", { name: /^Sign out$/ }).click();
   await page.waitForURL(/\/login/, { timeout: 15_000 });
   expect(page.url(), "sign out did not return to /login").toMatch(/\/login/);
 
@@ -228,11 +231,15 @@ test("sample-used check-in points to Premium, not another free sample", async ({
   await page.goto("/check-in");
   await assertIdentity(page, { route: /\/check-in/ });
 
+  // Retry the read: check-in is a server component behind a Suspense boundary
+  // (check-in/loading.tsx is a text-free skeleton), so a one-shot innerText read
+  // races the streamed content on a higher-latency database and sees only the
+  // nav shell. A retrying assertion waits for the gate copy to actually arrive.
+  await expect(
+    page.locator("body"),
+    "sample-used fixture is not showing the consumed-sample gate"
+  ).toContainText(/used your free sample plan/i);
   const body = await page.locator("body").innerText();
-  // The consumed-sample gate copy (src/app/(app)/check-in/page.tsx).
-  expect(body, "sample-used fixture is not showing the consumed-sample gate").toMatch(
-    /used your free sample plan/i
-  );
   expect(body, "a consumed sample must not offer another free sample").not.toMatch(
     /creates your one free sample plan/i
   );

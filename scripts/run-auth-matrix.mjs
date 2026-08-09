@@ -26,6 +26,7 @@
 
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const RC = process.argv.includes("--rc") || process.env.RC_GATE === "1";
 
@@ -118,17 +119,30 @@ const authSpecSrc = readFileSync(new URL("../e2e/journeys.spec.ts", import.meta.
 const gated = [...authSpecSrc.matchAll(/SEEDED_STATE\s*!==\s*"([^"]+)"/g)].map((m) => m[1]);
 const authSeedPlan = [...new Set(["plan-ready", ...gated])];
 
+// Resolve Playwright's CLI entry so it runs via `node <cli>` rather than the
+// `npx` shim. On Windows the shim is `npx.cmd`, which execFileSync cannot spawn
+// without a shell — so every invocation threw before a test ran and the matrix
+// reported zero tests. Invoking the CLI through the current Node binary is
+// correct on every platform and needs no shell.
+const PLAYWRIGHT_CLI = fileURLToPath(
+  new URL("../node_modules/@playwright/test/cli.js", import.meta.url),
+);
+
 /** Run one playwright invocation and return flattened per-test records. */
 function runSpec(spec, seededState) {
   const env = { ...process.env };
   if (seededState) env.E2E_SEED_STATE = seededState;
   let raw = "";
   try {
-    raw = execFileSync("npx", ["playwright", "test", spec, "--reporter=json"], {
-      encoding: "utf8",
-      env,
-      maxBuffer: 64 * 1024 * 1024,
-    });
+    raw = execFileSync(
+      process.execPath,
+      [PLAYWRIGHT_CLI, "test", spec, "--reporter=json"],
+      {
+        encoding: "utf8",
+        env,
+        maxBuffer: 64 * 1024 * 1024,
+      },
+    );
   } catch (err) {
     // Playwright exits non-zero on any test failure but still prints the JSON
     // report to stdout — parse it rather than losing the run.
