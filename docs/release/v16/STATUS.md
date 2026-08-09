@@ -34,7 +34,6 @@ UNASSESSED is not a weak GO. No candidate is frozen, so no verdict can be read f
 
 | Id | Level | Blocks | Title |
 |---|---|---|---|
-| P1-AUTH-E2E-AT-HEAD | P1 | capped_beta, public_paid | The full authenticated matrix has not run in one unattended sweep at a frozen v16 candidate. |
 | P0-LIVE-TRANSACTION | P0 | public_paid | A live payment failure to recovery and the late-failure-after-recovery ordering have not been witnessed over a live wire at v16. |
 
 ## Owner-run evidence

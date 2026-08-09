@@ -61,10 +61,25 @@ describe("the current v16 manifest", () => {
     }
   });
 
-  it("keeps both owner gates as open blockers pending the formal freeze", () => {
-    const ids = manifest.blockers.map((b) => b.id);
-    expect(ids).toContain("P1-AUTH-E2E-AT-HEAD");
-    expect(ids).toContain("P0-LIVE-TRANSACTION");
+  it("closes the P1 E2E gate with artifact proof and keeps P0-LIVE open and accepted", () => {
+    const openIds = manifest.blockers.map((b) => b.id);
+    const closedIds = (manifest.closedBlockers ?? []).map((b) => b.id);
+    // The authenticated matrix ran at a59aa4e with committed artifacts, so its
+    // blocker is closed -- with a closure that names both what closed it and
+    // where the proof lives (the validator rejects a closure without evidence).
+    expect(closedIds).toContain("P1-AUTH-E2E-AT-HEAD");
+    expect(openIds).not.toContain("P1-AUTH-E2E-AT-HEAD");
+    const closed = (manifest.closedBlockers ?? []).find((b) => b.id === "P1-AUTH-E2E-AT-HEAD");
+    expect(closed?.evidence).toMatch(/a59aa4e/);
+    // P0-LIVE stays OPEN -- a P0 is never accepted away in the score -- but the
+    // owner's carried-forward acceptance is recorded against it.
+    expect(openIds).toContain("P0-LIVE-TRANSACTION");
+    const risk = (manifest.acceptedRisks ?? []).find(
+      (r) => r.blockerId === "P0-LIVE-TRANSACTION",
+    );
+    expect(risk, "owner acceptance for P0-LIVE must be recorded").toBeTruthy();
+    expect(risk?.tiers).toContain("public_paid");
+    expect(risk?.acceptedBy).not.toBe("Owner"); // must be a person, not a role
   });
 
   it("records the authenticated E2E matrix as a real local owner-run, but not the live rehearsal", () => {
