@@ -24,6 +24,23 @@ import {
 } from "@/lib/stripe/trial-experiment";
 import { shouldApplyStripeEvent } from "@/lib/stripe/event-order";
 import { planFromPriceId } from "@/lib/stripe/price-resolver";
+import { MELLOWA_APP } from "@/lib/stripe/customer";
+
+/**
+ * XAPP-V17-01: extract a Mellowa user id from an object's metadata ONLY when the
+ * exact Mellowa app namespace is present. On a shared Stripe account, a peer
+ * product's object (or an untagged one) can carry a `supabase_user_id`-shaped
+ * value or a colliding id; trusting metadata presence alone is how a foreign
+ * object gets adopted. The predicate is `app === "mellowa"` AND `supabase_user_id`
+ * — nothing less. Objects without the exact tag fall through to the trusted
+ * parent (our own stored customer row), never to a bare-metadata adoption.
+ */
+function mellowaUserIdFromMetadata(
+  metadata: Stripe.Metadata | null | undefined
+): string | null {
+  if (!metadata || metadata.app !== MELLOWA_APP) return null;
+  return metadata.supabase_user_id ?? null;
+}
 
 /**
  * Stripe webhook — keeps the subscriptions table in sync (Prompt 14).
@@ -101,7 +118,8 @@ export async function POST(request: Request) {
   async function emailForCustomer(
     subscription: Stripe.Subscription
   ): Promise<string | null> {
-    let userId = subscription.metadata?.supabase_user_id ?? null;
+    // Exact ownership: only OUR app namespace resolves from metadata.
+    let userId = mellowaUserIdFromMetadata(subscription.metadata);
     if (!userId) {
       const customerId =
         typeof subscription.customer === "string"
@@ -182,7 +200,9 @@ export async function POST(request: Request) {
   }
 
   async function syncSubscription(subscription: Stripe.Subscription) {
-    const userId = subscription.metadata?.supabase_user_id;
+    // Exact-ownership metadata only: a peer-app or untagged subscription never
+    // resolves here — it falls through to the trusted stored-customer parent.
+    const userId = mellowaUserIdFromMetadata(subscription.metadata);
     const customerId =
       typeof subscription.customer === "string"
         ? subscription.customer
@@ -215,11 +235,13 @@ export async function POST(request: Request) {
        *    access. That is the "paid but no access" failure v10 fixed, arriving
        *    through a different door.
        *
-       * Every subscription we create carries `metadata.supabase_user_id`
-       * (set in the checkout route), so its absence — combined with no matching
-       * stored customer — means the subscription is provably not ours. Ack it
-       * and move on. The race in case 1 still throws, because a Mellowa
-       * subscription always has that metadata from the moment it is created.
+       * Every subscription we create carries the EXACT Mellowa metadata
+       * (`app === "mellowa"` AND `supabase_user_id`, set in the checkout route),
+       * so the absence of that exact pair — combined with no matching stored
+       * customer — means the subscription is provably not ours (a peer product's
+       * object, or an untagged/wrong-app one). Ack it and move on. The race in
+       * case 1 still throws, because a Mellowa subscription always has that exact
+       * metadata from the moment it is created.
        *
        * The real fix is a separate Stripe account per product. This keeps one
        * product's traffic from disabling another's webhook until then.

@@ -38,6 +38,20 @@ describe("Stripe: a foreign-product event causes no Mellowa side effect", () => 
     expect(guards.length).toBe(calls.length);
   });
 
+  it("resolves a subscription user from metadata ONLY with the exact app namespace (XAPP-V17-01)", () => {
+    // A peer product's object (or an untagged one) can carry a
+    // supabase_user_id-shaped value or a colliding id. Trusting metadata presence
+    // alone would adopt it. The webhook now requires app === "mellowa" AND
+    // supabase_user_id, via the shared helper, and never reads the raw field.
+    expect(webhook).toContain("function mellowaUserIdFromMetadata");
+    expect(webhook).toMatch(/metadata\.app !== MELLOWA_APP/);
+    // Both resolution sites go through the helper, not the raw metadata field.
+    expect(webhook).toContain("mellowaUserIdFromMetadata(subscription.metadata)");
+    // The only raw supabase_user_id read left is inside the helper itself.
+    const rawReads = webhook.match(/metadata\??\.supabase_user_id/g) ?? [];
+    expect(rawReads.length, "raw supabase_user_id reads should live only in the helper").toBe(1);
+  });
+
   it("drops a foreign invoice event before any mutation, email or analytics", () => {
     // The invoice branches read the subscriptions row first; a foreign customer
     // has no row, so nothing downstream runs (MW-V12-03).
