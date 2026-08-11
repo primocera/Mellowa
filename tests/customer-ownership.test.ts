@@ -221,6 +221,17 @@ describe("portal route runs the same ownership predicate before opening", () => 
     expect(h.calls).toEqual([]);
   });
 
+  it("503 billing_unavailable (retryable) when the subscription READ errors — never a false no_customer, no Stripe read (MW-V17-05)", async () => {
+    h.subRead = { data: null, error: { code: "PGRST500", message: "db down" } };
+    const res = await PORTAL();
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.code).toBe("billing_unavailable");
+    expect(body.retryable).toBe(true);
+    expect(body.error).not.toBe("no_customer");
+    expect(h.calls).toEqual([]); // no customers.retrieve, no portal create
+  });
+
   it("503 customer_reconciliation_required (non-retryable) on a foreign-app customer", async () => {
     h.retrieve = () => ({
       id: "cus_1",

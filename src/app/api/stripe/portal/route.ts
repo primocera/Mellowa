@@ -37,13 +37,28 @@ export async function POST() {
 
   const admin = createAdminClient();
   const stripe = getStripe();
-  const { data: sub } = await admin
+  // MW-V17-05: read the subscription as a THREE-way result. A DB outage returns
+  // `error` with `data: null`; ignoring it would fall through to a false
+  // `no_customer`, telling a paying user they have no billing record and pushing
+  // them into the wrong path. Only a verified read (no error) may conclude
+  // "no customer"; any read uncertainty fails closed as retryable, with no
+  // Stripe call.
+  const { data: sub, error: subReadErr } = await admin
     .from("subscriptions")
     .select("stripe_customer_id")
     .eq("user_id", user.id)
     .maybeSingle();
 
+  if (subReadErr) {
+    console.error("[stripe] portal_subscription_read_failed", {
+      event: "portal_subscription_read_failed",
+      user_id: user.id,
+    });
+    return billingUnavailable("billing_unavailable", true);
+  }
+
   if (!sub?.stripe_customer_id) {
+    // Verified absence of a customer — this is the genuine no-customer path.
     return NextResponse.json({ error: "no_customer" }, { status: 400 });
   }
 
