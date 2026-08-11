@@ -22,6 +22,7 @@ import {
   type UsageRow,
 } from "@/lib/analytics/metrics";
 import { loopDecisions, expansionVerdict } from "@/lib/analytics/loop-decisions";
+import { buildCohortScorecard, type CohortScorecard, type CohortEventRow, type CohortSubRow } from "@/lib/analytics/cohort";
 import { readBetaCapacity, type BetaCapacity } from "@/lib/beta/capacity";
 import { experimentConflicts, runningExperiments } from "@/lib/beta/experiments";
 
@@ -70,6 +71,13 @@ export interface MetricsReport {
   beta: BetaCapacity | null;
   /** MW-V10-06: overlapping experiments make neither result attributable. */
   experimentConflicts: ReturnType<typeof experimentConflicts>;
+  /**
+   * MW-V17-07: the recurring-value scorecard from ONE canonical cohort — exact
+   * distinct-local-calendar-day D2/D3, repair apply/undo/repeat, Week
+   * opened/closeout/carry-forward, conversion/renewal/refund/dispute, and support
+   * burden (UNAVAILABLE). Every row carries maturity/pending/suppression.
+   */
+  cohort: CohortScorecard;
 }
 
 export async function buildMetricsReport(
@@ -99,7 +107,7 @@ export async function buildMetricsReport(
       admin
         .from("subscriptions")
         .select(
-          "user_id, status, plan_name, trial_used_at, cancel_at_period_end, created_at, trial_variant, trial_days, currency"
+          "user_id, status, plan_name, trial_used_at, cancel_at_period_end, current_period_end, created_at, trial_variant, trial_days, currency"
         ),
       admin
         .from("ai_usage_events")
@@ -157,6 +165,21 @@ export async function buildMetricsReport(
   const loop = loopDecisions(funnels.value_loop);
   const beta = await readBetaCapacity(admin);
 
+  // MW-V17-07: per-user timezone for DST-correct local-calendar-day cohorting.
+  const { data: tzRows } = await admin
+    .from("wellbeing_profiles")
+    .select("user_id, timezone");
+  const timezoneByUser: Record<string, string> = {};
+  for (const r of (tzRows ?? []) as { user_id: string; timezone: string | null }[]) {
+    if (r.user_id && r.timezone) timezoneByUser[r.user_id] = r.timezone;
+  }
+  const cohort = buildCohortScorecard({
+    events: events as CohortEventRow[],
+    subs: subs as unknown as CohortSubRow[],
+    timezoneByUser,
+    now: new Date(now),
+  });
+
   return {
     generatedAt: new Date().toISOString(),
     // Freshness comes from the events themselves, not the clock — an empty or
@@ -201,6 +224,7 @@ export async function buildMetricsReport(
       events,
       usageRows
     ),
+    cohort,
   };
 }
 
@@ -263,6 +287,18 @@ export function reportToCsv(report: MetricsReport): string {
   }
   for (const [template, n] of Object.entries(report.email.deadLetterByTemplate)) {
     push("email_dead_letter", template, n);
+  }
+  // MW-V17-07: the recurring-value cohort. Each row exports numerator,
+  // denominator, pending, state and suppression, so a pending/UNAVAILABLE row can
+  // never be mistaken for a measured zero.
+  push("cohort", "activated_users", report.cohort.activatedUsers);
+  for (const r of report.cohort.rows) {
+    push(`cohort_${r.id}`, "numerator", r.numerator);
+    push(`cohort_${r.id}`, "denominator", r.denominator);
+    push(`cohort_${r.id}`, "pending", r.pending);
+    push(`cohort_${r.id}`, "rate", r.rate);
+    push(`cohort_${r.id}`, "state", r.state);
+    push(`cohort_${r.id}`, "suppressed", r.suppressed ? "yes" : "no");
   }
   // A suppressed arm exports empty cells, never a zero that reads as a result.
   for (const v of report.trialExperiment) {
