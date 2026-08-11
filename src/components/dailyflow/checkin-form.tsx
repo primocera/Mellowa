@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, Loader2, Feather, X } from "lucide-react";
 import clsx from "clsx";
 import { trackClient } from "@/lib/analytics/client";
+import { purgeCheckinDraft } from "@/lib/privacy/browser-storage";
 
 function Scale({
   label,
@@ -81,8 +82,6 @@ const AREA_OPTIONS: { value: string; label: string }[] = [
   { value: "movement", label: "Movement" },
   { value: "sleep", label: "Sleep" },
 ];
-
-const DRAFT_KEY = "mellowa_checkin_draft";
 
 // MW-S04: routine preset shape returned by /api/presets.
 type Preset = {
@@ -164,28 +163,20 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
   const [loading, setLoading] = useState<"plan" | "skip" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [safetyMessage, setSafetyMessage] = useState<string | null>(null);
-  const restored = useRef(false);
+  // Whether the user has touched the form this session. Used to decide when a
+  // weekday-default preset may auto-apply and whether to warn on navigation.
+  const dirty = useRef(false);
   // Stable per submission attempt: double clicks and retries of the same
   // submit reuse one key so the server generates at most once (v6 Prompt 7).
   const idemKey = useRef<string | null>(null);
 
-  // Restore + autosave draft (today only), so an interruption loses nothing.
-  // localStorage is unavailable during SSR, so the restore must happen in a
-  // mount effect rather than the initializer.
+  // MW-V17-03: the check-in draft is NEVER persisted to long-lived
+  // browser-readable storage — mood, stress, sleep, hunger, energy, focus,
+  // context and notes stay in React memory for this tab only. On mount we purge
+  // any legacy `mellowa_checkin_draft` WITHOUT reading it, so an old sensitive
+  // draft cannot linger on the device.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw);
-        if (saved?.date === localDate() && saved.draft) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setDraft({ ...DEFAULT_DRAFT, ...saved.draft });
-        }
-      }
-    } catch {
-      /* corrupted draft — start fresh */
-    }
-    restored.current = true;
+    purgeCheckinDraft();
     // MW-V9-02: the check-in was opened. Surface only — never a signal value.
     trackClient("checkin_started", { surface: "check_in" });
     // MW-S08: arriving from a reminder email — schedule category only.
@@ -197,17 +188,25 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
       /* tracking is never load-bearing */
     }
   }, []);
-  useEffect(() => {
-    if (!restored.current) return;
-    try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ date: localDate(), draft }));
-    } catch {
-      /* storage full/blocked — draft is a convenience only */
-    }
-  }, [draft]);
 
-  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
+  // Truthful UX: because the in-progress check-in is kept only in this tab, warn
+  // before an accidental reload/close would discard a started, unsubmitted draft.
+  // No value is stored or transmitted — the guard only asks to confirm leaving.
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (dirty.current && loading === null) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [loading]);
+
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
+    dirty.current = true;
     setDraft((d) => ({ ...d, [key]: value }));
+  };
 
   // ---- MW-S04: routine presets -----------------------------------------
   // A preset prefills PRACTICAL fields only (time, context, mode, areas) and
@@ -276,14 +275,9 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
         // always with the visible "Applied preset" chip and one-tap remove.
         const weekday = (new Date().getDay() + 6) % 7; // 0 = Monday
         const dflt = list.find((p) => p.weekday_default === weekday);
-        try {
-          const raw = localStorage.getItem(DRAFT_KEY);
-          const saved = raw ? JSON.parse(raw) : null;
-          const hasToday = saved?.date === localDate() && saved?.draft;
-          if (dflt && !hasToday) applyPreset(dflt, true);
-        } catch {
-          /* draft unreadable — skip auto-apply */
-        }
+        // Auto-apply a weekday default onto an UNTOUCHED form only. The draft is
+        // no longer persisted (MW-V17-03), so "untouched" is an in-memory check.
+        if (dflt && !dirty.current) applyPreset(dflt, true);
       })
       .catch(() => {});
     return () => {
@@ -383,11 +377,11 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
           // Trial-neutral: eligibility (first trial vs pay today) is decided
           // server-side and shown on Billing — never promised here.
           setError(
-            "You've used your free sample plan. To keep creating daily plans, choose a Premium plan on the Billing page. Your check-in stays saved on this device."
+            "You've used your free sample plan. To keep creating daily plans, choose a Premium plan on the Billing page. Your check-in is still here on this screen."
           );
         } else if (res.status === 429) {
           setError(
-            "Plan creation is briefly paced by fair-use limits. Wait a little and try again — your check-in stays saved on this device."
+            "Plan creation is briefly paced by fair-use limits. Wait a little and try again — your check-in is still here on this screen."
           );
         } else if (res.status === 409) {
           setError(
@@ -396,8 +390,8 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
         } else {
           setError(
             data.error === "onboarding_required"
-              ? "Finish the short setup first — open it from You → Plan preferences → Start onboarding. Your check-in draft stays saved here."
-              : "Mellowa couldn't shape a new plan just now. Your check-in is saved on this device — try again in a few minutes."
+              ? "Finish the short setup first — open it from You → Plan preferences → Start onboarding. Your answers are still here on this screen."
+              : "Mellowa couldn't shape a new plan just now. Your check-in is still here on this screen — try again in a few minutes."
           );
         }
         setLoading(null);
@@ -411,16 +405,15 @@ export function CheckinForm({ baseline }: { baseline?: CheckinBaseline } = {}) {
       }
 
       idemKey.current = null;
-      try {
-        localStorage.removeItem(DRAFT_KEY);
-      } catch {
-        /* ignore */
-      }
+      // The plan is created; the in-memory draft is done. Nothing was persisted,
+      // but clear the legacy key defensively in case an old build wrote one.
+      dirty.current = false;
+      purgeCheckinDraft();
       router.push("/today");
       router.refresh();
     } catch {
       setError(
-        "Mellowa couldn't shape a new plan just now. Your check-in is saved on this device — try again in a few minutes."
+        "Mellowa couldn't shape a new plan just now. Your check-in is still here on this screen — try again in a few minutes."
       );
       setLoading(null);
     }

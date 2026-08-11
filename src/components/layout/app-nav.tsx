@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { trackClient } from "@/lib/analytics/client";
+import { purgeSensitiveBrowserStorage } from "@/lib/privacy/browser-storage";
 import { hubForPath, type Hub } from "@/lib/nav/hubs";
 import type { NavEntitlement } from "@/lib/nav/entitlement";
 import clsx from "clsx";
@@ -50,6 +51,7 @@ export function AppNav({ entitlement = "unknown" }: { entitlement?: NavEntitleme
   }
 
   async function signOut() {
+    purgeSensitiveBrowserStorage();
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");

@@ -46,9 +46,13 @@ describe("daily check-in copy (CE-7)", () => {
     expect(form).not.toMatch(/label: "Minimum day"/i);
   });
 
-  it("states that drafts survive errors", () => {
-    expect(form).toContain("Your check-in is saved on this device");
-    expect(form).toContain("Your check-in draft stays saved here.");
+  it("tells the user their in-progress check-in is still on screen after an error, without claiming device persistence (MW-V17-03)", () => {
+    // The draft is kept in memory for this tab only and is never written to
+    // long-lived browser storage, so the copy must not promise it was saved to
+    // the device or would survive a refresh.
+    expect(form).toContain("still here on this screen");
+    expect(form).not.toContain("saved on this device");
+    expect(form).not.toContain("draft stays saved here");
   });
 
   it("onboarding-required error tells the user where to finish setup", () => {

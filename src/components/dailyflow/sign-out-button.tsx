@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { purgeSensitiveBrowserStorage } from "@/lib/privacy/browser-storage";
 
 /**
  * Sign out, from the account hub.
@@ -25,6 +26,9 @@ export function SignOutButton() {
   async function signOut() {
     if (busy) return;
     setBusy(true);
+    // Clear purge-on-sign-out browser storage so the next person on this device
+    // cannot resume a previous session's onboarding/deferral state.
+    purgeSensitiveBrowserStorage();
     try {
       await createClient().auth.signOut();
       // refresh() clears the cached server components for the signed-in user,

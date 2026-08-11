@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Download, Trash2, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { purgeSensitiveBrowserStorage } from "@/lib/privacy/browser-storage";
 
 /**
  * Privacy controls (Prompt 18): download all my data, and permanently delete
@@ -57,7 +58,9 @@ export function AccountDataControls() {
             "We couldn't delete your account. Please try again."
         );
       }
-      // Ensure the browser session is cleared, then leave.
+      // Account deletion succeeded on the server: purge device storage too, then
+      // clear the session and leave.
+      purgeSensitiveBrowserStorage();
       await createClient().auth.signOut();
       router.replace("/login");
     } catch (e) {
