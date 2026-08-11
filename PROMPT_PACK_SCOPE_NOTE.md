@@ -109,3 +109,26 @@ not move the product forward.
 *If you're about to write a pack and its spine is "finish the E2E matrix / re-run
 the live-money rehearsal / re-examine a dependency CVE" — stop. That pack already
 shipped. Point the owner at the two real tasks and at marketing instead.*
+
+---
+
+## v17 addendum — STOP re-listing these two as per-version owner chores
+
+The owner is done re-doing these every release. For v18/v19/etc.:
+
+- **`P0-LIVE-TRANSACTION` is settled** — an owner-accepted, carry-forward risk
+  (`manifest.v16.json.acceptedRisks`). The owner does **NOT** re-run real payments
+  per version. Never re-open it, never write it as a new blocker, never ask for
+  another live charge except the single pre-scale re-verify the acceptance already
+  names. Live rehearsal costs real money each time — that recurring cost is exactly
+  what the owner refuses to keep paying.
+- **`P1-AUTH-E2E-AT-HEAD` is a free automated test, not an owner chore.** It is
+  `npm run test:e2e:matrix` in Stripe TEST mode (no real money). v17 MW-V17-01
+  wired `release-candidate.yml` to run it automatically **if** the GitHub
+  seeded-env secrets exist. Either CI runs it, or the owner ships capped-beta under
+  an accepted risk on it (as v14 did). Do NOT tell the owner to hand-run it or
+  rebuild a throwaway Supabase per release. "Superseded → re-run at frozen SHA" is
+  a CI concern, never a manual one.
+
+If the next pack's owner-action list contains "re-run the E2E matrix" or "do a
+live transaction" as fresh work, delete both lines. They are closed-by-policy.
