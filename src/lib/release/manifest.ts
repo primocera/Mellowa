@@ -80,14 +80,19 @@ export const isActiveVerdict = (v: Verdict): boolean => ACTIVE_VERDICTS.includes
  * Where a release candidate sits in its life:
  *   draft  — HEAD is moving; nothing is frozen; no verdict can be active.
  *   frozen — a specific SHA is the candidate and gates run against it.
+ *   promoted — a frozen candidate whose computed machine record has been
+ *              reviewed and adopted as the current release truth (MW-V17-02). A
+ *              promoted candidate is still SHA-pinned and immutable; it behaves
+ *              like `frozen` for every verdict rule.
  *   superseded — product code changed after the freeze, so the frozen
  *                candidate's evidence no longer certifies HEAD. A superseded
  *                candidate can carry no active verdict until a new one is cut.
  */
-export type CandidateLifecycle = "draft" | "frozen" | "superseded";
+export type CandidateLifecycle = "draft" | "frozen" | "promoted" | "superseded";
 export const CANDIDATE_LIFECYCLES: readonly CandidateLifecycle[] = [
   "draft",
   "frozen",
+  "promoted",
   "superseded",
 ];
 
@@ -375,6 +380,20 @@ export function validateReleaseManifest(
       `candidateLifecycle is "draft" but rcSha ${manifest.rcSha.slice(0, 7)} is ` +
         "frozen — a draft candidate has nothing frozen; mark it \"frozen\" or " +
         "\"superseded\"",
+    );
+  }
+  // A frozen or promoted candidate must be SHA-pinned — its whole purpose is to
+  // name the exact commit its evidence certifies (MW-V17-02). "promoted" behaves
+  // like "frozen" everywhere below; it is a reviewed, adopted frozen record.
+  if (
+    (manifest.candidateLifecycle === "frozen" ||
+      manifest.candidateLifecycle === "promoted") &&
+    manifest.rcSha === null
+  ) {
+    fail(
+      "unfrozen_candidate",
+      `candidateLifecycle is "${manifest.candidateLifecycle}" but rcSha is null — ` +
+        "a frozen/promoted candidate must pin the exact commit it certifies",
     );
   }
   const isSuperseded = lifecycle === "superseded" || !!manifest.supersededNote?.trim();

@@ -17,6 +17,8 @@
     "eval": "vitest run tests/eval-suite.test.ts tests/eval-golden.test.ts tests/prompt-versions.test.ts",
     "release-check": "node scripts/release-check.mjs",
     "release-manifest": "vitest run tests/release-manifest.test.ts",
+    "freeze-candidate": "node scripts/freeze-candidate.mjs",
+    "check-env-contract": "node scripts/check-env-contract.mjs",
     "render-release-status": "node scripts/render-release-status.mjs docs/release/manifest.v16.json --write",
     "perf": "playwright test --project=perf",
     "verify-prices": "node scripts/verify-stripe-prices.mjs"

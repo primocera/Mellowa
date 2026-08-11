@@ -172,12 +172,24 @@ jobs:
           npm run test:e2e
           npm run test:e2e:matrix
 
+      # MW-V17-02: freeze a COMPUTED, SHA-pinned candidate — not the unchanged
+      # draft manifest. This step only runs if every gate above passed, so
+      # --mark-code-green records the code suites as ci_pass at the exact SHA.
+      # GITHUB_RUN_ID makes provenance "workflow" and manifestValid true (the
+      # manifest was validated in the first step). The script refuses to freeze a
+      # SHA other than the checked-out HEAD and writes an immutable artifact; it
+      # needs no write permission (contents: read) — the artifact is uploaded, not
+      # committed. Promotion into the tracked manifest is a separate reviewed step.
+      - name: Freeze the candidate record
+        run: node scripts/freeze-candidate.mjs --mark-code-green
+
       - name: Upload sanitized evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: rc-evidence-${{ steps.ref.outputs.sha }}
           path: |
+            docs/release/evidence/v17/candidate/${{ steps.ref.outputs.sha }}.json
             docs/release/manifest.v16.json
             docs/release/v16/STATUS.md
           if-no-files-found: warn
