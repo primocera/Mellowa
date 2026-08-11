@@ -91,11 +91,21 @@ describe("suppression and one-shot guarantees", () => {
     expect(src).toContain("wellbeing_profiles"); // profile existence suppresses
   });
 
-  it("deletion confirmation is sent before the auth user is removed", () => {
+  it("deletion confirmation and event are recorded ONLY after the identity is deleted and verified (MW-V17-04)", () => {
     const src = readFileSync("src/app/api/account/delete/route.ts", "utf8");
     expect(src.indexOf("accountDeletedEmail")).toBeGreaterThan(0);
-    expect(src.indexOf('template: "account_deleted"')).toBeLessThan(
-      src.indexOf("deleteUser(user.id)")
+    const deleteAt = src.indexOf("deleteUser(userId)");
+    const verifyAt = src.indexOf("getUserById(userId)");
+    const emailAt = src.indexOf('template: "account_deleted"');
+    const eventAt = src.indexOf('trackEvent("account_deleted"');
+    // delete → verify → email → event, in that order.
+    expect(deleteAt).toBeGreaterThan(0);
+    expect(verifyAt).toBeGreaterThan(deleteAt);
+    expect(emailAt).toBeGreaterThan(verifyAt);
+    expect(eventAt).toBeGreaterThan(verifyAt);
+    // Ownership is proven before any subscription cancellation.
+    expect(src.indexOf("verifyMellowaCustomerOwnership")).toBeLessThan(
+      src.indexOf("subscriptions.cancel")
     );
   });
 
