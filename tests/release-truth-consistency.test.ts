@@ -63,12 +63,22 @@ describe("accepted risk is never presented as closed", () => {
 });
 
 describe("candidate SHA agrees with the manifest", () => {
-  it("README and STATUS reference the manifest rcSha, not a stale candidate", () => {
+  it("the frozen STATUS pins the manifest rcSha", () => {
     const m = manifest();
     expect(m.rcSha).toBeTruthy();
-    const short = shortSha(m.rcSha!);
-    expect(read(README)).toContain(short);
     expect(read(STATUS)).toContain(m.rcSha!); // STATUS pins the full SHA
+  });
+
+  it("README defers to the generated status and hard-codes no candidate SHA/verdict (MW-V17-09)", () => {
+    // README no longer duplicates volatile release facts; it links to the
+    // machine-generated status. So it must reference the current generated
+    // status + manifest and must not claim the loop is closed or read a GO.
+    const r = read(README);
+    expect(r).toContain("docs/release/v16/STATUS.md");
+    expect(r).toContain("docs/release/manifest.v16.json");
+    expect(r).not.toMatch(/release loop is closed/i);
+    // No stale prior candidate SHA presented as current.
+    expect(r).not.toMatch(shortSha("745b4a4b" + "0".repeat(32)));
   });
 });
 
@@ -105,14 +115,17 @@ describe("money-moved claims agree with the manifest", () => {
   });
 });
 
-describe("narrative test counts do not go stale", () => {
-  it("README's unit count equals the manifest unit-suite total", () => {
-    const m = manifest();
-    const unit = m.suites.find((s) => s.id === "unit-contract-safety");
-    const total = unit?.counts?.total;
-    expect(total, "manifest unit suite must carry a total").toBeTypeOf("number");
-    // The manifest count must appear verbatim in the README status block, so
-    // bumping one without the other fails here.
-    expect(read(README)).toContain(String(total));
+describe("narrative test counts do not go stale (MW-V17-09)", () => {
+  it("README hard-codes no unit/eval test count in its release section — counts live only in the generated status", () => {
+    // The failure mode this prevents is a number bumped in one place and not the
+    // other. The cure is to have exactly one place: the machine status. The
+    // README release section must therefore carry no raw test count.
+    const r = read(README);
+    const releaseSection = r.slice(
+      r.indexOf("## Release status"),
+      r.indexOf("## Project state"),
+    );
+    expect(releaseSection).not.toMatch(/\b\d{3,4}\s*(unit|contract|safety|eval|tests)\b/i);
+    expect(releaseSection).not.toMatch(/\b(unit|contract|safety|eval)[^.]*\b\d{3,4}\b/i);
   });
 });

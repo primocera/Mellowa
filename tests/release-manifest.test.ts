@@ -800,10 +800,12 @@ describe("the human launch documents agree with the manifest", () => {
     }
   });
 
-  it("the README states the same three verdicts as the manifest", () => {
-    for (const tier of ["automated_code_gate", "capped_beta", "public_paid"] as const) {
-      expect(readme).toContain(manifest.verdicts[tier]);
-    }
+  it("the README defers verdicts to the generated status rather than restating them (MW-V17-09)", () => {
+    // README no longer duplicates verdicts (a source of drift); it links to the
+    // machine-generated current status and manifest. The historical v11 scorecard
+    // (`doc`) still carries the v11-era verdicts and is checked below.
+    expect(readme).toContain("docs/release/v16/STATUS.md");
+    expect(readme).not.toMatch(/\|\s*(CONDITIONAL )?GO\s*\|/);
     expect(manifest.verdicts.public_paid).not.toBe("GO");
   });
 

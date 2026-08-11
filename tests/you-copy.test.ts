@@ -50,11 +50,12 @@ describe("you & control-center copy (CE-13)", () => {
 
   it("help hub has Get help with the non-emergency note and all policies", () => {
     expect(help).toContain("Get help");
-    expect(help.replace(/\s+/g, " ")).toContain(
+    // MW-V17-09: support-timing copy is now the shared best-effort content
+    // contract, not a hard-coded guaranteed SLA.
+    expect(help).toContain("SUPPORT_REPLY_COPY");
+    expect(help).toContain("SUPPORT_NOT_MONITORED_COPY");
+    expect(help.replace(/\s+/g, " ")).not.toContain(
       "Paid support replies within 2 business days."
-    );
-    expect(help.replace(/\s+/g, " ")).toContain(
-      "Mellowa does not monitor this inbox for emergencies."
     );
     for (const label of ["Terms of Service", "Privacy Policy", "Refund Policy"]) {
       expect(help).toContain(label);

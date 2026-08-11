@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { readLegalConfig } from "@/lib/legal/config";
+import { SUPPORT_REPLY_COPY, SUPPORT_NOT_MONITORED_COPY } from "@/lib/support/policy";
 
 export const metadata: Metadata = { title: "Help & policies — Mellowa" };
 
@@ -27,12 +28,10 @@ export default function HelpPage() {
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="font-medium text-[#1F2937]">Get help</h2>
         <p className="mt-1 text-sm text-[#6B7280]">
-          For account, billing or privacy questions, email {supportEmail}. Paid
-          support replies within 2 business days.
+          For account, billing or privacy questions, email {supportEmail}.{" "}
+          {SUPPORT_REPLY_COPY}
         </p>
-        <p className="mt-2 text-xs text-[#9CA3AF]">
-          Mellowa does not monitor this inbox for emergencies.
-        </p>
+        <p className="mt-2 text-xs text-[#9CA3AF]">{SUPPORT_NOT_MONITORED_COPY}</p>
         <div className="mt-4 flex flex-wrap gap-2">
           <a
             href={`mailto:${supportEmail}`}

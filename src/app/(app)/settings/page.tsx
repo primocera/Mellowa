@@ -7,6 +7,7 @@ import { AccountDataControls } from "@/components/dailyflow/account-data-control
 import { MellowaLearned } from "@/components/dailyflow/mellowa-learned";
 import type { WellbeingProfile } from "@/types/dailyflow";
 import { readLegalConfig } from "@/lib/legal/config";
+import { SUPPORT_REPLY_COPY, SUPPORT_NOT_MONITORED_COPY } from "@/lib/support/policy";
 
 export const metadata: Metadata = { title: "Settings — Mellowa" };
 
@@ -140,9 +141,8 @@ export default async function SettingsPage() {
       <div className="rounded-2xl bg-white p-6 shadow-sm">
         <h2 className="font-medium text-[#1F2937]">Get help</h2>
         <p className="mt-1 text-sm text-[#6B7280]">
-          For account, billing or privacy questions, email us. Paid support
-          replies within 2 business days. Mellowa does not monitor this inbox
-          for emergencies.
+          For account, billing or privacy questions, email us.{" "}
+          {SUPPORT_REPLY_COPY} {SUPPORT_NOT_MONITORED_COPY}
         </p>
         <a
           href={`mailto:${readLegalConfig().supportEmail}`}
