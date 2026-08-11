@@ -22,8 +22,8 @@ import { trackClient } from "@/lib/analytics/client";
 // stress/sleep/energy baselines — sensitive profile data that must NEVER sit in
 // long-lived, same-origin-readable localStorage. Those values are held in memory
 // only. The ONLY thing persisted for resume is a non-sensitive step index, so a
-// refresh returns the user to their place (answers are re-entered — see the
-// honest "kept on this device" copy below). The old full-draft key is removed on
+// refresh clamps to the first incomplete step (answers are re-entered — see the
+// honest "stay in this tab" copy below). The old full-draft key is removed on
 // load without its value ever being read into telemetry.
 const LEGACY_DRAFT_KEY = "mellowa.onboarding.draft.v1";
 const PROGRESS_KEY = "mellowa.onboarding.progress.v2";
@@ -116,6 +116,42 @@ const INITIAL: Draft = {
   allergies_severe: false,
 };
 
+// MW-V17-06: whether a given step's required answers are present, as a PURE
+// function of the current in-memory draft. Used both to gate the Next button and
+// to compute the first incomplete step on resume, so a refresh can never land the
+// user on step 4/5 while an earlier required answer is missing.
+function isStepComplete(s: number, d: Draft): boolean {
+  const sleepOk = validateSleepWindow(d.wake_time, d.sleep_time).ok;
+  switch (s) {
+    case 0:
+      return !!d.wake_time && !!d.sleep_time && !!d.work_schedule.trim() && sleepOk;
+    case 1:
+      return !!d.primary_goal;
+    case 2:
+      return !!d.cooking_time && !!d.budget_level;
+    case 3:
+      return !!d.movement_level;
+    case 4:
+      return !!d.preferred_tone;
+    case 5:
+      return d.safety_acknowledged && d.is_adult;
+    default:
+      return false;
+  }
+}
+
+/** The lowest step whose required answers are not yet present in memory. */
+function firstIncompleteStep(d: Draft): number {
+  for (let s = 0; s < STEPS.length; s++) if (!isStepComplete(s, d)) return s;
+  return STEPS.length - 1;
+}
+
+// The step hint is a NON-AUTHORITATIVE convenience only: schema-versioned and
+// short-lived, and always clamped to the first incomplete step, because answers
+// are never persisted and would be gone after a refresh.
+const PROGRESS_SCHEMA = 2;
+const PROGRESS_TTL_MS = 24 * 60 * 60 * 1000;
+
 function Scale({
   label,
   value,
@@ -193,25 +229,33 @@ export function OnboardingWizard() {
   // and are intentionally NOT restored from storage.
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
-    let restoredStep = 0;
+    let hintedStep = 0;
     try {
       // Remove the retired sensitive draft, if a previous version left one. Its
       // value is never parsed, logged or sent anywhere — just deleted.
       localStorage.removeItem(LEGACY_DRAFT_KEY);
       const raw = localStorage.getItem(PROGRESS_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as { step?: number };
-        if (typeof parsed.step === "number" && Number.isInteger(parsed.step)) {
-          restoredStep = Math.min(Math.max(parsed.step, 0), STEPS.length - 1);
+        const parsed = JSON.parse(raw) as { v?: number; step?: number; ts?: number };
+        const fresh =
+          parsed.v === PROGRESS_SCHEMA &&
+          typeof parsed.ts === "number" &&
+          Date.now() - parsed.ts < PROGRESS_TTL_MS;
+        if (fresh && typeof parsed.step === "number" && Number.isInteger(parsed.step)) {
+          hintedStep = Math.min(Math.max(parsed.step, 0), STEPS.length - 1);
         }
       }
     } catch {
       /* ignore malformed/unavailable storage */
     }
+    // The hint is only a hint: because no answer is persisted, the draft is the
+    // INITIAL values after a refresh, so we clamp to the first incomplete step.
+    // This makes it impossible to open step 4/5 with earlier answers missing.
+    const resumeStep = Math.min(hintedStep, firstIncompleteStep(INITIAL));
     // One-time hydration from storage — the documented exception to the
     // no-setState-in-effect rule (react.dev "you might not need an effect").
     /* eslint-disable react-hooks/set-state-in-effect */
-    if (restoredStep > 0) setStep(restoredStep);
+    if (resumeStep > 0) setStep(resumeStep);
     setLoaded(true);
     /* eslint-enable react-hooks/set-state-in-effect */
     // Funnel start (Prompt 21). Fired once on mount. Only the enumerated
@@ -221,8 +265,12 @@ export function OnboardingWizard() {
   useEffect(() => {
     if (!loaded) return;
     try {
-      // Persist the step index ONLY — never any answer.
-      localStorage.setItem(PROGRESS_KEY, JSON.stringify({ step }));
+      // Persist the step index ONLY — never any answer — with a schema version
+      // and timestamp so a stale hint is ignored rather than trusted.
+      localStorage.setItem(
+        PROGRESS_KEY,
+        JSON.stringify({ v: PROGRESS_SCHEMA, step, ts: Date.now() })
+      );
     } catch {
       /* storage may be unavailable; onboarding still works in-memory */
     }
@@ -238,29 +286,7 @@ export function OnboardingWizard() {
     draft.disliked_ingredients
   );
 
-  const stepValid = () => {
-    switch (step) {
-      case 0:
-        return (
-          !!draft.wake_time &&
-          !!draft.sleep_time &&
-          !!draft.work_schedule.trim() &&
-          sleepWindow.ok
-        );
-      case 1:
-        return !!draft.primary_goal;
-      case 2:
-        return !!draft.cooking_time && !!draft.budget_level;
-      case 3:
-        return !!draft.movement_level;
-      case 4:
-        return !!draft.preferred_tone;
-      case 5:
-        return draft.safety_acknowledged && draft.is_adult;
-      default:
-        return false;
-    }
-  };
+  const stepValid = () => isStepComplete(step, draft);
 
   async function finish() {
     setError(null);
@@ -353,7 +379,8 @@ export function OnboardingWizard() {
     try {
       await fetch("/api/onboarding/complete", { method: "POST" });
     } catch {
-      /* the server reconciles activation from the baseline row if this misses */
+      /* best effort: the durable baseline is the authoritative completion, and a
+         later call re-runs the idempotent (exactly-once) milestone insert */
     }
     // Hand straight off to the prefilled check-in so the free sample plan is
     // the very next step (no dead end, no upsell wall).
@@ -373,7 +400,7 @@ export function OnboardingWizard() {
             {step === 0
               ? "About 2 minutes"
               : loaded
-                ? "Your place is kept on this device — answers stay in this tab"
+                ? "Your answers stay in this tab — after a refresh you may need to re-enter earlier steps"
                 : ""}
           </p>
         </div>

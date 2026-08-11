@@ -28,7 +28,7 @@ describe("onboarding copy (CE-6)", () => {
     ]) {
       expect(wizard).toContain(name);
     }
-    expect(wizard).toContain("Your place is kept on this device");
+    expect(wizard).toContain("Your answers stay in this tab");
   });
 
   it("uses the elevated step headings", () => {

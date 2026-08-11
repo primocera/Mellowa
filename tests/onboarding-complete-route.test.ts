@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * MW-95-03: onboarding_completed is server-authoritative.
+ * MW-95-03 / MW-V17-06: onboarding_completed is server-authoritative and
+ * exactly-once.
  *
- * These prove the two properties that make the milestone trustworthy: it is
- * emitted only after the server confirms a durable wellbeing_profiles baseline,
- * and a retry never writes a second milestone. A companion assertion proves the
- * client event endpoint refuses the event outright.
+ * It is emitted only after the server confirms a durable wellbeing_profiles
+ * baseline, and the write is an AWAITED insert backed by a partial unique index
+ * (migration 043). A unique violation (23505) is treated as an idempotent
+ * "already recorded"; any other write failure returns a typed retryable state
+ * instead of a fire-and-forget success.
  */
 
 type Row = Record<string, unknown>;
@@ -14,7 +16,8 @@ type Row = Record<string, unknown>;
 const h = vi.hoisted(() => ({
   user: { id: "u1" } as { id: string } | null,
   profile: { data: { user_id: "u1" } as Row | null, error: null as Row | null },
-  existingEvent: { data: null as Row | null, error: null as Row | null },
+  completeError: null as { code?: string } | null,
+  completions: [] as Row[],
   tracked: [] as Array<{ event: string; opts: unknown }>,
 }));
 
@@ -27,15 +30,14 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
     from: (table: string) => ({
-      select: () => ({
-        eq: () => ({
-          // profiles read
-          maybeSingle: async () => (table === "wellbeing_profiles" ? h.profile : h.existingEvent),
-          eq: () => ({
-            limit: () => ({ maybeSingle: async () => h.existingEvent }),
-          }),
-        }),
-      }),
+      select: () => ({ eq: () => ({ maybeSingle: async () => h.profile }) }),
+      insert: async (row: Row) => {
+        if (table === "onboarding_completions") {
+          if (h.completeError) return { error: h.completeError };
+          h.completions.push(row);
+        }
+        return { error: null };
+      },
     }),
   }),
 }));
@@ -49,49 +51,60 @@ import { POST } from "@/app/api/onboarding/complete/route";
 beforeEach(() => {
   h.user = { id: "u1" };
   h.profile = { data: { user_id: "u1" }, error: null };
-  h.existingEvent = { data: null, error: null };
+  h.completeError = null;
+  h.completions = [];
   h.tracked = [];
 });
 
 describe("POST /api/onboarding/complete", () => {
-  it("401 when unauthenticated, and emits nothing", async () => {
+  it("401 when unauthenticated, and records nothing", async () => {
     h.user = null;
     const res = await POST();
     expect(res.status).toBe(401);
+    expect(h.completions).toEqual([]);
     expect(h.tracked).toEqual([]);
   });
 
-  it("409 and no emit when the baseline was never saved", async () => {
+  it("409 and no completion when the baseline was never saved", async () => {
     h.profile = { data: null, error: null };
     const res = await POST();
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe("profile_not_saved");
+    expect(h.completions).toEqual([]);
     expect(h.tracked).toEqual([]);
   });
 
-  it("503 (fail closed) and no emit when the baseline read errors", async () => {
+  it("503 (fail closed) and no completion when the baseline read errors", async () => {
     h.profile = { data: null, error: { code: "PGRST500" } };
     const res = await POST();
     expect(res.status).toBe(503);
+    expect(h.completions).toEqual([]);
     expect(h.tracked).toEqual([]);
   });
 
-  it("emits onboarding_completed once, surface-only, after a durable baseline", async () => {
+  it("records the completion once and emits the milestone after a durable baseline", async () => {
     const res = await POST();
     expect(res.status).toBe(200);
+    expect((await res.json()).alreadyRecorded).toBe(false);
+    expect(h.completions).toEqual([{ user_id: "u1" }]);
     expect(h.tracked).toHaveLength(1);
     expect(h.tracked[0].event).toBe("onboarding_completed");
-    expect(h.tracked[0].opts).toEqual({
-      userId: "u1",
-      properties: { surface: "onboarding" },
-    });
+    expect(h.tracked[0].opts).toEqual({ userId: "u1", properties: { surface: "onboarding" } });
   });
 
-  it("is idempotent: a retry with the milestone already present emits nothing", async () => {
-    h.existingEvent = { data: { id: "evt_1" }, error: null };
+  it("is idempotent: a unique-violation (23505) is alreadyRecorded and emits no second milestone", async () => {
+    h.completeError = { code: "23505" };
     const res = await POST();
     expect(res.status).toBe(200);
     expect((await res.json()).alreadyRecorded).toBe(true);
+    expect(h.tracked).toEqual([]);
+  });
+
+  it("fails closed (503 retryable) on any other write error — does not claim completion", async () => {
+    h.completeError = { code: "PGRST999" };
+    const res = await POST();
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toBe("completion_write_failed");
     expect(h.tracked).toEqual([]);
   });
 });

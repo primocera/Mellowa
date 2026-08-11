@@ -48,6 +48,9 @@ export const USER_DATA_REGISTRY: UserTable[] = [
   { table: "learned_signal_suppressions", column: "user_id", onDelete: "cascade" },
   { table: "routine_presets", column: "user_id", onDelete: "cascade" },
   { table: "weekly_reflections", column: "user_id", onDelete: "cascade" },
+  // MW-V17-06: exactly-once onboarding completion marker (no personal content,
+  // just the fact + timestamp). FK ON DELETE CASCADE removes it with the user.
+  { table: "onboarding_completions", column: "user_id", onDelete: "cascade" },
 ];
 
 /**

@@ -5,7 +5,7 @@
 - **Candidate:** no frozen candidate — baseline 432ed18 (draft)
 - **Baseline:** `432ed18235bf473bd2e38fcbc7546213536d4175`
 - **Reconciled:** 2026-08-07T00:00:00Z
-- **Migrations:** 42 (001–042)
+- **Migrations:** 43 (001–043)
 
 ## Verdicts
 

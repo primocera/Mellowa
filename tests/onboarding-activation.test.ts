@@ -40,15 +40,19 @@ describe("privacy-safe funnel instrumentation", () => {
 describe("time-to-value affordances", () => {
   it("shows an honest time estimate and resume state", () => {
     expect(wizard).toContain("About 2 minutes");
-    // MW-95-05: honest copy — answers live in the tab, not persisted storage.
-    expect(wizard).toContain("Your place is kept on this device");
+    // MW-V17-06: honest copy — answers live in the tab and may need re-entry after
+    // a refresh; nothing implies the answers themselves are kept on the device.
+    expect(wizard).toContain("Your answers stay in this tab");
+    expect(wizard).not.toContain("kept on this device");
     expect(wizard).not.toContain("Saved on this device");
   });
 
-  it("persists only a non-sensitive step index and purges the legacy draft", () => {
-    // MW-95-05: only the step index is written to localStorage; sensitive
-    // answers are never serialized, and the retired full-draft key is removed.
-    expect(wizard).toContain('localStorage.setItem(PROGRESS_KEY, JSON.stringify({ step }))');
+  it("persists only a non-sensitive, schema-versioned step hint and purges the legacy draft", () => {
+    // MW-95-05 / MW-V17-06: only the step index (with schema version + timestamp)
+    // is written; sensitive answers are never serialized, the retired full-draft
+    // key is removed, and resume clamps to the first incomplete step.
+    expect(wizard).toContain("JSON.stringify({ v: PROGRESS_SCHEMA, step, ts: Date.now() })");
+    expect(wizard).toContain("firstIncompleteStep(INITIAL)");
     expect(wizard).toContain("localStorage.removeItem(LEGACY_DRAFT_KEY)");
     // The old full-draft write must be gone entirely.
     expect(wizard).not.toContain("JSON.stringify(draft)");
