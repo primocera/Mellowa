@@ -23,9 +23,19 @@ to dispatch the immutable RC workflow, provenance `workflow`); the tracked
 | Status render sync | `render-release-status … --check` | in sync |
 | Freeze mechanism | `freeze-candidate.mjs` (local dry-run) | code=GO, beta=NO-GO, paid=NO-GO (honest) |
 
-A blocked/skipped/not-run check is BLOCKED/NOT RUN, never PASS. The authenticated
-E2E matrix did **not** run here (no seeded non-prod env in this environment) — it
-is BLOCKED, owner-run.
+A blocked/skipped/not-run check is BLOCKED/NOT RUN, never PASS.
+
+**Authenticated E2E matrix — already owner-run, but SUPERSEDED at v17.** The owner
+ran it at committed SHA `a59aa4e`: **93 passed / 0 failed / 27 skipped** (120
+total, mode `rc`), against a disposable marker-gated non-production Supabase in
+Stripe TEST mode — recorded as `local_pass` in `manifest.v16.json.ownerEvidence`
+and closing `P1-AUTH-E2E-AT-HEAD` in `closedBlockers`
+(`docs/release/evidence/v13/auth-matrix/a59aa4e….json`). Two caveats keep it from
+certifying the v17 candidate: (1) it was a local owner-run, not a workflow-frozen
+RC; (2) current v17 HEAD has drifted past `a59aa4e` (all 12 v17 changes), so the
+evidence is superseded and must be **re-run at the frozen v17 SHA**. It was not
+re-runnable in this session (no seeded non-prod env here) — that is a session
+limitation, not "never run."
 
 ## Honest re-score (non-compensating; blocker caps applied before scoring)
 
@@ -35,7 +45,7 @@ is `draft`, so no tier carries an active verdict until the owner freezes.
 | Tier | Score | Verdict | Why capped |
 |---|---|---|---|
 | Product capability | ~9.0 | high | Code contracts green (1562/1562, eval 81, build 73, prod audit 0). Not a beta/paid readiness claim. |
-| Capped beta | ≤ 8.9 | UNASSESSED (→ CONDITIONAL GO once frozen + authed journeys observed) | No frozen candidate; authenticated core journeys not observed at a frozen SHA. |
+| Capped beta | ≤ 8.9 | UNASSESSED (→ CONDITIONAL GO once frozen + authed journeys re-observed) | No frozen candidate; the authenticated matrix passed at `a59aa4e` (93/0/27) but is superseded by v17 drift — re-run required at the frozen v17 SHA. |
 | Public paid | 7.9 | NO-GO (owner-accepted P0 carry-forward → CONDITIONAL for a bounded launch) | Open `P0-LIVE-TRANSACTION` caps below 8; live-money lifecycle, deployed readiness and mature cohort all unobserved. |
 
 No 9.5 is assigned: it requires predeclared gates all observed, not documentation
@@ -46,8 +56,10 @@ volume or test count.
 1. **Freeze** (RC workflow): `gh workflow run release-candidate.yml -f candidate_sha=<HEAD>`
    → produces `candidate/<sha>.json` (provenance `workflow`). See `RC-LIFECYCLE.md`.
    Fails closed on missing seeded secrets / non-test Stripe key / zero auth tests. — **NOT RUN**
-2. **Authenticated E2E matrix** at the frozen SHA, seeded non-prod Supabase + Stripe TEST
-   (`npm run test:e2e:matrix`, canonical env per `MW-V17-01`). — **NOT RUN**
+2. **Authenticated E2E matrix** — previously owner-run at `a59aa4e` (93/0/27);
+   **RE-RUN required at the frozen v17 SHA** (product code drifted), seeded
+   non-prod Supabase + Stripe TEST (`npm run test:e2e:matrix`, canonical env per
+   `MW-V17-01`). — **NOT RUN at the v17 candidate**
 3. **Deployed readiness**: `GET /api/admin/readiness` → `ready=true`, `blockers=0`, exact deploy SHA. — **NOT RUN**
 4. **Live-money lifecycle** (real low-value): charge/trial, entitlement, cancel/portal, failure→recovery,
    late/out-of-order, refund. Residual formally accepted (`P0-LIVE`, carry-forward) — do NOT re-open;

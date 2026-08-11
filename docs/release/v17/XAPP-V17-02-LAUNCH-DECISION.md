@@ -14,7 +14,7 @@ owner-run per `MW-V17-10-FREEZE-AND-SCORE.md`).
 | Dimension | Score | Verdict | Blockers / caps | Evidence | Next action (owner) | Revalidate when |
 |---|---|---|---|---|---|---|
 | Product capability | ~9.0 | strong | none (P0-LIVE is owner-gated, not a code defect) | 1562/1562 unit, 81 eval, 73-page build, prod audit 0, v17 privacy/deletion/portal/onboarding/isolation hardening | — | on any product-code change |
-| Capped-beta readiness | **≤ 8.9 → UNASSESSED** | not yet | no frozen candidate; authenticated core journeys not observed at a frozen SHA | RC lifecycle + preflight ready; auth matrix runnable (MW-V17-01) | Freeze via RC workflow, then run the authenticated matrix at that SHA | after freeze + authed run |
+| Capped-beta readiness | **≤ 8.9 → UNASSESSED** | not yet | no frozen candidate; the authenticated matrix passed at `a59aa4e` (93/0/27) but is superseded by v17 drift | matrix owner-run at `a59aa4e` (93/0/27, `manifest.v16` ownerEvidence); RC lifecycle + preflight ready (MW-V17-01) | Freeze via RC workflow, then **re-run** the authenticated matrix at that SHA | after freeze + authed re-run |
 | Public-paid readiness | **7.9 → NO-GO** (CONDITIONAL for a bounded launch under the accepted P0) | conditional | open `P0-LIVE-TRANSACTION` caps < 8; live-money lifecycle, deployed readiness, mature renewal/cohort all unobserved | contract tests green; P0 owner-accepted carry-forward | Observe live-money lifecycle + deployed readiness + a mature cohort | after each owner observation |
 
 Under-five, stale, missing and not-yet-mature data are PENDING/UNAVAILABLE — never
@@ -37,7 +37,8 @@ zero, never PASS. Thresholds are predeclared and not changed after seeing data.
 ## What would earn 9.5 (missing OBSERVED evidence only — not more features)
 
 - Capped-beta 9.5: exact frozen candidate; all automated gates green at that SHA;
-  observed authenticated core journeys; deployed readiness `ready=true`;
+  authenticated core journeys **re-observed at the frozen v17 SHA** (the `a59aa4e`
+  93/0/27 run is superseded by v17 drift); deployed readiness `ready=true`;
   monitoring/rollback/support owner; bounded intake + stop controls; no open
   beta-impact P1.
 - Public-paid 9.5 additionally: complete observed real-money lifecycle with no
