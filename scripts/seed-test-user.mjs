@@ -25,17 +25,30 @@
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 
-// Minimal .env.local loader (no dependency on dotenv).
-const env = Object.fromEntries(
-  readFileSync(new URL("../.env.local", import.meta.url), "utf8")
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l && !l.startsWith("#") && l.includes("="))
-    .map((l) => {
-      const i = l.indexOf("=");
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
-    })
-);
+// Env resolution (MW-V17-01): read the SAME canonical names the runner,
+// Playwright config and journeys harness use, from the SAME two sources they do.
+// `.env.local` is the local-dev convenience and is OPTIONAL — in CI it is absent
+// and the values arrive as real environment variables under the canonical names
+// (E2E_TEST_EMAIL, E2E_TEST_PASSWORD, NEXT_PUBLIC_SUPABASE_URL,
+// SUPABASE_SERVICE_ROLE_KEY, …). A real environment variable always wins, so a
+// missing file no longer crashes the seed and CI-provided secrets are honoured.
+const fileEnv = (() => {
+  try {
+    return Object.fromEntries(
+      readFileSync(new URL("../.env.local", import.meta.url), "utf8")
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l && !l.startsWith("#") && l.includes("="))
+        .map((l) => {
+          const i = l.indexOf("=");
+          return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
+        })
+    );
+  } catch {
+    return {}; // Absent is normal in CI, where secrets come from the environment.
+  }
+})();
+const env = { ...fileEnv, ...process.env };
 
 const url = env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;

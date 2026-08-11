@@ -126,7 +126,9 @@ describe("the immutable RC workflow fails closed on skipped auth", () => {
   it("requires the seeded auth environment and exits non-zero when it is absent", () => {
     // The load-bearing property: no dependence on the mutable RC_GATE variable
     // for the fail-closed decision — the workflow itself exits 1.
-    expect(wf).toMatch(/Require seeded authenticated environment/);
+    // MW-V17-01: the gate is now a canonical preflight that lists missing secret
+    // NAMES only (never values) and requires a Stripe TEST key.
+    expect(wf).toMatch(/Preflight — require the canonical seeded environment/);
     expect(wf).toMatch(/exit 1/);
     // The auth matrix step must be present and not conditional on RC_GATE.
     expect(wf).toMatch(/Authenticated E2E matrix \(required\)/);

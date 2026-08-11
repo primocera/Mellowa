@@ -120,20 +120,51 @@ jobs:
       # The load-bearing difference from ci.yml: for an RC the authenticated
       # matrix is REQUIRED. Missing seeded secrets fail the run outright, with no
       # dependence on the mutable RC_GATE variable.
-      - name: Require seeded authenticated environment
+      #
+      # MW-V17-01 preflight: verify EVERY GitHub secret the canonical runtime
+      # contract needs is present, and that the Stripe key is a TEST key, BEFORE
+      # any seed/test runs. It reports only the NAMES of missing variables, never
+      # a value. The canonical secret→runtime mapping is asserted by
+      # tests/env-contract-parity.test.ts and lives in scripts/e2e-env-contract.mjs.
+      - name: Preflight — require the canonical seeded environment
+        env:
+          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+          E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+          E2E_STRIPE_SECRET_KEY: ${{ secrets.E2E_STRIPE_SECRET_KEY }}
         run: |
-          if [ -z "${{ secrets.E2E_TEST_USER_EMAIL }}" ] || [ -z "${{ secrets.E2E_SUPABASE_URL }}" ]; then
-            echo "::error title=RC gate::Authenticated E2E cannot run — no seeded non-production test-user environment. A release candidate MUST run it; this run fails closed."
+          missing=""
+          for name in E2E_SUPABASE_URL E2E_SUPABASE_ANON_KEY E2E_SUPABASE_SERVICE_ROLE_KEY E2E_TEST_USER_EMAIL E2E_TEST_USER_PASSWORD E2E_STRIPE_SECRET_KEY; do
+            eval "val=\${$name}"
+            if [ -z "$val" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=RC gate::Authenticated E2E cannot run — missing required secret(s):$missing. A release candidate MUST run it; this run fails closed. (Names only; no values are ever printed.)"
             exit 1
           fi
+          # Require a Stripe TEST key. Empty is already caught above; a non-test
+          # key (live or malformed) must fail closed rather than reach checkout.
+          case "$E2E_STRIPE_SECRET_KEY" in
+            sk_test_*) : ;;
+            *)
+              echo "::error title=RC gate::E2E_STRIPE_SECRET_KEY must be a Stripe TEST key (sk_test_…). The RC checkout journey never touches live billing."
+              exit 1 ;;
+          esac
 
       - name: Authenticated E2E matrix (required)
         env:
+          # GitHub secret → canonical runtime name (the ONLY place the secret
+          # names differ from the runtime names the runner/seeder/harness read).
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
-          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
-          E2E_TEST_USER_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
+          STRIPE_SECRET_KEY: ${{ secrets.E2E_STRIPE_SECRET_KEY }}
+          # The runner, harness and seeder all gate on this explicit flag.
+          E2E_SUPABASE_TEST: "1"
           # Force the fail-closed matrix runner regardless of the mutable var.
           RC_GATE: "1"
         run: |
