@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Authenticated-E2E env-contract parity check (MW-V17-01).
  *

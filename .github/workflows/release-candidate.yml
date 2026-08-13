@@ -71,33 +71,40 @@ jobs:
           ref: ${{ steps.ref.outputs.sha }}
           fetch-depth: 0
 
-      # Fail closed if the environment looks like production or live billing.
+      # Fail closed if the environment is not a VERIFIED non-production target.
       # A release candidate must be certified against throwaway fixtures only.
-      - name: Non-production guard (refuse live Stripe / production Supabase)
+      #
+      # MW-V18-03: this replaces the old substring check (`*prod*` in the URL)
+      # with explicit PROJECT-IDENTITY verification, centralised in
+      # scripts/nonprod-guard.mjs (the same guard the seeder and the local matrix
+      # runner use). It parses the Supabase project ref from the URL host,
+      # requires an approved disposable ref + a non-empty allowlist, refuses the
+      # known production ref, checks the anon/service credentials belong to that
+      # project via their non-secret JWT claims, and requires a Stripe TEST key.
+      # It is dependency-free (Node builtins only) so it runs before `npm ci`,
+      # and prints only variable names + the opaque ref, never a key or payload.
+      - name: Non-production guard (verify project identity, refuse production)
         env:
-          E2E_STRIPE_SECRET_KEY: ${{ secrets.E2E_STRIPE_SECRET_KEY }}
-          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.E2E_STRIPE_SECRET_KEY }}
+          E2E_SUPABASE_PROJECT_REF: ${{ secrets.E2E_SUPABASE_PROJECT_REF }}
+          E2E_SUPABASE_ALLOWED_REFS: ${{ secrets.E2E_SUPABASE_ALLOWED_REFS }}
+          E2E_SUPABASE_ALLOWED_HOSTS: ${{ secrets.E2E_SUPABASE_ALLOWED_HOSTS }}
+          PRODUCTION_SUPABASE_PROJECT_REF: ${{ secrets.PRODUCTION_SUPABASE_PROJECT_REF }}
+        run: node scripts/nonprod-guard.mjs
+
+      # MW-V18-02: separately, the non-production RC must not point at the
+      # production PUBLIC origin. If someone sets E2E_APP_URL to the live domain,
+      # stop before building/serving the app to Playwright.
+      - name: Refuse the production public origin
         run: |
-          fail=0
-          case "$E2E_STRIPE_SECRET_KEY" in
-            sk_live_*)
-              echo "::error title=Live Stripe refused::E2E_STRIPE_SECRET_KEY is a LIVE key. The RC gate runs in Stripe TEST mode only."
-              fail=1 ;;
-          esac
-          # A production Supabase project ref must never be the RC target.
-          case "$E2E_SUPABASE_URL" in
-            *prod*|*production*)
-              echo "::error title=Production Supabase refused::E2E_SUPABASE_URL looks like a production project."
-              fail=1 ;;
-          esac
-          # MW-V18-02: the non-production RC must not point at the production
-          # public origin. If someone sets E2E_APP_URL to the live domain, stop.
           case "$NEXT_PUBLIC_APP_URL" in
             https://mellowa.app|https://www.mellowa.app|https://mellowa.app/*)
               echo "::error title=Production URL refused::NEXT_PUBLIC_APP_URL is the live public origin. A non-production RC must use a preview/test URL."
-              fail=1 ;;
+              exit 1 ;;
           esac
-          if [ "$fail" = "1" ]; then exit 1; fi
 
       - uses: actions/setup-node@v4
         with:

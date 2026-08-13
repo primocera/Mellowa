@@ -24,6 +24,11 @@
 // deleted and rebuilt on each run.
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import {
+  assertNonProductionOrThrow,
+  evaluateSeedMarker,
+  resolveCleanupLease,
+} from "./nonprod-guard.mjs";
 
 // Env resolution (MW-V17-01): read the SAME canonical names the runner,
 // Playwright config and journeys harness use, from the SAME two sources they do.
@@ -105,27 +110,37 @@ const admin = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-// MW-V12-02: opt-in isolation guard.
+// MW-V12-02 / MW-V18-03: opt-in isolation guard.
 //
 // The seed script writes real auth users and rows. Mellowa runs on a single
-// live Supabase project by design (RLS isolates the synthetic account), so a
-// hard guard is off by default to keep that workflow working. But an
+// live Supabase project by design (RLS isolates the synthetic account), so the
+// hard guard is off by default to keep that local workflow working. But an
 // RC-grade matrix run must be pointed at a NON-production project, and the
-// release runner sets E2E_REQUIRE_SEED_MARKER=1. When set, this refuses to seed
-// unless a marker table the environment cannot fake reads back — failing closed
-// on a missing table or any read error, so a mis-set SUPABASE_URL cannot
-// silently seed production.
+// release runner sets E2E_REQUIRE_SEED_MARKER=1. When set, the seeder first runs
+// the centralised fail-closed identity guard (MW-V18-03) — proving by PROJECT
+// REF, not by the absence of "prod" in the URL, that the target is an approved
+// disposable project and Stripe is in TEST mode — and THEN confirms the
+// non-production seed marker as a second defence.
 if (env.E2E_REQUIRE_SEED_MARKER === "1" || process.env.E2E_REQUIRE_SEED_MARKER === "1") {
+  try {
+    await assertNonProductionOrThrow(env, { verifyStripeAccount: false });
+  } catch (guardErr) {
+    console.error(`BLOCKED (seed): ${guardErr.message}`);
+    process.exit(1);
+  }
+
+  // Second defence: a marker table the environment cannot fake. Fails closed on
+  // a missing table or any read error, so a mis-set SUPABASE_URL that somehow
+  // passed identity still cannot silently seed production.
   const { data: marker, error: markerErr } = await admin
     .from("e2e_seed_marker")
     .select("note")
     .limit(1)
     .maybeSingle();
-  if (markerErr || !marker?.note) {
+  const markerResult = evaluateSeedMarker({ marker, error: markerErr });
+  if (!markerResult.ok) {
     console.error(
-      "BLOCKED: E2E_REQUIRE_SEED_MARKER=1 but the e2e_seed_marker table did not " +
-        "confirm a non-production database" +
-        (markerErr ? ` (${markerErr.message})` : " (no marker row)") +
+      `BLOCKED: E2E_REQUIRE_SEED_MARKER=1 but ${markerResult.reason}` +
         ".\nCreate it against the NON-PRODUCTION project ONLY:\n" +
         "  create table if not exists public.e2e_seed_marker (\n" +
         "    id boolean primary key default true,\n" +
@@ -139,7 +154,8 @@ if (env.E2E_REQUIRE_SEED_MARKER === "1" || process.env.E2E_REQUIRE_SEED_MARKER =
     );
     process.exit(1);
   }
-  console.log(`Seed marker OK: ${marker.note}`);
+  const lease = resolveCleanupLease(env);
+  console.log(`Seed marker OK: ${markerResult.note} · cleanup lease ${lease.namespace}`);
 }
 
 // 1. Create (or find) the confirmed user.

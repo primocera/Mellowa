@@ -157,9 +157,16 @@ describe("the immutable RC workflow fails closed on skipped auth", () => {
     expect(wf).toMatch(/Authenticated E2E matrix \(required\)/);
   });
 
-  it("refuses live Stripe and production Supabase", () => {
-    expect(wf).toMatch(/sk_live_\*/);
-    expect(wf).toMatch(/Non-production guard/);
+  it("refuses live Stripe and production Supabase via the centralized identity guard", () => {
+    // MW-V18-03: the old substring check (`sk_live_*`, `*prod*` in the URL) was
+    // replaced by explicit project-identity verification centralised in
+    // scripts/nonprod-guard.mjs, run BEFORE any seed/build. The workflow invokes
+    // it and supplies the production ref it must refuse to match.
+    expect(wf).toMatch(/Non-production guard \(verify project identity/);
+    expect(wf).toMatch(/node scripts\/nonprod-guard\.mjs/);
+    expect(wf).toMatch(/PRODUCTION_SUPABASE_PROJECT_REF:/);
+    // The separate MW-V18-02 public-origin refusal is still present.
+    expect(wf).toMatch(/Refuse the production public origin/);
   });
 
   it("uses least-privilege permissions and pins the exact candidate SHA", () => {

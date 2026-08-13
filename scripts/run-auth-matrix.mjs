@@ -27,6 +27,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { assertNonProductionOrThrow, resolveCleanupLease } from "./nonprod-guard.mjs";
 
 const RC = process.argv.includes("--rc") || process.env.RC_GATE === "1";
 
@@ -90,8 +91,26 @@ if (RC && !stripeTestMode) {
   process.exit(1);
 }
 
+// MW-V18-03: centralised fail-closed non-production identity guard. Before any
+// seeding or browser run, prove the target is an APPROVED disposable Supabase
+// project by ref (not by the absence of "prod" in the URL) and that Stripe is in
+// TEST mode. Fails closed on missing/ambiguous identity env. The seed marker
+// below remains a SECOND defence, not the primary proof.
+try {
+  await assertNonProductionOrThrow(process.env, { verifyStripeAccount: true });
+} catch (err) {
+  console.error(`BLOCKED: ${err.message}`);
+  process.exit(1);
+}
+
 // Isolation: force the non-production marker check in the seed script.
 process.env.E2E_REQUIRE_SEED_MARKER = "1";
+
+// MW-V18-03: attach a deterministic cleanup lease/namespace so this run's test
+// data can be attributed and torn down idempotently across retries.
+const lease = resolveCleanupLease(process.env);
+process.env.E2E_CLEANUP_LEASE = lease.leaseId;
+console.log(`Cleanup lease: ${lease.namespace}`);
 
 const sha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 
