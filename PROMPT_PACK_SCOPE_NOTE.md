@@ -112,23 +112,41 @@ shipped. Point the owner at the two real tasks and at marketing instead.*
 
 ---
 
-## v17 addendum — STOP re-listing these two as per-version owner chores
+## v17 addendum — don't re-list these two as per-version owner chores (but they are NOT "closed")
 
-The owner is done re-doing these every release. For v18/v19/etc.:
+> **Machine truth is authoritative.** This note is guidance for pack authors; it
+> never overrides `docs/release/manifest.v16.json` and its generated
+> `docs/release/v16/STATUS.md`. The v18 reconciliation (MW-V18-01) corrected an
+> earlier version of this addendum that called both items "closed-by-policy":
+> neither is *closed*. One is an **open, owner-accepted** risk; the other is an
+> **open** blocker satisfied automatically at freeze. "Accepted" and "auto-run at
+> freeze" are not "closed" — a superseded run is never a standing closure.
 
-- **`P0-LIVE-TRANSACTION` is settled** — an owner-accepted, carry-forward risk
-  (`manifest.v16.json.acceptedRisks`). The owner does **NOT** re-run real payments
-  per version. Never re-open it, never write it as a new blocker, never ask for
-  another live charge except the single pre-scale re-verify the acceptance already
-  names. Live rehearsal costs real money each time — that recurring cost is exactly
-  what the owner refuses to keep paying.
-- **`P1-AUTH-E2E-AT-HEAD` is a free automated test, not an owner chore.** It is
-  `npm run test:e2e:matrix` in Stripe TEST mode (no real money). v17 MW-V17-01
-  wired `release-candidate.yml` to run it automatically **if** the GitHub
-  seeded-env secrets exist. Either CI runs it, or the owner ships capped-beta under
-  an accepted risk on it (as v14 did). Do NOT tell the owner to hand-run it or
-  rebuild a throwaway Supabase per release. "Superseded → re-run at frozen SHA" is
-  a CI concern, never a manual one.
+The owner is done re-doing these every release, but that is about *not making them
+recurring manual chores* — not about marking them done. For v18/v19/etc.:
+
+- **`P0-LIVE-TRANSACTION` is OPEN and owner-accepted (carry-forward), never
+  closed** — the acceptance lives in `manifest.v16.json.acceptedRisks` and keeps
+  the blocker open in `manifest.v16.json.blockers`; it lifts public paid to
+  CONDITIONAL GO, never GO. The owner does **NOT** re-run real payments per
+  version. Never re-open it as fresh live-money work, never write it as a *new*
+  blocker, never ask for another live charge except the single pre-scale re-verify
+  the acceptance already names. Live rehearsal costs real money each time — that
+  recurring cost is exactly what the owner refuses to keep paying. But do not
+  present it as done: it is an accepted risk, and accepted risk is not completion.
+- **`P1-AUTH-E2E-AT-HEAD` is a free automated test that is OPEN at HEAD, not an
+  owner chore and not closed.** It is `npm run test:e2e:matrix` in Stripe TEST
+  mode (no real money). v17 MW-V17-01 wired `release-candidate.yml` to run it
+  automatically **when** the GitHub seeded-env secrets exist, at the frozen
+  candidate SHA. The prior a59aa4e run passed (93/0/27) but is **superseded** by
+  the v17 product-code drift, so it no longer certifies HEAD — the candidate model
+  correctly requires it re-observed at the candidate. Either CI runs it at freeze,
+  or the owner ships capped-beta under a *recorded* accepted risk on it (as v14
+  did). Do NOT tell the owner to hand-run it or rebuild a throwaway Supabase per
+  release; equally, do NOT mark it closed just because it ran once at an old SHA.
 
 If the next pack's owner-action list contains "re-run the E2E matrix" or "do a
-live transaction" as fresh work, delete both lines. They are closed-by-policy.
+live transaction" as *fresh manual work per release*, that framing is wrong —
+point instead at the freeze workflow (E2E) and the single recorded acceptance
+(live money). But never record either as *closed*: the manifest keeps them open
+and honest, and no prose here may say otherwise.

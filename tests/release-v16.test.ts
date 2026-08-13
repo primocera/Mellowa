@@ -61,16 +61,23 @@ describe("the current v16 manifest", () => {
     }
   });
 
-  it("closes the P1 E2E gate with artifact proof and keeps P0-LIVE open and accepted", () => {
+  it("keeps the P1 E2E gate OPEN because the prior run is superseded at HEAD, and keeps P0-LIVE open+accepted (MW-V18-01)", () => {
     const openIds = manifest.blockers.map((b) => b.id);
     const closedIds = (manifest.closedBlockers ?? []).map((b) => b.id);
-    // The authenticated matrix ran at a59aa4e with committed artifacts, so its
-    // blocker is closed -- with a closure that names both what closed it and
-    // where the proof lives (the validator rejects a closure without evidence).
-    expect(closedIds).toContain("P1-AUTH-E2E-AT-HEAD");
-    expect(openIds).not.toContain("P1-AUTH-E2E-AT-HEAD");
-    const closed = (manifest.closedBlockers ?? []).find((b) => b.id === "P1-AUTH-E2E-AT-HEAD");
-    expect(closed?.evidence).toMatch(/a59aa4e/);
+    // The a59aa4e authenticated run is a TRUE historical pass, but product code
+    // drifted past that SHA across the whole v17 pack, so it no longer certifies
+    // HEAD. The candidate model requires the matrix observed AT the candidate, so
+    // the blocker is OPEN again -- a superseded run is not a standing closure, and
+    // an owner acceptance would be required (there is none) to ship over it.
+    expect(openIds).toContain("P1-AUTH-E2E-AT-HEAD");
+    expect(closedIds).not.toContain("P1-AUTH-E2E-AT-HEAD");
+    const p1 = manifest.blockers.find((b) => b.id === "P1-AUTH-E2E-AT-HEAD");
+    expect(p1?.acceptance).toMatch(/supersed/i);
+    // No fabricated owner acceptance for the P1 -- it stays a hard open blocker.
+    expect(
+      (manifest.acceptedRisks ?? []).some((r) => r.blockerId === "P1-AUTH-E2E-AT-HEAD"),
+      "the E2E blocker must not be silently accepted away",
+    ).toBe(false);
     // P0-LIVE stays OPEN -- a P0 is never accepted away in the score -- but the
     // owner's carried-forward acceptance is recorded against it.
     expect(openIds).toContain("P0-LIVE-TRANSACTION");
@@ -80,6 +87,22 @@ describe("the current v16 manifest", () => {
     expect(risk, "owner acceptance for P0-LIVE must be recorded").toBeTruthy();
     expect(risk?.tiers).toContain("public_paid");
     expect(risk?.acceptedBy).not.toBe("Owner"); // must be a person, not a role
+  });
+
+  it("never presents a superseded owner run (ran at a different SHA than the candidate) as a closed blocker (MW-V18-01)", () => {
+    // The exact contradiction M01 reconciles: an authenticated run recorded at a
+    // SHA other than the current candidate (rcSha ?? baselineSha) cannot stand as
+    // a closure -- accepted risk / stale evidence is not completion.
+    const candidateSha = manifest.rcSha ?? manifest.baselineSha;
+    const authRun = manifest.ownerEvidence.find((o) => o.id === "authenticated-e2e-matrix");
+    expect(authRun).toBeTruthy();
+    if (authRun && isPassing(authRun.status) && authRun.sha && authRun.sha !== candidateSha) {
+      expect(
+        (manifest.closedBlockers ?? []).some((b) => b.id === "P1-AUTH-E2E-AT-HEAD"),
+        "a run at a superseded SHA must not close the E2E blocker",
+      ).toBe(false);
+      expect(manifest.blockers.some((b) => b.id === "P1-AUTH-E2E-AT-HEAD")).toBe(true);
+    }
   });
 
   it("records the authenticated E2E matrix as a real local owner-run, but not the live rehearsal", () => {

@@ -153,6 +153,13 @@ export interface OwnerEvidence {
   /** What the owner must do, in one line. */
   action: string;
   status: EvidenceStatus;
+  /**
+   * The commit the owner-run evidence was produced at, when known. A passing
+   * owner run recorded at a SHA other than the current candidate is superseded
+   * evidence: it may stay recorded as a historical fact, but it cannot stand as
+   * a closure of its blocker at HEAD.
+   */
+  sha?: string;
   /** Filled only once the owner records it. */
   evidence?: string;
   note?: string;

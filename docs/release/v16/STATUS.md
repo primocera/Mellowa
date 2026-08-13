@@ -2,9 +2,9 @@
 
 > Generated from `docs/release/manifest.v16.json` by `scripts/render-release-status.mjs`. Do not edit by hand — a contract test regenerates this and fails on any drift.
 
-- **Candidate:** no frozen candidate — baseline 432ed18 (draft)
-- **Baseline:** `432ed18235bf473bd2e38fcbc7546213536d4175`
-- **Reconciled:** 2026-08-07T00:00:00Z
+- **Candidate:** no frozen candidate — baseline 190cee7 (draft)
+- **Baseline:** `190cee7ea6277a58e785df157108a680fabe92c3`
+- **Reconciled:** 2026-08-13T00:00:00Z
 - **Migrations:** 43 (001–043)
 
 ## Verdicts
@@ -35,6 +35,7 @@ UNASSESSED is not a weak GO. No candidate is frozen, so no verdict can be read f
 | Id | Level | Blocks | Title |
 |---|---|---|---|
 | P0-LIVE-TRANSACTION | P0 | public_paid | A live payment failure to recovery and the late-failure-after-recovery ordering have not been witnessed over a live wire at v16. |
+| P1-AUTH-E2E-AT-HEAD | P1 | capped_beta, public_paid | The authenticated E2E matrix has not been observed at the current candidate; the prior a59aa4e run is superseded by product-code drift to HEAD. |
 
 ## Owner-run evidence
 

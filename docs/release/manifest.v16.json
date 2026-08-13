@@ -1,10 +1,10 @@
 {
   "schema": 1,
   "release": "v16",
-  "baselineSha": "432ed18235bf473bd2e38fcbc7546213536d4175",
+  "baselineSha": "190cee7ea6277a58e785df157108a680fabe92c3",
   "rcSha": null,
   "candidateLifecycle": "draft",
-  "reconciledAtUtc": "2026-08-07T00:00:00Z",
+  "reconciledAtUtc": "2026-08-13T00:00:00Z",
   "buildId": null,
   "migrations": [
     "001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
@@ -78,7 +78,7 @@
       "status": "local_pass",
       "evidence": "docs/release/evidence/v13/auth-matrix/a59aa4e41a536e8df8181db0e1ed140e00835c99.json",
       "sha": "a59aa4e41a536e8df8181db0e1ed140e00835c99",
-      "note": "Run at committed HEAD a59aa4e against a disposable non-production Supabase (marker-gated, gmkcqqfmerefrnphszib) in Stripe TEST mode: 93 passed / 0 failed / 27 skipped, every required journey green. Evidence: docs/release/evidence/v13/auth-matrix/a59aa4e41a536e8df8181db0e1ed140e00835c99.json. This is a local owner-run, NOT a workflow-frozen RC — formal closure of P1-AUTH-E2E-AT-HEAD still requires the immutable release-candidate.yml run at a frozen candidate SHA. Not a preview_pass (no deployed preview) and not live Stripe."
+      "note": "Run at committed HEAD a59aa4e against a disposable non-production Supabase (marker-gated, gmkcqqfmerefrnphszib) in Stripe TEST mode: 93 passed / 0 failed / 27 skipped, every required journey green. Evidence: docs/release/evidence/v13/auth-matrix/a59aa4e41a536e8df8181db0e1ed140e00835c99.json. This is a local owner-run, NOT a workflow-frozen RC. SUPERSEDED at the current candidate: 63 files changed across the v17 pack since a59aa4e, so this run no longer certifies HEAD — P1-AUTH-E2E-AT-HEAD is therefore OPEN again and must be re-observed at the frozen candidate (CI runs the matrix in Stripe TEST mode at freeze). A true historical pass is not a standing closure. Not a preview_pass (no deployed preview) and not live Stripe."
     },
     {
       "id": "live-transaction",
@@ -95,20 +95,17 @@
       "owner": "Owner",
       "blocks": ["public_paid"],
       "acceptance": "Recorded owner evidence for the full charge to cancel to reactivate to recovery to refund sequence on the live plan, per docs/runbooks/live-transaction-rehearsal.md."
-    }
-  ],
-  "closedBlockers": [
+    },
     {
       "id": "P1-AUTH-E2E-AT-HEAD",
       "level": "P1",
-      "title": "The full authenticated matrix has not run in one unattended sweep at a v16 candidate.",
-      "owner": "Eng + Owner (env)",
+      "title": "The authenticated E2E matrix has not been observed at the current candidate; the prior a59aa4e run is superseded by product-code drift to HEAD.",
+      "owner": "Eng (CI) / Owner (env)",
       "blocks": ["capped_beta", "public_paid"],
-      "acceptance": "The full authenticated matrix run at the v16 candidate SHA with raw artifacts, via npm run test:e2e:matrix against a seeded non-production Supabase.",
-      "closedBy": "MW-95-07/08 — authenticated matrix run at committed HEAD a59aa4e",
-      "evidence": "docs/release/evidence/v13/auth-matrix/a59aa4e41a536e8df8181db0e1ed140e00835c99.json — 93 passed / 0 failed / 27 skipped, every required journey green, against a disposable marker-gated non-production Supabase in Stripe TEST mode. Run via npm run test:e2e:matrix (scripts/run-auth-matrix.mjs --rc). Not a workflow-frozen RC; owner-run local sweep at the exact committed SHA."
+      "acceptance": "The authenticated matrix observed at the frozen candidate SHA — run automatically by .github/workflows/release-candidate.yml at freeze (Stripe TEST mode, seeded non-production Supabase), or a recorded owner-accepted risk for capped beta. The a59aa4e local run (93/0/27) is a true historical pass but no longer certifies HEAD: 63 files changed across the v17 pack since that SHA, so its evidence is superseded and must be re-observed at the candidate. This is a free automated test in test mode at freeze, not a manual per-release chore, and a superseded run is never a standing closure."
     }
   ],
+  "closedBlockers": [],
   "acceptedRisks": [
     {
       "blockerId": "P0-LIVE-TRANSACTION",
