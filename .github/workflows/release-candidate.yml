@@ -43,7 +43,11 @@ jobs:
       # proceed if any of these resolve to a live/production indicator.
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
-      NEXT_PUBLIC_APP_URL: https://mellowa.app
+      # MW-V18-02: pin the PREVIEW/TEST application URL, never the production
+      # public URL. The RC serves a locally built app to Playwright (see
+      # playwright.config webServer), so the app URL is the throwaway test origin.
+      # An operator can override with a preview deployment via E2E_APP_URL.
+      NEXT_PUBLIC_APP_URL: ${{ secrets.E2E_APP_URL || 'http://localhost:3000' }}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_rc_placeholder
     steps:
       - name: Resolve candidate ref
@@ -84,6 +88,13 @@ jobs:
           case "$E2E_SUPABASE_URL" in
             *prod*|*production*)
               echo "::error title=Production Supabase refused::E2E_SUPABASE_URL looks like a production project."
+              fail=1 ;;
+          esac
+          # MW-V18-02: the non-production RC must not point at the production
+          # public origin. If someone sets E2E_APP_URL to the live domain, stop.
+          case "$NEXT_PUBLIC_APP_URL" in
+            https://mellowa.app|https://www.mellowa.app|https://mellowa.app/*)
+              echo "::error title=Production URL refused::NEXT_PUBLIC_APP_URL is the live public origin. A non-production RC must use a preview/test URL."
               fail=1 ;;
           esac
           if [ "$fail" = "1" ]; then exit 1; fi
@@ -167,21 +178,41 @@ jobs:
           E2E_SUPABASE_TEST: "1"
           # Force the fail-closed matrix runner regardless of the mutable var.
           RC_GATE: "1"
+        # MW-V18-02: run the authenticated matrix ONCE. The bare `npm run test:e2e`
+        # was removed because it re-ran the same authenticated specs the matrix
+        # runner drives (and could exit 0 with everything skipped). The matrix
+        # runner is the authoritative auth journey: it seeds each fixture, runs
+        # every required journey across every viewport, FAILS on zero discovered
+        # tests, and writes SHA-pinned evidence the freeze step verifies.
         run: |
           npx playwright install --with-deps chromium
-          npm run test:e2e
           npm run test:e2e:matrix
 
-      # MW-V17-02: freeze a COMPUTED, SHA-pinned candidate — not the unchanged
-      # draft manifest. This step only runs if every gate above passed, so
-      # --mark-code-green records the code suites as ci_pass at the exact SHA.
-      # GITHUB_RUN_ID makes provenance "workflow" and manifestValid true (the
-      # manifest was validated in the first step). The script refuses to freeze a
-      # SHA other than the checked-out HEAD and writes an immutable artifact; it
-      # needs no write permission (contents: read) — the artifact is uploaded, not
-      # committed. Promotion into the tracked manifest is a separate reviewed step.
+      # MW-V18-02: record what THIS run actually executed. Reaching this step under
+      # `set -e` proves every required suite above passed in this run; the emitter
+      # writes a run summary (code gates + the authenticated matrix, with its
+      # SHA-pinned evidence path). release-check is deliberately absent — a
+      # non-production run never claims production owner evidence.
+      - name: Emit RC run summary
+        run: |
+          node scripts/emit-rc-run-summary.mjs \
+            --out /tmp/rc-run-summary.json \
+            --sha "${{ steps.ref.outputs.sha }}" \
+            --auth-evidence "docs/release/evidence/v13/auth-matrix/${{ steps.ref.outputs.sha }}.json"
+
+      # MW-V17-02 + MW-V18-02: freeze a COMPUTED, SHA-pinned candidate from the run
+      # summary — never the unchanged draft manifest, never a blanket mark-green.
+      # freeze records a suite as passing ONLY from the step that executed it in
+      # this run (via the summary), re-verifies the authenticated matrix against
+      # its own evidence (non-zero passed, zero failed, exact SHA), and REFUSES to
+      # mark the production-only release-check. GITHUB_RUN_ID makes provenance
+      # "workflow" and manifestValid true (the manifest was validated in the first
+      # step). It refuses to freeze a SHA other than the checked-out HEAD and
+      # writes an immutable artifact; it needs no write permission (contents: read)
+      # — the artifact is uploaded, not committed. Promotion into the tracked
+      # manifest is a separate reviewed step (scripts/promote-candidate.mjs).
       - name: Freeze the candidate record
-        run: node scripts/freeze-candidate.mjs --mark-code-green
+        run: node scripts/freeze-candidate.mjs --run-summary /tmp/rc-run-summary.json
 
       - name: Upload sanitized evidence
         if: always()

@@ -34,8 +34,10 @@ missing evidence artifact, or a production environment.
    `gh workflow run release-candidate.yml -f candidate_sha=<40-hex SHA>`
    (or push a signed `rc/*` tag). The workflow validates the manifest, runs
    lint/typecheck/test/eval/build/public-E2E, requires the seeded authenticated
-   matrix (MW-V17-01 preflight), then runs `freeze-candidate.mjs --mark-code-green`
-   and uploads `rc-evidence-<sha>` containing the computed candidate.
+   matrix (MW-V17-01 preflight), then (MW-V18-02) emits a run summary and runs
+   `freeze-candidate.mjs --run-summary …` and uploads `rc-evidence-<sha>`
+   containing the computed candidate. See `docs/release/v18/RC-LIFECYCLE.md` for
+   the honest per-suite recording and the three evidence classes.
    - **Expected artifact:** `candidate/<sha>.json` with `runProvenance: "workflow"`,
      code gates `ci_pass` at `<sha>`, owner gates at their recorded status.
    - **Fails closed if:** a required secret is missing, the Stripe key is not a
@@ -48,4 +50,5 @@ missing evidence artifact, or a production environment.
 4. **Rollback** — flag-based and data-safe; code rollback target is in
    `manifest.rollback`. A `superseded` mark invalidates a stale candidate.
 
-Local dry-run (no CI, no promotion): `npm run freeze-candidate -- --assume-valid --mark-code-green --out /tmp/candidate.json`.
+Local dry-run (no CI, no promotion) — MW-V18-02 replaced `--mark-code-green` with
+an honest run summary; see `docs/release/v18/RC-LIFECYCLE.md` for the exact commands.

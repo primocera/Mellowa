@@ -42,20 +42,66 @@ export const NO_OWNER_EVIDENCE = {
   openDependencyAdvisories: 0,
 };
 
-/** Owner-run suites, so the code gate never depends on an owner gate. */
-function isOwnerGate(suiteId) {
-  return suiteId === "e2e-authenticated" || suiteId === "release-check";
+/**
+ * The three evidence classes a required suite can belong to. Separating them is
+ * the whole point of MW-V18-02: the old model lumped `e2e-authenticated` and
+ * `release-check` into one "owner gate" bucket, so a green non-production RC run
+ * that DID pass the authenticated matrix still froze beta/public as NO-GO (its
+ * auth pass was never recorded) AND could only reach a verdict by treating the
+ * production-only `release-check` as a suite the RC might mark green.
+ *
+ *  - `code`             — pure automated code gates (lint, typecheck, unit, eval,
+ *                         build, public E2E). Recorded by any CI/local run.
+ *  - `auth_journey`     — the authenticated matrix. Non-production journey
+ *                         evidence: the RC workflow CAN record it (Stripe TEST
+ *                         mode, seeded throwaway Supabase) at the candidate SHA.
+ *  - `production_owner` — `release-check`, which fails closed without the real
+ *                         production environment. A non-production run must NEVER
+ *                         record it; it is owner/production evidence that can only
+ *                         PROMOTE a frozen candidate, never be faked at freeze.
+ */
+export const SUITE_CLASSES = ["code", "auth_journey", "production_owner"];
+
+/**
+ * Classify a suite. An explicit `suiteClass` on the suite wins (schema-level
+ * separation); otherwise the canonical ids map to their class. Everything else
+ * is a code gate.
+ */
+export function classifySuite(suite) {
+  const id = typeof suite === "string" ? suite : suite.id;
+  const explicit = typeof suite === "object" ? suite.suiteClass : undefined;
+  if (explicit) {
+    if (!SUITE_CLASSES.includes(explicit)) {
+      throw new Error(`suite "${id}" has unknown suiteClass "${explicit}"`);
+    }
+    return explicit;
+  }
+  if (id === "e2e-authenticated") return "auth_journey";
+  if (id === "release-check") return "production_owner";
+  return "code";
+}
+
+/** True for a suite that requires the real production environment. */
+export function isProductionOwnerSuite(suite) {
+  return classifySuite(suite) === "production_owner";
 }
 
 /**
  * Compute the three verdicts from the gates. Non-compensating, mirroring the
- * readiness rubric:
+ * readiness rubric, but with the three evidence classes kept apart:
  *  - invalid record, no frozen candidate, or superseded → UNASSESSED everywhere.
  *  - an open P0/P1 blocking a tier with no accepted risk → NO-GO for it.
  *  - an accepted open blocker → CONDITIONAL GO, never GO.
- *  - a required suite not passing → NO-GO on the release tiers.
- *  - GO also needs the tier's owner observations (auth E2E for beta; auth E2E +
- *    live money + mature value + no dependency advisory for paid).
+ *  - automated_code_gate depends ONLY on the code suites — never on an owner or
+ *    production gate, so a passing code base always reads GO here.
+ *  - capped_beta needs the code suites green AND the authenticated journey
+ *    observed at the candidate (from the recorded `auth_journey` suite OR an
+ *    owner-run gate). It does NOT depend on the production-only release-check.
+ *  - public_paid additionally needs the production-owner evidence: release-check
+ *    passing PLUS a live transaction, mature value and no dependency advisory.
+ *    A tier missing only its owner observations degrades to CONDITIONAL GO, not
+ *    NO-GO, so an accepted risk can carry it — but the production release-check
+ *    is a HARD requirement, so a non-production candidate can never read GO/paid.
  */
 export function deriveVerdicts(manifest, gates = NO_OWNER_EVIDENCE, { manifestValid = true } = {}) {
   const lifecycle = manifest.candidateLifecycle ?? (manifest.rcSha ? "frozen" : "draft");
@@ -73,9 +119,20 @@ export function deriveVerdicts(manifest, gates = NO_OWNER_EVIDENCE, { manifestVa
   }
 
   const requiredSuites = manifest.suites.filter((s) => s.required);
-  const codeSuites = requiredSuites.filter((s) => !isOwnerGate(s.id));
+  const codeSuites = requiredSuites.filter((s) => classifySuite(s) === "code");
+  const authSuites = requiredSuites.filter((s) => classifySuite(s) === "auth_journey");
+  const prodSuites = requiredSuites.filter((s) => classifySuite(s) === "production_owner");
+
   const codeGreen = codeSuites.every((s) => isPassing(s.status));
-  const allRequiredGreen = requiredSuites.every((s) => isPassing(s.status));
+  // The authenticated journey is "observed at the candidate" if the RC recorded
+  // its suite passing, OR an owner ran the matrix and attests it via the gate.
+  const authObserved =
+    (authSuites.length > 0 && authSuites.every((s) => isPassing(s.status))) ||
+    isPassing(gates.authE2eAtCandidate);
+  // The production-only suites (release-check) must have actually passed against
+  // production — a non-production RC leaves them blocked, which is honest.
+  const prodSuitesGreen =
+    prodSuites.length === 0 ? true : prodSuites.every((s) => isPassing(s.status));
 
   const openP0 = manifest.blockers.filter((b) => b.level === "P0");
   const openP1 = manifest.blockers.filter((b) => b.level === "P1");
@@ -84,29 +141,37 @@ export function deriveVerdicts(manifest, gates = NO_OWNER_EVIDENCE, { manifestVa
 
   const automated_code_gate = codeGreen ? "GO" : "NO-GO";
 
-  const tierVerdict = (tier, ownerGatesObserved) => {
+  const tierVerdict = (tier, { hardGreen, ownerObserved }) => {
     let conditional = false;
     for (const b of [...openP0, ...openP1]) {
       if (!b.blocks.includes(tier)) continue;
       if (!acceptedFor(b.id, tier)) return "NO-GO";
       conditional = true;
     }
-    if (!allRequiredGreen) return "NO-GO";
-    if (!ownerGatesObserved) conditional = true;
+    if (!hardGreen) return "NO-GO";
+    if (!ownerObserved) conditional = true;
     return conditional ? "CONDITIONAL GO" : "GO";
   };
 
-  const betaObserved = isPassing(gates.authE2eAtCandidate);
   const paidObserved =
-    isPassing(gates.authE2eAtCandidate) &&
+    prodSuitesGreen &&
     isPassing(gates.liveTransaction) &&
     gates.matureValue === "pass" &&
     (gates.openDependencyAdvisories ?? 0) === 0;
 
   return {
     automated_code_gate,
-    capped_beta: tierVerdict("capped_beta", betaObserved),
-    public_paid: tierVerdict("public_paid", paidObserved),
+    // Beta rests on code + the authenticated journey — never on release-check.
+    capped_beta: tierVerdict("capped_beta", {
+      hardGreen: codeGreen && authObserved,
+      ownerObserved: true,
+    }),
+    // Paid additionally requires the production release-check to have passed
+    // (hard), plus the owner live/value observations (soft → CONDITIONAL).
+    public_paid: tierVerdict("public_paid", {
+      hardGreen: codeGreen && authObserved && prodSuitesGreen,
+      ownerObserved: paidObserved,
+    }),
   };
 }
 
@@ -198,6 +263,24 @@ export function validateCandidateArtifact(candidate, manifest, opts = {}) {
         "local_pass_only",
         `required suite "${s.id}" is local_pass in a workflow-frozen candidate — ` +
           "a developer-machine pass cannot certify a workflow candidate",
+      );
+    }
+    // A production-only suite (release-check) can never pass in a non-production
+    // candidate. The RC runs against throwaway fixtures, so a "passing"
+    // release-check here would be a fabricated production/live claim. It stays
+    // blocked at freeze and is only satisfied later, at promotion, by real owner
+    // evidence — which never rewrites the frozen record.
+    if (
+      isProductionOwnerSuite(s) &&
+      isPassing(s.status) &&
+      candidate.environmentClass !== "production"
+    ) {
+      fail(
+        "production_gate_faked",
+        `production-owner suite "${s.id}" is "${s.status}" in a ` +
+          `${candidate.environmentClass} candidate — release-check requires the ` +
+          "real production environment and can only be recorded by owner evidence " +
+          "at promotion, never by a non-production RC",
       );
     }
     if (isPassing(s.status)) {
