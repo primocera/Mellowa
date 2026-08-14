@@ -72,6 +72,18 @@ export const EXPERIMENTS: ExperimentDef[] = [
     expiresAt: "2026-12-31",
     variants: [{ key: "emphasize", weight: 50 }],
   },
+  {
+    // MW-V18-09: first-session flow — reaching first_value (a durable action, not
+    // a screen view) in the first session and D2/D3 mature return. Default OFF.
+    id: "first_session",
+    namespace: "onboarding",
+    version: 1,
+    owner: "product",
+    description: "Optimised first-session flow vs current; primary = first_value in session + D2/D3.",
+    killSwitchFlag: "FLAG_FIRST_SESSION_EXPERIMENT",
+    expiresAt: "2027-03-31",
+    variants: [{ key: "optimised", weight: 50 }],
+  },
 ];
 
 const CONTROL = "control";
