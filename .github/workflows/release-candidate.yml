@@ -125,6 +125,16 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
       - name: Unit / contract / safety
+        # The pure unit/contract/safety suite asserts the PRODUCTION SEO + email
+        # URL invariant (absolute https canonical + unsubscribe URLs). The
+        # job-level NEXT_PUBLIC_APP_URL is the localhost origin the *served* app
+        # and browser steps need; leaking it into this string-only suite makes
+        # SITE_URL (@/lib/seo/site) and serverEnv.appUrl http://localhost, which
+        # breaks tests/seo-pwa.test.ts and tests/lifecycle-recovery.test.ts. This
+        # step does no network/browser work, so pin the canonical origin here only
+        # — the served-app/matrix steps keep the job-level localhost URL.
+        env:
+          NEXT_PUBLIC_APP_URL: https://mellowa.app
         run: npm run test
       - name: Eval gate
         run: npm run eval
