@@ -150,3 +150,37 @@ live transaction" as *fresh manual work per release*, that framing is wrong —
 point instead at the freeze workflow (E2E) and the single recorded acceptance
 (live money). But never record either as *closed*: the manifest keeps them open
 and honest, and no prose here may say otherwise.
+
+---
+
+## v18 outcome — the pack shipped; the next move is NOT another pack
+
+**v18 is merged to `main` and deployed.** All 25 code prompts (M01–M18 + X01–X07)
+landed on branch `v18`, fast-forwarded onto `main` (`190cee7..476b591`), plus a
+follow-up security fix (`6ef291f`). The owner has completed the required ops:
+
+- **Migrations 044–048 applied and verified in production Supabase** — durable
+  account-deletion ledger (044), canonical cohort facts + exclusion registry
+  (045), onboarding provenance columns (046), privacy-safe support ledger (047),
+  and the security-invoker fix for `analytics_activation_facts` (048, which
+  cleared the Supabase "SECURITY DEFINER view" linter finding).
+- **Account-deletion worker cron is wired and live** (external pinger →
+  `/api/cron/account-deletion`, Bearer `CRON_SECRET`, verified `200 OK`).
+- **Supabase security advisors are clean.**
+
+What remains is **owner-gated and optional**, never a code pack: seeding
+`analytics_excluded_users`, running the onboarding backfill, importing support
+tickets, and the standing O01–O04 (auth E2E rehearsal, live-money re-verify,
+capped-beta window, promotion memo). The two live items above are still OPEN and
+honest in the manifest — do not mark them closed.
+
+> **The highest-value next move is NOT another code pack — it is deploy +
+> marketing / getting real users onto mellowa.app.** The product side is solid
+> and shipped. Every pack from v11 forward has reached this same conclusion, and
+> v18 reaches it from a stronger position: the app is live, migrated, and its
+> ops (deletion cron, cohort facts, support ledger) are running. Writing a v19
+> code pack to add more machinery around an already-complete product is churn.
+> If a pack must be written, its spine must be a **real, newly-discovered
+> defect** — not more scaffolding, not the two owner-gated live items, and not a
+> restatement of "measurement/observability" that X01–X07 already delivered.
+> Otherwise: **stop, and tell the owner to get users in.**
