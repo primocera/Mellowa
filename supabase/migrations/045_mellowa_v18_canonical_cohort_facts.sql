@@ -28,7 +28,14 @@ create index if not exists daily_checkins_user_created_idx
 -- append-mostly table, so it is always live and needs no backfill job. It reads
 -- the whole history of daily_checkins, so a user who activated a year ago is
 -- still counted with their true activation instant and local calendar date.
-create or replace view public.analytics_activation_facts as
+--
+-- security_invoker = true: the view runs with the QUERYING role's privileges and
+-- RLS, not the definer's. Server-side cohort math uses the service role (which
+-- bypasses RLS), so it is unaffected; but an anon/authenticated caller can never
+-- use this view to read check-in rows their own RLS would hide. Without this,
+-- Postgres defaults a view to definer rights, which the Supabase linter flags.
+create or replace view public.analytics_activation_facts
+  with (security_invoker = true) as
   select
     user_id,
     min(created_at)                                   as activated_at,
