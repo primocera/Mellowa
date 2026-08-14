@@ -15,6 +15,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# MW-V18-07 least privilege: CI only reads the repo and runs checks. It needs no
+# write access to contents, packages, deployments or id-tokens.
+permissions:
+  contents: read
+
 jobs:
   quality:
     name: Lint, typecheck, test, build
@@ -31,13 +36,13 @@ jobs:
       NEXT_PUBLIC_APP_URL: https://mellowa.app
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_ci_placeholder
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           # Full history: tests/release-manifest.test.ts diffs the frozen v13 RC
           # commit (940cb94) against HEAD. The default shallow clone omits it, so
           # the diff fails with "bad object" and the whole job goes red.
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: 22
           cache: npm
@@ -59,8 +64,8 @@ jobs:
     name: Authenticated E2E (env-gated)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: 22
           cache: npm

@@ -67,3 +67,36 @@ without relying on proxy middleware.
 | `npm run build` | PASS |
 | `npm run test:e2e:public` | PASS — 75/75 |
 | Authenticated E2E matrix | NOT RUN — owner seeded non-prod prereqs (MW-P1-05) |
+
+---
+
+## v18 re-check (MW-V18-07)
+
+**Date checked: 2026-08-14. Review-by: 2026-11-14** (or sooner if Dependabot
+opens an advisory PR). This section supersedes the counts above; the v13 record
+is retained for history.
+
+- `next` line: **16.2.12** (unchanged; the overrides from the v13 change remain
+  in `package.json`).
+- Production dependency audit — freshly run, not a carried-over screenshot:
+
+  | Gate | Result (2026-08-14) |
+  | --- | --- |
+  | `npm audit --omit=dev` | PASS — **0 vulnerabilities** |
+
+- **GitHub Actions supply chain:** every `uses:` in `.github/workflows/*` is now
+  pinned to an immutable commit SHA (a floating `@v4` tag can be re-pointed):
+  - `actions/checkout` → `11bd71901bbe5b1630ceea73d27597364c9af683` (v4.2.2)
+  - `actions/setup-node` → `39370e3970a6d050c480ffad4ff0ed4d3fdee5af` (v4.1.0)
+  - `actions/upload-artifact` → `b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882` (v4.4.3)
+- **Update policy:** `.github/dependabot.yml` tracks the `github-actions` and
+  `npm` ecosystems weekly, so the SHA pins move forward under review instead of
+  going stale, and npm advisories arrive as PRs rather than only via a manual
+  audit.
+- **Least privilege:** both workflows declare `permissions: contents: read`
+  (previously only `release-candidate.yml` did). The RC workflow uploads only
+  sanitized evidence and prints variable names, never secret values.
+
+This is current evidence with an explicit review date; it is not a standing
+"closed forever" claim — re-run `npm audit --omit=dev` and re-confirm the pins at
+the review-by date or on the next Dependabot PR.

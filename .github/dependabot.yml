@@ -1,0 +1,37 @@
+# MW-V18-07: keep the supply chain current and auditable.
+#
+# GitHub Actions are pinned to immutable commit SHAs in the workflows (a floating
+# tag can be re-pointed at malicious code). Pinning stops automatic drift, so
+# Dependabot is what keeps those pins MOVING to new patched SHAs — it opens a PR
+# that bumps the SHA and updates the `# vX.Y.Z` comment, which a human reviews.
+# The npm ecosystem entry surfaces production dependency advisories as PRs rather
+# than relying on a periodic manual `npm audit`.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    labels:
+      - dependencies
+      - github-actions
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    labels:
+      - dependencies
+    # Security updates are never grouped, so an advisory fix is reviewable on its
+    # own. Routine version bumps are grouped to keep PR volume manageable.
+    groups:
+      routine-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 5
