@@ -24,6 +24,7 @@ import {
 import { loopDecisions, expansionVerdict } from "@/lib/analytics/loop-decisions";
 import { buildCohortScorecard, localDate, type CohortScorecard, type CohortEventRow, type CohortSubRow } from "@/lib/analytics/cohort";
 import { readExclusionRegistry, readCanonicalActivation, readCheckinDays } from "@/lib/analytics/facts";
+import { supportBurden, type SupportTicketRow } from "@/lib/support/metrics";
 import { readBetaCapacity, type BetaCapacity } from "@/lib/beta/capacity";
 import { experimentConflicts, runningExperiments } from "@/lib/beta/experiments";
 
@@ -203,6 +204,27 @@ export async function buildMetricsReport(
   }
   const sourceWatermark = watermarkMs > 0 ? new Date(watermarkMs).toISOString() : undefined;
 
+  // MW-V18-08: privacy-safe support burden over the same cohort. A ledger read
+  // error is UNAVAILABLE (never a zero). Paid = active subscription that has used
+  // a trial (a real payer). Activated denominator = the canonical activation fact.
+  const [ticketsRes, paidRes] = await Promise.all([
+    admin
+      .from("support_tickets")
+      .select("dedupe_key, account_user_id, category, status, reopened_count, first_response_at, resolved_at, created_at"),
+    admin
+      .from("subscriptions")
+      .select("user_id", { count: "exact", head: true })
+      .eq("status", "active")
+      .not("trial_used_at", "is", null),
+  ]);
+  const burden = supportBurden({
+    tickets: (ticketsRes.data ?? []) as SupportTicketRow[],
+    activatedUsers: Object.keys(activation.activatedAtByUser).length,
+    paidUsers: paidRes.count ?? 0,
+    excludedUserIds: exclusion.ids,
+    available: !ticketsRes.error,
+  });
+
   // Only feed the durable facts through when both were readable; otherwise fall
   // back to the event-window derivation rather than reporting a half-durable
   // cohort. `factsAvailable` is surfaced so a degraded read is visible.
@@ -218,6 +240,7 @@ export async function buildMetricsReport(
           checkinLocalDaysByUser: checkinDays.daysByUser,
         }
       : undefined,
+    supportBurden: burden,
     sourceWatermark,
     now: new Date(now),
   });

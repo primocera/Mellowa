@@ -51,6 +51,10 @@ export const USER_DATA_REGISTRY: UserTable[] = [
   // MW-V17-06: exactly-once onboarding completion marker (no personal content,
   // just the fact + timestamp). FK ON DELETE CASCADE removes it with the user.
   { table: "onboarding_completions", column: "user_id", onDelete: "cascade" },
+  // MW-V18-08: privacy-safe support ledger. No message content; the account link
+  // is ON DELETE SET NULL, so a deleted user's aggregate category survives while
+  // the identity link is removed (anonymize, same posture as app_events).
+  { table: "support_tickets", column: "account_user_id", onDelete: "anonymize" },
 ];
 
 /**

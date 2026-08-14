@@ -27,6 +27,7 @@
  */
 
 import { MIN_COHORT } from "@/lib/analytics/metrics";
+import type { SupportBurden } from "@/lib/support/metrics";
 
 /**
  * Metric-definition version. Bumped whenever a numerator/denominator/maturity
@@ -125,6 +126,11 @@ export interface CohortInputs {
   excludedUserIds?: string[];
   /** Durable activation facts; when present they override event-derived activation. */
   canonicalActivation?: CanonicalActivationInput;
+  /**
+   * MW-V18-08: privacy-safe support burden. When supplied (and not unavailable),
+   * the support_burden row becomes measured instead of UNAVAILABLE.
+   */
+  supportBurden?: SupportBurden;
   /**
    * ISO instant the input data is current through (the freshest fact/event the
    * caller fetched). Reported as the source watermark so a stale pipeline is
@@ -370,12 +376,7 @@ export function buildCohortScorecard(inputs: CohortInputs): CohortScorecard {
       maturity: "any dispute in window",
       action: "Any open dispute blocks expansion until resolved",
     }),
-    unavailableRow(
-      "support_burden",
-      "Support tickets/categories per active user",
-      "No privacy-safe ticket/category system exists yet, so this is UNAVAILABLE rather than a fabricated zero. Minimum path: an admin-only aggregate ticket_category counter (no message content) fed from the support inbox.",
-      "Stand up the minimum aggregate support counter before claiming a low support burden",
-    ),
+    supportBurdenRow(inputs.supportBurden),
   ];
 
   // now − 48h is safely past the end of any local calendar day that began up to
@@ -452,6 +453,49 @@ function renewalRow(renewed: number, eligible: number, pending: number): CohortR
     state: eligible === 0 && pending > 0 ? "pending" : "measured",
     maturity: "subscription current_period_end has passed",
     action: "First-renewal evidence must be mature (not pending) before public-paid 9.5",
+  };
+}
+
+/**
+ * MW-V18-08: the support-burden row. UNAVAILABLE until the privacy-safe ledger
+ * (support_tickets) has data; then it reports deduped contacts over activated
+ * users, with medians and unresolved safety/billing surfaced in the definition.
+ * A ledger read error arrives as an unavailable summary and stays UNAVAILABLE —
+ * never a fabricated zero.
+ */
+function supportBurdenRow(summary: SupportBurden | undefined): CohortRow {
+  if (!summary || summary.state === "unavailable") {
+    return unavailableRow(
+      "support_burden",
+      "Support tickets/categories per active user",
+      summary?.state === "unavailable"
+        ? "The support ledger could not be read, so this is UNAVAILABLE rather than a fabricated zero."
+        : "No privacy-safe ticket/category data yet (support_tickets is empty), so this is UNAVAILABLE rather than a fabricated zero. Import from the support inbox via the admin ledger — no message content is stored.",
+      "Feed the support inbox into the privacy-safe ledger before claiming a low support burden",
+    );
+  }
+  const suppressed = summary.activatedUsers < MIN_COHORT;
+  const per100 = summary.contactsPer100Activated;
+  return {
+    id: "support_burden",
+    definition:
+      `Deduped support contacts per active user (privacy-safe ledger, no message content). ` +
+      `${summary.contacts} issue(s); ` +
+      `${per100 === null ? "per-100 suppressed" : `${per100}/100 activated`}; ` +
+      `median first response ${summary.medianFirstResponseMin ?? "—"} min, ` +
+      `resolution ${summary.medianResolutionMin ?? "—"} min; ` +
+      `${summary.unresolvedCritical} unresolved safety/billing/deletion.`,
+    numerator: suppressed ? null : summary.contacts,
+    denominator: summary.activatedUsers,
+    pending: 0,
+    rate: suppressRate(summary.contacts, summary.activatedUsers),
+    suppressed,
+    state: "measured",
+    maturity: "any support contact in window; denominator is activated users",
+    action:
+      summary.unresolvedCritical > 0
+        ? "Unresolved safety/billing/deletion contacts block expansion until cleared"
+        : "Track support load per 100 activated users against the beta threshold",
   };
 }
 
