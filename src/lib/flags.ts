@@ -20,6 +20,13 @@ export const KNOWN_FLAGS = [
   // FLAG_MONTHLY_FAIR_USE=0 makes the claim RPC apply an effectively-infinite
   // monthly cap, a zero-deploy rollback of the safeguard.
   "monthly_fair_use",
+  // v18 (MW-V18-04): kill switch for the INLINE processing pass on account
+  // deletion. Default ON = the API drives one pass in-request for fast
+  // completion. Setting FLAG_ACCOUNT_DELETION_SYNC=0 makes deletion fully async
+  // (durable job created, then only the cron worker drives it) — a zero-deploy
+  // rollback if inline processing ever pressures request latency. Either way the
+  // state machine is the single source of truth; this never spawns a second path.
+  "account_deletion_sync",
 ] as const;
 
 export type FeatureFlag = (typeof KNOWN_FLAGS)[number];

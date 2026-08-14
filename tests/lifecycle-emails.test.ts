@@ -91,22 +91,33 @@ describe("suppression and one-shot guarantees", () => {
     expect(src).toContain("wellbeing_profiles"); // profile existence suppresses
   });
 
-  it("deletion confirmation and event are recorded ONLY after the identity is deleted and verified (MW-V17-04)", () => {
-    const src = readFileSync("src/app/api/account/delete/route.ts", "utf8");
-    expect(src.indexOf("accountDeletedEmail")).toBeGreaterThan(0);
-    const deleteAt = src.indexOf("deleteUser(userId)");
-    const verifyAt = src.indexOf("getUserById(userId)");
-    const emailAt = src.indexOf('template: "account_deleted"');
-    const eventAt = src.indexOf('trackEvent("account_deleted"');
-    // delete → verify → email → event, in that order.
-    expect(deleteAt).toBeGreaterThan(0);
+  it("deletion confirmation and event are recorded ONLY after the identity is deleted and verified (MW-V18-04 state machine)", () => {
+    // MW-V18-04 moved the ordering guarantee out of the request handler and into
+    // the durable state machine, which is the single source of truth. The
+    // invariant is unchanged: cancel an owned sub before deleting the identity,
+    // verify the identity is gone before queuing the email, and record the
+    // completion event last. Enforced here by the step order in machine.ts.
+    const src = readFileSync("src/lib/account-deletion/machine.ts", "utf8");
+    const ownershipAt = src.indexOf("deps.verifyOwnership(");
+    const cancelAt = src.indexOf("deps.cancelSubscription(");
+    const deleteAt = src.indexOf("deps.deleteAuthUser(userId)");
+    const verifyAt = src.indexOf("deps.getUserById(userId)");
+    const emailAt = src.indexOf("deps.queueNotification({");
+    const eventAt = src.indexOf("deps.recordCompletedEvent()");
+    // ownership → cancel → delete → verify → email → event, in that order.
+    expect(ownershipAt).toBeGreaterThan(0);
+    expect(cancelAt).toBeGreaterThan(ownershipAt);
+    expect(deleteAt).toBeGreaterThan(cancelAt);
     expect(verifyAt).toBeGreaterThan(deleteAt);
     expect(emailAt).toBeGreaterThan(verifyAt);
-    expect(eventAt).toBeGreaterThan(verifyAt);
-    // Ownership is proven before any subscription cancellation.
-    expect(src.indexOf("verifyMellowaCustomerOwnership")).toBeLessThan(
-      src.indexOf("subscriptions.cancel")
-    );
+    expect(eventAt).toBeGreaterThan(emailAt);
+
+    // And the confirmation email / event helpers really are wired to the
+    // deletion path (in the worker's default deps), not left dangling.
+    const worker = readFileSync("src/lib/account-deletion/worker.ts", "utf8");
+    expect(worker).toContain("accountDeletedEmail");
+    expect(worker).toContain('trackEvent("account_deleted"');
+    expect(worker).toContain('template: "account_deleted"');
   });
 
   it("sample-ready email can only ever send once per user", () => {

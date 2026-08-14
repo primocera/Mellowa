@@ -68,6 +68,11 @@ export const EXEMPT_TABLES: { table: string; reason: string }[] = [
     reason:
       "internal anti-abuse/ops flags set by support; no user-authored content; removed on account deletion via FK cascade (026)",
   },
+  {
+    table: "account_deletion_requests",
+    reason:
+      "MW-V18-04 deletion state machine; deliberately has NO auth FK so the job outlives the identity it deletes and can verify residual removal — it must NOT cascade or be exported per-user. user_id is minimised (nulled) at completion and the whole row is purged after retention (purge_completed_deletion_jobs).",
+  },
 ];
 
 /**

@@ -83,6 +83,17 @@ export const serverEnv = {
   get adminStatsSecret() {
     return process.env.ADMIN_STATS_SECRET ?? null;
   },
+  // HMAC key for the short-lived account-deletion status receipt (MW-V18-04).
+  // Optional: falls back to the service-role key (already a strong server-only
+  // secret) so status lookups work without a new env var. Set a dedicated
+  // ACCOUNT_DELETION_RECEIPT_SECRET to rotate receipts independently.
+  get accountDeletionReceiptSecret() {
+    return (
+      process.env.ACCOUNT_DELETION_RECEIPT_SECRET ??
+      process.env.SUPABASE_SERVICE_ROLE_KEY ??
+      null
+    );
+  },
   // Supabase user ids allowed to view the admin dashboard (comma-separated).
   // Real per-user authorization for the UI — not only a shared bearer secret.
   get adminUserIds(): string[] {

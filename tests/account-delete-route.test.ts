@@ -1,27 +1,25 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * MW-V17-04: account deletion is transactional and true.
+ * MW-V18-04: the delete route records ONE durable job and (by default) drives a
+ * single best-effort pass, returning an opaque request id + a signed receipt.
  *
- * The confirmation email and the `account_deleted` event are recorded ONLY after
- * the identity is deleted AND verified gone; a failed or unverified deletion
- * sends neither. On a shared Stripe account a subscription is cancelled only
- * after proving Mellowa ownership — a foreign/wrong-user/untagged object is never
- * mutated and never deleted over.
+ * It no longer performs the destructive steps inline-and-forget — that logic is
+ * covered by account-deletion-machine.test.ts. Here we assert the route
+ * contract: auth + confirmation gating, idempotent job creation, fail-closed on
+ * a create error, session sign-out, the inline-pass kill switch, and a
+ * PII-free receipt.
  */
 
 type Row = Record<string, unknown>;
 
 const h = vi.hoisted(() => ({
   user: { id: "u1", email: "person@example.com" } as { id: string; email: string | null } | null,
-  subRead: { data: null as Row | null, error: null as Row | null },
-  ownership: { kind: "owned", customerId: "cus_1" } as { kind: string; customerId?: string },
-  deleteError: null as Row | null,
-  getUserResult: { data: { user: null as Row | null } },
-  canceled: [] as string[],
-  cancelThrow: null as Error | null,
-  tracked: [] as Array<{ event: string; opts: { userId: string | null; properties?: Row } }>,
-  emails: [] as Array<{ eventKey: string; userId: string | null; to: string }>,
+  insertResult: { data: { id: "req_1" } as Row | null, error: null as Row | null },
+  existingResult: { data: { id: "req_existing" } as Row | null, error: null as Row | null },
+  syncEnabled: true,
+  processed: [] as string[],
+  processReturn: { status: "completed" } as { status: string } | null,
   signedOut: 0,
 }));
 
@@ -39,155 +37,111 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
     from: () => ({
+      insert: () => ({
+        select: () => ({ maybeSingle: async () => h.insertResult }),
+      }),
       select: () => ({
-        eq: () => ({ maybeSingle: async () => h.subRead }),
+        eq: () => ({ maybeSingle: async () => h.existingResult }),
       }),
     }),
-    auth: {
-      admin: {
-        deleteUser: async () => ({ error: h.deleteError }),
-        getUserById: async () => h.getUserResult,
-      },
-    },
   }),
 }));
 
-vi.mock("@/lib/stripe/client", () => ({
-  getStripe: () => ({
-    subscriptions: {
-      cancel: async (id: string) => {
-        if (h.cancelThrow) throw h.cancelThrow;
-        h.canceled.push(id);
-        return {};
-      },
-    },
-  }),
+vi.mock("@/lib/flags", () => ({
+  isFlagEnabled: (flag: string) => (flag === "account_deletion_sync" ? h.syncEnabled : true),
 }));
 
-vi.mock("@/lib/stripe/customer", () => ({
-  verifyMellowaCustomerOwnership: async () => h.ownership,
-}));
-
-vi.mock("@/lib/privacy/registry", () => ({ USER_DATA_REGISTRY: [] }));
-
-vi.mock("@/lib/analytics", () => ({
-  trackEvent: (event: string, opts: { userId: string | null; properties?: Row }) =>
-    h.tracked.push({ event, opts }),
-}));
-
-vi.mock("@/lib/email/deliver", () => ({
-  deliverEmail: async (args: { eventKey: string; userId: string | null; to: string }) => {
-    h.emails.push({ eventKey: args.eventKey, userId: args.userId, to: args.to });
+vi.mock("@/lib/account-deletion/worker", () => ({
+  processJobById: async (id: string) => {
+    h.processed.push(id);
+    return h.processReturn;
   },
 }));
 
-vi.mock("@/lib/email/templates", () => ({
-  accountDeletedEmail: () => ({ subject: "s", html: "<p>h</p>" }),
-}));
+process.env.ACCOUNT_DELETION_RECEIPT_SECRET = "test-secret-route";
 
 import { POST } from "@/app/api/account/delete/route";
+import { verifyReceipt } from "@/lib/account-deletion/receipt";
 
-const body = () =>
+const body = (payload: unknown = { confirm: "DELETE" }) =>
   new Request("http://x/api/account/delete", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ confirm: "DELETE" }),
+    body: JSON.stringify(payload),
   });
 
 beforeEach(() => {
   h.user = { id: "u1", email: "person@example.com" };
-  h.subRead = { data: null, error: null };
-  h.ownership = { kind: "owned", customerId: "cus_1" };
-  h.deleteError = null;
-  h.getUserResult = { data: { user: null } };
-  h.canceled = [];
-  h.cancelThrow = null;
-  h.tracked = [];
-  h.emails = [];
+  h.insertResult = { data: { id: "req_1" }, error: null };
+  h.existingResult = { data: { id: "req_existing" }, error: null };
+  h.syncEnabled = true;
+  h.processed = [];
+  h.processReturn = { status: "completed" };
   h.signedOut = 0;
 });
 
-describe("POST /api/account/delete", () => {
-  it("401 when unauthenticated — no email, no event", async () => {
+afterAll(() => {
+  delete process.env.ACCOUNT_DELETION_RECEIPT_SECRET;
+});
+
+describe("POST /api/account/delete (durable)", () => {
+  it("401 when unauthenticated — no job, no sign-out", async () => {
     h.user = null;
     const res = await POST(body());
     expect(res.status).toBe(401);
-    expect(h.emails).toEqual([]);
-    expect(h.tracked).toEqual([]);
+    expect(h.processed).toEqual([]);
+    expect(h.signedOut).toBe(0);
   });
 
-  it("fails closed (503) when the subscription read errors — no deletion", async () => {
-    h.subRead = { data: null, error: { code: "PGRST500" } };
-    const res = await POST(body());
-    expect(res.status).toBe(503);
-    expect(h.emails).toEqual([]);
-    expect(h.tracked).toEqual([]);
+  it("400 when the DELETE confirmation is missing", async () => {
+    const res = await POST(body({ confirm: "nope" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("confirmation_required");
+    expect(h.processed).toEqual([]);
   });
 
-  it("verified deletion queues exactly one email and one null-user event", async () => {
+  it("creates a job, signs out, drives one pass, returns a valid receipt", async () => {
     const res = await POST(body());
     expect(res.status).toBe(200);
-    expect(h.emails).toEqual([
-      { eventKey: "account_deleted:u1", userId: null, to: "person@example.com" },
-    ]);
-    expect(h.tracked).toHaveLength(1);
-    expect(h.tracked[0].event).toBe("account_deleted");
-    expect(h.tracked[0].opts.userId).toBeNull();
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+    expect(json.requestId).toBe("req_1");
+    expect(json.status).toBe("completed");
+    expect(h.processed).toEqual(["req_1"]);
     expect(h.signedOut).toBe(1);
+
+    // Receipt verifies and carries only the request id.
+    const check = verifyReceipt(json.receipt);
+    expect(check).toEqual({ ok: true, requestId: "req_1" });
   });
 
-  it("if auth deletion fails, NO email and NO event are recorded", async () => {
-    h.deleteError = { message: "boom" };
-    const res = await POST(body());
-    expect(res.status).toBe(500);
-    expect((await res.json()).error).toBe("delete_failed");
-    expect(h.emails).toEqual([]);
-    expect(h.tracked).toEqual([]);
-  });
-
-  it("if the identity still exists after delete, it is unverified — NO email/event", async () => {
-    h.getUserResult = { data: { user: { id: "u1" } } };
-    const res = await POST(body());
-    expect(res.status).toBe(500);
-    expect((await res.json()).error).toBe("delete_unverified");
-    expect(h.emails).toEqual([]);
-    expect(h.tracked).toEqual([]);
-  });
-
-  it("cancels an owned live subscription before deleting", async () => {
-    h.subRead = { data: { stripe_subscription_id: "sub_1", stripe_customer_id: "cus_1", status: "active" }, error: null };
-    h.ownership = { kind: "owned", customerId: "cus_1" };
+  it("does NOT run the inline pass when the kill switch is off", async () => {
+    h.syncEnabled = false;
     const res = await POST(body());
     expect(res.status).toBe(200);
-    expect(h.canceled).toEqual(["sub_1"]);
-    expect(h.emails).toHaveLength(1);
+    const json = await res.json();
+    expect(json.status).toBe("requested");
+    expect(h.processed).toEqual([]);
+    // Job still created and receipt still minted — cron will finish it.
+    expect(json.requestId).toBe("req_1");
+    expect(json.receipt).toBeTruthy();
   });
 
-  it("never cancels or deletes over a foreign/wrong-user/untagged customer", async () => {
-    h.subRead = { data: { stripe_subscription_id: "sub_x", stripe_customer_id: "cus_foreign", status: "active" }, error: null };
-    h.ownership = { kind: "mismatch" };
+  it("is idempotent: a duplicate (unique violation) returns the existing job", async () => {
+    h.insertResult = { data: null, error: { code: "23505" } };
     const res = await POST(body());
-    expect(res.status).toBe(409);
-    expect((await res.json()).error).toBe("billing_reconciliation_required");
-    expect(h.canceled).toEqual([]);
-    expect(h.emails).toEqual([]);
-    expect(h.tracked).toEqual([]);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.requestId).toBe("req_existing");
+    expect(h.processed).toEqual(["req_existing"]);
   });
 
-  it("fails closed (503) when ownership can't be verified transiently", async () => {
-    h.subRead = { data: { stripe_subscription_id: "sub_1", stripe_customer_id: "cus_1", status: "active" }, error: null };
-    h.ownership = { kind: "unavailable" };
+  it("fails closed (503) when the job cannot be created", async () => {
+    h.insertResult = { data: null, error: { code: "PGRST500" } };
     const res = await POST(body());
     expect(res.status).toBe(503);
-    expect(h.canceled).toEqual([]);
-    expect(h.emails).toEqual([]);
-  });
-
-  it("aborts (409) when a live subscription has no stored customer to verify", async () => {
-    h.subRead = { data: { stripe_subscription_id: "sub_1", stripe_customer_id: null, status: "active" }, error: null };
-    const res = await POST(body());
-    expect(res.status).toBe(409);
-    expect(h.canceled).toEqual([]);
-    expect(h.emails).toEqual([]);
+    expect((await res.json()).error).toBe("deletion_unavailable");
+    expect(h.processed).toEqual([]);
+    expect(h.signedOut).toBe(0);
   });
 });

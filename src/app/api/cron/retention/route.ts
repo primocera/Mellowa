@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { serverEnv } from "@/lib/env";
 import { requireBearerSecret } from "@/lib/cron-auth";
 import { pruneExpiredData } from "@/lib/privacy/retention";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Data-retention pruning (v6 Prompt 15). Separated from the daily-reminder
@@ -17,7 +18,25 @@ export async function POST(request: Request) {
   if (denied) return denied;
 
   const pruned = await pruneExpiredData();
-  return NextResponse.json({ ok: true, pruned });
+
+  // MW-V18-04: drop completed (already-minimised) account-deletion job rows once
+  // past their retention window, so the operational ledger never lingers. A
+  // failure here must not hide the registry pruning above.
+  let purgedDeletionJobs = 0;
+  try {
+    const { data, error } = await createAdminClient().rpc(
+      "purge_completed_deletion_jobs",
+      { p_retain_days: 30 }
+    );
+    if (error) throw new Error(error.message);
+    purgedDeletionJobs = (data as number | null) ?? 0;
+  } catch (err) {
+    console.error("[privacy] deletion-job purge failed", {
+      message: err instanceof Error ? err.message : "unknown",
+    });
+  }
+
+  return NextResponse.json({ ok: true, pruned, purgedDeletionJobs });
 }
 
 export const GET = POST;
