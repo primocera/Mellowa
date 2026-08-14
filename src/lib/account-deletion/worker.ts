@@ -5,6 +5,7 @@ import { getStripe } from "@/lib/stripe/client";
 import { verifyMellowaCustomerOwnership } from "@/lib/stripe/customer";
 import { USER_DATA_REGISTRY } from "@/lib/privacy/registry";
 import { trackEvent } from "@/lib/analytics";
+import { logEvent } from "@/lib/observability/log";
 import { deliverEmail } from "@/lib/email/deliver";
 import { accountDeletedEmail } from "@/lib/email/templates";
 import {
@@ -180,7 +181,8 @@ export async function runDeletionWorker(
 ): Promise<WorkerSummary> {
   const { data, error } = await admin.rpc("claim_due_deletion_jobs", { p_limit: limit });
   if (error) {
-    console.error("[account-deletion] claim failed", { message: error.message });
+    // Structured, redacted, runbook-correlatable — maps to the deletion_stuck SLO.
+    logEvent({ route: "job/account-deletion", result: "error", code: "claim_failed" });
     return { claimed: 0, completed: 0, retried: 0 };
   }
   const rows = (data ?? []) as RawJobRow[];
