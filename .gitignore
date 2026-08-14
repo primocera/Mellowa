@@ -45,6 +45,9 @@ next-env.d.ts
 
 # local working files
 *.docx
+# extracted prompt-pack text — derived from the docx, must never be committed
+v18pack.txt
+*pack*.txt
 PROGRESS.md
 
 # Playwright

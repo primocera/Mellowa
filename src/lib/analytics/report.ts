@@ -22,7 +22,8 @@ import {
   type UsageRow,
 } from "@/lib/analytics/metrics";
 import { loopDecisions, expansionVerdict } from "@/lib/analytics/loop-decisions";
-import { buildCohortScorecard, type CohortScorecard, type CohortEventRow, type CohortSubRow } from "@/lib/analytics/cohort";
+import { buildCohortScorecard, localDate, type CohortScorecard, type CohortEventRow, type CohortSubRow } from "@/lib/analytics/cohort";
+import { readExclusionRegistry, readCanonicalActivation, readCheckinDays } from "@/lib/analytics/facts";
 import { readBetaCapacity, type BetaCapacity } from "@/lib/beta/capacity";
 import { experimentConflicts, runningExperiments } from "@/lib/beta/experiments";
 
@@ -76,8 +77,15 @@ export interface MetricsReport {
    * distinct-local-calendar-day D2/D3, repair apply/undo/repeat, Week
    * opened/closeout/carry-forward, conversion/renewal/refund/dispute, and support
    * burden (UNAVAILABLE). Every row carries maturity/pending/suppression.
+   *
+   * MW-V18-05: activation and D-N return are now sourced from durable
+   * full-history facts (not a 30-day slice), staff/test/demo ids come from the
+   * server-owned registry, and the scorecard carries its definition version,
+   * source watermark and conservative mature-through date.
    */
   cohort: CohortScorecard;
+  /** MW-V18-05: whether the durable exclusion registry / activation facts read. */
+  cohortDataQuality: { exclusionsAvailable: boolean; activationFactsAvailable: boolean };
 }
 
 export async function buildMetricsReport(
@@ -173,12 +181,50 @@ export async function buildMetricsReport(
   for (const r of (tzRows ?? []) as { user_id: string; timezone: string | null }[]) {
     if (r.user_id && r.timezone) timezoneByUser[r.user_id] = r.timezone;
   }
+  // M05: cohort activation/return now come from DURABLE, full-history facts
+  // (daily_checkins + the analytics_activation_facts view), not the 30-day
+  // event slice; exclusions come from the SERVER-OWNED registry, not the caller.
+  const [exclusion, activation, checkinDays] = await Promise.all([
+    readExclusionRegistry(admin),
+    readCanonicalActivation(admin),
+    readCheckinDays(admin, localDate, timezoneByUser),
+  ]);
+
+  // Source watermark: the freshest fact/event the report is built from, so a
+  // quiet pipeline reads as stale rather than as a real zero.
+  let watermarkMs = 0;
+  for (const e of events) {
+    const t = Date.parse(e.created_at);
+    if (Number.isFinite(t) && t > watermarkMs) watermarkMs = t;
+  }
+  for (const iso of Object.values(activation.activatedAtByUser)) {
+    const t = Date.parse(iso);
+    if (Number.isFinite(t) && t > watermarkMs) watermarkMs = t;
+  }
+  const sourceWatermark = watermarkMs > 0 ? new Date(watermarkMs).toISOString() : undefined;
+
+  // Only feed the durable facts through when both were readable; otherwise fall
+  // back to the event-window derivation rather than reporting a half-durable
+  // cohort. `factsAvailable` is surfaced so a degraded read is visible.
+  const factsAvailable = activation.available && checkinDays.available;
   const cohort = buildCohortScorecard({
     events: events as CohortEventRow[],
     subs: subs as unknown as CohortSubRow[],
     timezoneByUser,
+    excludedUserIds: exclusion.ids,
+    canonicalActivation: factsAvailable
+      ? {
+          activatedAtByUser: activation.activatedAtByUser,
+          checkinLocalDaysByUser: checkinDays.daysByUser,
+        }
+      : undefined,
+    sourceWatermark,
     now: new Date(now),
   });
+  const cohortDataQuality = {
+    exclusionsAvailable: exclusion.available,
+    activationFactsAvailable: factsAvailable,
+  };
 
   return {
     generatedAt: new Date().toISOString(),
@@ -225,6 +271,7 @@ export async function buildMetricsReport(
       usageRows
     ),
     cohort,
+    cohortDataQuality,
   };
 }
 
@@ -292,6 +339,15 @@ export function reportToCsv(report: MetricsReport): string {
   // denominator, pending, state and suppression, so a pending/UNAVAILABLE row can
   // never be mistaken for a measured zero.
   push("cohort", "activated_users", report.cohort.activatedUsers);
+  // M05: self-describing provenance, so a reader knows the definition version,
+  // how fresh the data is, how far maturity is guaranteed, and whether the
+  // durable fact/exclusion sources were actually readable.
+  push("cohort", "definition_version", report.cohort.definitionVersion);
+  push("cohort", "activation_source", report.cohort.activationSource);
+  push("cohort", "source_watermark", report.cohort.sourceWatermark);
+  push("cohort", "mature_through_utc", report.cohort.matureThroughUtc);
+  push("cohort", "exclusions_available", report.cohortDataQuality.exclusionsAvailable ? "yes" : "no");
+  push("cohort", "activation_facts_available", report.cohortDataQuality.activationFactsAvailable ? "yes" : "no");
   for (const r of report.cohort.rows) {
     push(`cohort_${r.id}`, "numerator", r.numerator);
     push(`cohort_${r.id}`, "denominator", r.denominator);

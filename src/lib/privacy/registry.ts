@@ -73,6 +73,11 @@ export const EXEMPT_TABLES: { table: string; reason: string }[] = [
     reason:
       "MW-V18-04 deletion state machine; deliberately has NO auth FK so the job outlives the identity it deletes and can verify residual removal — it must NOT cascade or be exported per-user. user_id is minimised (nulled) at completion and the whole row is purged after retention (purge_completed_deletion_jobs).",
   },
+  {
+    table: "analytics_excluded_users",
+    reason:
+      "MW-V18-05 server-owned staff/test/demo cohort-exclusion registry; no user-authored content, service-role only, and deliberately no auth FK so a deleted staff account stays excluded from historical cohort math. Not exported per-user.",
+  },
 ];
 
 /**

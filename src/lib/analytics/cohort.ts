@@ -28,6 +28,13 @@
 
 import { MIN_COHORT } from "@/lib/analytics/metrics";
 
+/**
+ * Metric-definition version. Bumped whenever a numerator/denominator/maturity
+ * rule below changes, so an exported scorecard is self-describing and two
+ * reports can be told apart when the math evolves (M05).
+ */
+export const COHORT_DEFINITION_VERSION = "m05.1";
+
 export interface CohortEventRow {
   event: string;
   user_id: string | null;
@@ -96,6 +103,19 @@ function suppressRate(numerator: number, denominator: number): number | null {
   return Math.round((numerator / denominator) * 1000) / 1000;
 }
 
+/**
+ * Durable, full-history activation fact (M05). When supplied, activation and
+ * D-N return are computed from these facts instead of from the (windowed) event
+ * stream — so a user who activated before the reporting window still counts,
+ * and lifetime-first facts are never inferred from a 30-day slice.
+ */
+export interface CanonicalActivationInput {
+  /** user id -> immutable first-check-in instant (ISO). */
+  activatedAtByUser: Record<string, string>;
+  /** user id -> full-history local check-in days, for exact D-N return. */
+  checkinLocalDaysByUser?: Record<string, string[]>;
+}
+
 export interface CohortInputs {
   events: CohortEventRow[];
   subs?: CohortSubRow[];
@@ -103,11 +123,32 @@ export interface CohortInputs {
   timezoneByUser?: Record<string, string>;
   /** Staff/test/demo user ids to exclude entirely. */
   excludedUserIds?: string[];
+  /** Durable activation facts; when present they override event-derived activation. */
+  canonicalActivation?: CanonicalActivationInput;
+  /**
+   * ISO instant the input data is current through (the freshest fact/event the
+   * caller fetched). Reported as the source watermark so a stale pipeline is
+   * distinguishable from a genuine zero.
+   */
+  sourceWatermark?: string;
   now?: Date;
 }
 
 export interface CohortScorecard {
   generatedAt: string;
+  /** Metric-definition version these rows were computed under. */
+  definitionVersion: string;
+  /** Where activation came from: durable full-history facts, or the event window. */
+  activationSource: "canonical_facts" | "event_window";
+  /** ISO instant the underlying data is current through (null if unknown). */
+  sourceWatermark: string | null;
+  /**
+   * Conservative UTC calendar date on or before which every local calendar day
+   * is fully elapsed in every supported timezone (now − 48h). Any maturity a row
+   * claims is guaranteed real up to this date; nothing after it is counted as a
+   * miss.
+   */
+  matureThroughUtc: string;
   activatedUsers: number;
   rows: CohortRow[];
 }
@@ -130,19 +171,30 @@ export function buildCohortScorecard(inputs: CohortInputs): CohortScorecard {
     perUser.set(e.user_id, list);
   }
 
-  // Activation: first checkin_completed, as a local calendar day.
+  // Activation: first check-in, as a local calendar day. Prefer the durable
+  // full-history fact when the caller supplies it; otherwise fall back to
+  // deriving it from the (windowed) event stream.
+  const canonical = inputs.canonicalActivation;
   const activationDay = new Map<string, string>();
-  for (const [userId, evts] of perUser) {
-    const tz = tzFor(userId, tzMap);
-    let earliest: { t: number; day: string } | null = null;
-    for (const e of evts) {
-      if (e.event !== "checkin_completed") continue;
-      const t = Date.parse(e.created_at);
-      const day = localDate(e.created_at, tz);
-      if (!Number.isFinite(t) || !day) continue;
-      if (!earliest || t < earliest.t) earliest = { t, day };
+  if (canonical) {
+    for (const [userId, iso] of Object.entries(canonical.activatedAtByUser)) {
+      if (isExcluded(userId, excluded)) continue;
+      const day = localDate(iso, tzFor(userId, tzMap));
+      if (day) activationDay.set(userId, day);
     }
-    if (earliest) activationDay.set(userId, earliest.day);
+  } else {
+    for (const [userId, evts] of perUser) {
+      const tz = tzFor(userId, tzMap);
+      let earliest: { t: number; day: string } | null = null;
+      for (const e of evts) {
+        if (e.event !== "checkin_completed") continue;
+        const t = Date.parse(e.created_at);
+        const day = localDate(e.created_at, tz);
+        if (!Number.isFinite(t) || !day) continue;
+        if (!earliest || t < earliest.t) earliest = { t, day };
+      }
+      if (earliest) activationDay.set(userId, earliest.day);
+    }
   }
 
   const activatedUsers = activationDay.size;
@@ -150,6 +202,11 @@ export function buildCohortScorecard(inputs: CohortInputs): CohortScorecard {
 
   /** Distinct local calendar days a user fired `event`, in their timezone. */
   const distinctDays = (userId: string, event: string): Set<string> => {
+    // Return (check-in) days come from the durable full-history fact when
+    // present, so a return before the event window still counts.
+    if (event === "checkin_completed" && canonical?.checkinLocalDaysByUser) {
+      return new Set(canonical.checkinLocalDaysByUser[userId] ?? []);
+    }
     const tz = tzFor(userId, tzMap);
     const days = new Set<string>();
     for (const e of perUser.get(userId) ?? []) {
@@ -321,8 +378,20 @@ export function buildCohortScorecard(inputs: CohortInputs): CohortScorecard {
     ),
   ];
 
+  // now − 48h is safely past the end of any local calendar day that began up to
+  // ~26h ago across every IANA offset, so it is a conservative "fully elapsed
+  // everywhere" floor for maturity claims.
+  const matureThroughUtc = localDate(
+    new Date(now.getTime() - 48 * 3_600_000).toISOString(),
+    "UTC"
+  )!;
+
   return {
     generatedAt: now.toISOString(),
+    definitionVersion: COHORT_DEFINITION_VERSION,
+    activationSource: canonical ? "canonical_facts" : "event_window",
+    sourceWatermark: inputs.sourceWatermark ?? null,
+    matureThroughUtc,
     activatedUsers,
     rows,
   };
