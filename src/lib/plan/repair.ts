@@ -172,6 +172,76 @@ export function deterministicDiff(changedTypes: readonly string[]): string {
   return `Changed: ${list}.`;
 }
 
+/**
+ * MW-V18-10: reshape transparency. Given the repair scope, the server-computed
+ * changed types and the trigger reason, describe WHAT STAYS, WHAT CHANGES and
+ * WHY — so the user sees that completed/kept work is preserved and only the
+ * remaining day was reshaped. Derived from server facts (scope + changedTypes),
+ * never from the model's prose, so it is deterministic.
+ */
+export const REPAIR_REASON_LABELS: Record<RepairReason, string> = {
+  less_time: "you have less time",
+  lower_energy: "your energy is lower",
+  context_changed: "your context changed",
+  meal_not_working: "the meals weren't working",
+  calmer_version: "you wanted a calmer rest of day",
+};
+
+const PROTECTED_KEY_LABELS: Record<string, string> = {
+  movement: "movement",
+  breathing: "the calm reset",
+  meditation: "the reflection",
+  relaxation: "the relaxation",
+  focus: "the focus block",
+  evening: "the evening wind-down",
+  habit: "the habit",
+};
+
+function labelProtectedKey(key: string): string {
+  if (key.startsWith("meal:")) return `the ${key.slice(5)}`;
+  return PROTECTED_KEY_LABELS[key] ?? key;
+}
+
+export interface RepairChangeSummary {
+  /** Plain-language trigger, e.g. "your energy is lower". */
+  trigger: string;
+  /** Human labels of what was reshaped (from server changedTypes). */
+  changes: string[];
+  /** Human labels of what was preserved (completed or explicitly kept). */
+  stays: string[];
+  /** One honest sentence combining the above. */
+  summary: string;
+}
+
+export function repairChangeSummary(
+  scope: RepairScope,
+  changedTypes: readonly string[],
+  reason: RepairReason
+): RepairChangeSummary {
+  const changes = changedTypes
+    .map((t) => CHANGED_TYPE_LABELS[t])
+    .filter((l): l is string => !!l);
+  const stays = scope.protectedKeys.map(labelProtectedKey);
+  const trigger = REPAIR_REASON_LABELS[reason];
+
+  const changeText =
+    changes.length === 0
+      ? "nothing in the rest of your day needed to change"
+      : `only the rest of your day changed (${joinList(changes)})`;
+  const stayText = stays.length ? ` What you already did stays (${joinList(stays)}).` : "";
+  return {
+    trigger,
+    changes,
+    stays,
+    summary: `Because ${trigger}, ${changeText}.${stayText}`,
+  };
+}
+
+function joinList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
 export interface RepairUpdates {
   /** Column → new value, ready for the atomic apply_plan_repair RPC. */
   updates: Record<string, unknown>;

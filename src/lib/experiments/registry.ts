@@ -84,6 +84,19 @@ export const EXPERIMENTS: ExperimentDef[] = [
     expiresAt: "2027-03-31",
     variants: [{ key: "optimised", weight: 50 }],
   },
+  {
+    // MW-V18-10: repair preview/change-summary vs the current immediate repair.
+    // Default OFF; daily_loop namespace so it never overlaps the onboarding
+    // first-session experiment for the same new-user cohort.
+    id: "repair_preview",
+    namespace: "daily_loop",
+    version: 1,
+    owner: "product",
+    description: "Repair change-summary/preview vs immediate repair; primary = repair use + repeat.",
+    killSwitchFlag: "FLAG_REPAIR_PREVIEW_EXPERIMENT",
+    expiresAt: "2027-03-31",
+    variants: [{ key: "preview", weight: 50 }],
+  },
 ];
 
 const CONTROL = "control";
