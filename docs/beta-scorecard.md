@@ -61,11 +61,20 @@ This is the section that decides whether Mellowa is a product or a curiosity.
 |---|---|---|---|---|
 | Day-2 return | Accounts with a check-in on day 2 / accounts that completed a sample | 2 days | ≥ 40% | The daily habit is not forming. Interview. **Do not add notifications** |
 | Day-3 return | Accounts with a check-in on day 3 / same denominator | 3 days | ≥ 30% | As above; a steep 2→3 drop points at the plan's usefulness, not the reminder |
-| Adjust preview opened | `plan_repair_previewed` / accounts with ≥ 2 plans | 4 weeks | ≥ 30% | The day-change moment is not being reached or not being noticed |
-| Adjust applied | `plan_repair_completed` / preview opened | 4 weeks | ≥ 50% | Preview is not convincing — the diff is unclear or the result looks worse |
-| Undo used at least once | Distinct accounts using Undo / accounts that applied a repair | 4 weeks | **No threshold — observed only** | High Undo is not failure. It may mean people trust it enough to experiment. Read it with interviews, never optimise it down |
+| Adjust used (day-change reached) | `plan_repair_requested` / accounts with ≥ 2 plans | 4 weeks | ≥ 30% | The day-change moment is not being reached or not being noticed |
+| Adjust applied | `plan_repair_completed` / `plan_repair_requested` | 4 weeks | ≥ 50% | Adjustments often fail safety/quality, or the result looks worse — read the deterministic diff and interviews |
+| Repeat repair on distinct days | `repeat_repair_distinct_day` (accounts adjusting on ≥ 2 distinct local days) / accounts that applied a repair | 4 weeks | **Observed only** | Low repeat means the adaptive wedge is not recurring — the core paid job |
+| Undo used at least once | Distinct accounts using `plan_repair_undone` / accounts that applied a repair | 4 weeks | **No threshold — observed only** | High Undo is not failure. It may mean people trust it enough to experiment. Read it with interviews, never optimise it down |
 | Week opened | `weekly_reflection_completed` / accounts in their second week | 4 weeks | ≥ 25% | The weekly closeout is too heavy |
 | Carry-forward used | `next_week_plan_created` / week opened | 4 weeks | ≥ 50% | Continuity is not compelling — the thing Premium is sold on |
+
+> **No before-commit preview exists (MW-10).** The Adjust sheet is an input form,
+> not a reversible preview: a repair commits atomically, the UI then shows a
+> deterministic post-commit diff, and Undo is free. There is therefore no
+> `plan_repair_previewed` event and no `preview→apply` metric — the funnel is
+> `plan_repair_requested → plan_repair_completed`, with `repeat_repair_distinct_day`
+> as the recurrence signal and `plan_repair_undone` observed (never optimised down).
+> This matches `src/lib/analytics/cohort.ts` and the v17 cohort metric dictionary.
 
 ### 3. Will they pay, and keep paying?
 

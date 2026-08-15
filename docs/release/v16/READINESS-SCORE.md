@@ -48,9 +48,11 @@ Caps applied before any total. No cap is bought back by other points.
 ## Mellowa mature-value hypotheses (predeclared — do not change after seeing data)
 
 Public-paid 9.5 additionally requires a complete, mature window meeting: D2 ≥ 40%;
-D3 ≥ 30%; repair preview→apply ≥ 50% of previews; Week closeout ≥ 25% of
-second-week users; carry-forward ≥ 50% of closeouts; trial→charge ≥ 40%; first
-renewal ≥ 70%; refunds ≤ 5%; **any dispute is a stop**. Read only mature
+D3 ≥ 30%; repair applied ≥ 50% of `plan_repair_requested` (MW-10: there is no
+before-commit preview event, so the executable funnel is
+`plan_repair_completed / plan_repair_requested`; same 50% target); Week closeout
+≥ 25% of second-week users; carry-forward ≥ 50% of closeouts; trial→charge ≥ 40%;
+first renewal ≥ 70%; refunds ≤ 5%; **any dispute is a stop**. Read only mature
 denominators; under-five cells are "no data", and new users not yet eligible for
 D3/week/renewal are **pending**, not failures. These are unmet today — the cohort
 math (D2/D3, distinct-day repair) is the deferred MW-95-03 follow-up.
