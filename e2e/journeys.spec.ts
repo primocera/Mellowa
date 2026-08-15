@@ -192,8 +192,15 @@ test("sign out ends the session and returns to login", async ({ page }) => {
   // The /you page renders its own Sign out button in #main, and the persistent
   // sidebar renders another — so an unscoped role query matches two elements.
   // Click the one on the page under test (the #main SignOutButton).
-  await page.locator("#main").getByRole("button", { name: /^Sign out$/ }).click();
-  await page.waitForURL(/\/login/, { timeout: 15_000 });
+  const signOut = page.locator("#main").getByRole("button", { name: /^Sign out$/ });
+  await signOut.waitFor({ state: "visible" });
+  // On a slow CI worker the SSR button is clickable before React attaches its
+  // onClick, so a single click can be lost and the navigation never fires. Retry
+  // the click until the redirect actually happens (each attempt is cheap).
+  await expect(async () => {
+    await signOut.click();
+    await page.waitForURL(/\/login/, { timeout: 5_000 });
+  }).toPass({ timeout: 30_000 });
   expect(page.url(), "sign out did not return to /login").toMatch(/\/login/);
 
   // The session is really gone: an authenticated route bounces back to login

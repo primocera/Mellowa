@@ -55,7 +55,10 @@ export default defineConfig({
   testDir: "./e2e",
   workers: 1,
   fullyParallel: false,
-  retries: process.env.CI ? 1 : 0,
+  // CI runs on a single slow worker where Next.js hydration and Suspense-streamed
+  // server components can lag; 2 retries clears the transient timing flakes that
+  // otherwise fail a different small set of authenticated journeys each run.
+  retries: process.env.CI ? 2 : 0,
   // Generous: the first request after `next start` can take >30s on
   // low-resource machines and free CI runners.
   timeout: 60_000,
