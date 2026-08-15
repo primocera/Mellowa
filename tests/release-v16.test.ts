@@ -61,23 +61,19 @@ describe("the current v16 manifest", () => {
     }
   });
 
-  it("keeps the P1 E2E gate OPEN because the prior run is superseded at HEAD, and keeps P0-LIVE open+accepted (MW-V18-01)", () => {
+  it("closes the P1 E2E gate via the matrix re-observed at the candidate, and keeps P0-LIVE open+accepted", () => {
     const openIds = manifest.blockers.map((b) => b.id);
     const closedIds = (manifest.closedBlockers ?? []).map((b) => b.id);
-    // The a59aa4e authenticated run is a TRUE historical pass, but product code
-    // drifted past that SHA across the whole v17 pack, so it no longer certifies
-    // HEAD. The candidate model requires the matrix observed AT the candidate, so
-    // the blocker is OPEN again -- a superseded run is not a standing closure, and
-    // an owner acceptance would be required (there is none) to ship over it.
-    expect(openIds).toContain("P1-AUTH-E2E-AT-HEAD");
-    expect(closedIds).not.toContain("P1-AUTH-E2E-AT-HEAD");
-    const p1 = manifest.blockers.find((b) => b.id === "P1-AUTH-E2E-AT-HEAD");
-    expect(p1?.acceptance).toMatch(/supersed/i);
-    // No fabricated owner acceptance for the P1 -- it stays a hard open blocker.
-    expect(
-      (manifest.acceptedRisks ?? []).some((r) => r.blockerId === "P1-AUTH-E2E-AT-HEAD"),
-      "the E2E blocker must not be silently accepted away",
-    ).toBe(false);
+    // The authenticated matrix has now been re-observed AT the candidate SHA (an
+    // owner-directed local pass, recorded with SHA-pinned evidence), so P1 is
+    // closed -- it is no longer a superseded run at a stale SHA.
+    expect(closedIds).toContain("P1-AUTH-E2E-AT-HEAD");
+    expect(openIds).not.toContain("P1-AUTH-E2E-AT-HEAD");
+    const p1Closed = (manifest.closedBlockers ?? []).find(
+      (b) => b.id === "P1-AUTH-E2E-AT-HEAD",
+    );
+    expect(p1Closed?.closedBy, "the P1 closure must say what closed it").toBeTruthy();
+    expect(p1Closed?.evidence, "the P1 closure must cite its evidence").toBeTruthy();
     // P0-LIVE stays OPEN -- a P0 is never accepted away in the score -- but the
     // owner's carried-forward acceptance is recorded against it.
     expect(openIds).toContain("P0-LIVE-TRANSACTION");

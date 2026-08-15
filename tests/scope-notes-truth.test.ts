@@ -26,12 +26,14 @@ function paragraphs(md: string): string[] {
 const NEGATIONS = ["not", "never", "n't", "isn't", "aren't", "no longer", "rather than"];
 
 describe("manifest keeps the owner-gated items honest", () => {
-  it("has both owner-gated blockers open, and none double-listed as closed", () => {
+  it("keeps P0-LIVE open, records P1 as closed, and never double-lists a blocker", () => {
     expect(openBlockerIds).toContain("P0-LIVE-TRANSACTION");
-    expect(openBlockerIds).toContain("P1-AUTH-E2E-AT-HEAD");
     const closedIds: string[] = (manifest.closedBlockers ?? []).map(
       (b: { id: string }) => b.id
     );
+    // P1 closed once the authenticated matrix was re-observed at the candidate SHA.
+    expect(closedIds).toContain("P1-AUTH-E2E-AT-HEAD");
+    expect(openBlockerIds).not.toContain("P1-AUTH-E2E-AT-HEAD");
     for (const id of openBlockerIds) {
       expect(closedIds, `${id} is both open and closed`).not.toContain(id);
     }

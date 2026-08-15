@@ -63,11 +63,12 @@ jobs:
   authenticated-e2e:
     name: Authenticated E2E (env-gated)
     runs-on: ubuntu-latest
-    # Advisory on ordinary pushes: this runs the same authenticated matrix as the
-    # fail-closed RC gate (release-candidate.yml), but the shared free CI runner is
-    # flaky enough that a transient journey failure must not red the whole main
-    # branch. The RC workflow remains the blocking gate for a release candidate.
-    continue-on-error: true
+    # The authoritative authenticated gate is the immutable RC workflow
+    # (release-candidate.yml), which runs this same matrix at a frozen candidate
+    # SHA. Running it again on every ordinary push only duplicated that work and
+    # surfaced the shared free runner's flakiness as a red job. Gate it to run
+    # ONLY on demand (RC_GATE=1); on normal pushes it is skipped, never failed.
+    if: ${{ vars.RC_GATE == '1' }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
