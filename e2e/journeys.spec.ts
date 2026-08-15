@@ -194,19 +194,25 @@ test("sign out ends the session and returns to login", async ({ page }) => {
   // Click the one on the page under test (the #main SignOutButton).
   const signOut = page.locator("#main").getByRole("button", { name: /^Sign out$/ });
   await signOut.waitFor({ state: "visible" });
-  // On a slow CI worker the SSR button is clickable before React attaches its
-  // onClick, so a single click can be lost and the navigation never fires. Retry
-  // the click until the redirect actually happens (each attempt is cheap).
+  // On a slow CI worker the SSR button can be clickable before React attaches
+  // its onClick, so a first click is lost. Retry the click — but ONLY while
+  // still on /you: once the redirect fires we are on /login, where re-clicking a
+  // now-absent button would throw and fail a sign-out that actually worked.
   await expect(async () => {
-    await signOut.click();
+    if (/\/login/.test(page.url())) return; // already signed out
+    await signOut.click({ timeout: 5_000 }).catch(() => {});
     await page.waitForURL(/\/login/, { timeout: 5_000 });
   }).toPass({ timeout: 30_000 });
   expect(page.url(), "sign out did not return to /login").toMatch(/\/login/);
 
   // The session is really gone: an authenticated route bounces back to login
-  // rather than rendering from a stale cache.
-  await page.goto("/today");
-  await expect(page).toHaveURL(/\/login/);
+  // rather than rendering from a stale cache. Re-probe with a retry — sign-out
+  // clears the Supabase auth cookie only after its network revoke resolves, which
+  // can lag a beat on a slow CI box, so a single immediate goto can race it.
+  await expect(async () => {
+    await page.goto("/today");
+    expect(page.url(), "an authenticated route rendered after sign out").toMatch(/\/login/);
+  }).toPass({ timeout: 15_000 });
 });
 
 /**
