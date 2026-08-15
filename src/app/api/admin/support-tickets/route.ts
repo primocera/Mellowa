@@ -106,13 +106,24 @@ export async function GET() {
 
   // Fail closed: a ledger read error is UNAVAILABLE, never a zero burden.
   const available = !ticketsRes.error;
+  const ingestionVerified = process.env.SUPPORT_INGESTION_VERIFIED === "1";
   const burden = supportBurden({
     tickets: (ticketsRes.data ?? []) as SupportTicketRow[],
     activatedUsers: activatedRes.count ?? 0,
     paidUsers: paidRes.count ?? 0,
     excludedUserIds: exclusion.ids,
     available,
+    ingestionVerified,
   });
 
-  return NextResponse.json({ burden, exclusionsAvailable: exclusion.available });
+  // MW-11: reconciliation aid — the ledger row count (deduped by issue is inside
+  // `burden.contacts`) versus the raw imported rows, so an operator can compare
+  // against the number of inbox items they reviewed WITHOUT any content leaving
+  // the inbox. `ingestionVerified` states whether an empty ledger is a real zero.
+  const ledgerRows = ticketsRes.data?.length ?? 0;
+  return NextResponse.json({
+    burden,
+    exclusionsAvailable: exclusion.available,
+    coverage: { ingestionVerified, ledgerRows },
+  });
 }

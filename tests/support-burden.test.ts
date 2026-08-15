@@ -144,3 +144,60 @@ describe("cohort scorecard integration", () => {
     expect(row.action).toMatch(/block expansion/i); // unresolved billing present
   });
 });
+
+describe("MW-11: empty ledger vs verified ingestion coverage", () => {
+  it("an empty ledger without verified ingestion is UNAVAILABLE, not zero", () => {
+    const b = supportBurden({ tickets: [], activatedUsers: 100, paidUsers: 20 });
+    expect(b.state).toBe("unavailable");
+    expect(b.contacts).toBe(0);
+    expect(b.contactsPer100Activated).toBeNull();
+  });
+
+  it("an empty ledger WITH verified ingestion is a real measured zero", () => {
+    const b = supportBurden({
+      tickets: [],
+      activatedUsers: 100,
+      paidUsers: 20,
+      ingestionVerified: true,
+    });
+    expect(b.state).toBe("measured");
+    expect(b.contacts).toBe(0);
+  });
+
+  it("a non-empty ledger is measured regardless of the coverage flag", () => {
+    const b = supportBurden({
+      tickets: [ticket({ dedupe_key: "d1", category: "billing" })],
+      activatedUsers: 100,
+      paidUsers: 20,
+    });
+    expect(b.state).toBe("measured");
+    expect(b.contacts).toBe(1);
+  });
+
+  it("a read error still wins as unavailable even if ingestion is verified", () => {
+    const b = supportBurden({
+      tickets: [],
+      activatedUsers: 100,
+      paidUsers: 20,
+      available: false,
+      ingestionVerified: true,
+    });
+    expect(b.state).toBe("unavailable");
+  });
+});
+
+describe("MW-11: an unknown category fails validation (never silently 'other')", () => {
+  it("rejects a category outside the closed vocabulary", () => {
+    const res = SupportTicketInput.safeParse({
+      dedupe_key: "d1",
+      category: "totally_made_up",
+      status: "open",
+    });
+    expect(res.success).toBe(false);
+  });
+  it("'other' is an explicit valid category, not a fallback", () => {
+    expect(SUPPORT_CATEGORIES).toContain("other");
+    const res = SupportTicketInput.safeParse({ dedupe_key: "d1", category: "other" });
+    expect(res.success).toBe(true);
+  });
+});

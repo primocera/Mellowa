@@ -60,6 +60,13 @@ export interface SupportBurdenInputs {
    * fabricated zero (a query error must not read as "no support load").
    */
   available?: boolean;
+  /**
+   * MW-11: whether the support inbox is actually being ingested into the ledger.
+   * An EMPTY ledger only means "zero burden" once ingestion coverage is verified;
+   * until then an empty ledger is UNAVAILABLE (unknown), never a zero. Defaults to
+   * false so the safe reading is "we don't know yet".
+   */
+  ingestionVerified?: boolean;
 }
 
 function median(values: number[]): number | null {
@@ -135,8 +142,13 @@ export function supportBurden(inputs: SupportBurdenInputs): SupportBurden {
   const per100 = (denom: number): number | null =>
     denom >= MIN_COHORT ? Math.round((contacts / denom) * 1000) / 10 : null;
 
+  // MW-11: an empty ledger is only a real zero once ingestion coverage is
+  // verified; otherwise the inbox may be active while nothing is being imported —
+  // that is UNKNOWN (unavailable), never "no support load".
+  if (contacts === 0 && !inputs.ingestionVerified) return empty("unavailable");
+
   return {
-    state: contacts === 0 ? "measured" : "measured",
+    state: "measured",
     contacts,
     contactsPer100Activated: per100(inputs.activatedUsers),
     contactsPer100Paid: per100(inputs.paidUsers),

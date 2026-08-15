@@ -242,6 +242,9 @@ export async function buildMetricsReport(
     paidUsers: paidRes.count ?? 0,
     excludedUserIds: exclusion.ids,
     available: !ticketsRes.error,
+    // MW-11: burden is measured only once the operator attests the inbox is being
+    // ingested; until then an empty ledger reads UNAVAILABLE, not zero.
+    ingestionVerified: process.env.SUPPORT_INGESTION_VERIFIED === "1",
   });
 
   // Only feed the durable facts through when both were readable; otherwise fall

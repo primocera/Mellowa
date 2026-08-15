@@ -45,6 +45,42 @@ billing → Stripe support; privacy/legal → pause the account action, respond
 within GDPR windows; safety content in tickets → crisis-resources reply, no
 further engagement; engineering → fix on `v6`, note commit in the reply.
 
+## Ledger ingestion (MW-11) — measuring support burden without storing content
+
+The `support_tickets` ledger measures **how much** support each area costs
+without ever storing **what** anyone wrote. The inbox stays the source of the
+messages; only content-free metadata enters the ledger.
+
+**Channels.** Contacts arrive via the `mailto:` support / refund / privacy links
+in the app's legal config, monitored daily.
+
+**How a contact enters the ledger** (`POST /api/admin/support-tickets`, admin-only):
+- Send only: `external_ref` (provider message id, optional), `dedupe_key` (a
+  stable per-issue id — repeated mails about one issue reconcile to one row),
+  optional `account_user_id`, `category`, `severity`, `product_area`, `plan`,
+  `channel`, `status`, response/resolution timestamps.
+- **Never** send subject, body, attachment, email address, or any wellbeing/
+  medical detail — the request schema rejects unknown keys, and an unknown
+  `category` fails validation (it is never silently mapped to `other`).
+- Re-importing the same `external_ref` updates the row (idempotent); every import
+  is audited. Safety / billing / deletion / privacy categories require human
+  review — never auto-resolve them.
+
+**Reading burden.** `GET /api/admin/support-tickets` returns the aggregate burden
+over mature cohorts (staff/test/demo excluded) plus `coverage: { ingestionVerified,
+ledgerRows }`.
+- Burden is **UNAVAILABLE** (not "zero") while the ledger is empty and ingestion
+  is not verified — an active inbox with an empty ledger means nothing is being
+  imported yet, which is *unknown*, not *no load*.
+- Set `SUPPORT_INGESTION_VERIFIED=1` in the environment **only after** you have
+  confirmed the inbox is being imported into the ledger. Then an empty ledger
+  reads as a genuine measured zero.
+
+**Reconciliation.** Compare the number of inbox items you reviewed for the period
+against `coverage.ledgerRows` (raw imported rows) and `burden.contacts` (deduped
+by issue). A large gap means ingestion is incomplete — burden should stay
+UNAVAILABLE until it closes. No message content is needed to do this.
+
 ## Common cases without SQL or Stripe keys
 
 - **Verification never arrived** → console → Resend verification, or Replay
