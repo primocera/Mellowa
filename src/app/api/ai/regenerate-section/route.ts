@@ -14,6 +14,7 @@ import {
 import type { MealCardType } from "@/schemas/ai-output-v2";
 import { guardAiRoute } from "@/lib/ai/guard";
 import { getUserSubscriptionStatus } from "@/lib/stripe/subscription";
+import { checkPlanIsToday } from "@/lib/today/mutation-guard";
 import { trackEvent } from "@/lib/analytics";
 import type { UsageSink } from "@/lib/ai/generate-json";
 import { finalizeAiUsage, releaseReservation, sumUsage } from "@/lib/ai/usage";
@@ -166,6 +167,22 @@ export async function POST(request: Request) {
     await releaseReservation(eventId);
     await refundSampleAdjustment();
     return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+  }
+
+  // MW-02: only today's canonical plan can be regenerated. A tab open across
+  // local midnight, a wrong clock or a forged past/future target is refused
+  // (and any sample-adjustment claim is refunded) rather than mutating history.
+  if ((await checkPlanIsToday(supabase, user.id, plan.plan_date as string)) !== "ok") {
+    await releaseReservation(eventId);
+    await refundSampleAdjustment();
+    return NextResponse.json(
+      {
+        error: "stale_day",
+        user_message:
+          "Your day has moved on since this page loaded, so this plan is no longer today's. Refresh to adjust today's plan.",
+      },
+      { status: 409 }
+    );
   }
 
   // Safety check on the free-text note

@@ -102,6 +102,38 @@ export async function POST(request: Request) {
     );
   }
 
+  // MW-02: canonical one-plan-per-user-per-local-day. Resolve the user's LOCAL
+  // date server-side and, BEFORE any provider spend or idempotency claim, check
+  // whether today's canonical plan already exists. If it does, a second full
+  // generation is not the product action — the user adapts the existing day via
+  // Adjust — so return the existing plan instead of generating and charging
+  // again. Two tabs, a double submit or a retried check-in therefore consume at
+  // most one generation per local day; the partial unique index (migration 049)
+  // is the backstop if two requests still race past this read.
+  const today = resolvePlanDate({
+    storedTimezone: (profile as WellbeingProfile).timezone,
+    clientDate: checkin.local_date,
+  });
+  {
+    const { data: existingCanonical } = await supabase
+      .from("daily_plans")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("plan_date", today)
+      .is("superseded_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existingCanonical) {
+      return NextResponse.json({
+        blocked: false,
+        plan: existingCanonical,
+        deduplicated: true,
+        adjust_available: true,
+      });
+    }
+  }
+
   // Idempotency (v6 Prompt 7): duplicate concurrent/retried requests converge
   // on one claim so a double click can never launch two provider calls.
   const idemKey = request.headers.get("x-idempotency-key");
@@ -169,12 +201,9 @@ export async function POST(request: Request) {
     );
   }
 
-  // Prompt 9: the plan date is the user's LOCAL date from their stored IANA
-  // timezone (server-side truth); client date only as a bounded fallback.
-  const today = resolvePlanDate({
-    storedTimezone: (profile as WellbeingProfile).timezone,
-    clientDate: checkin.local_date,
-  });
+  // Prompt 9 / MW-02: `today` is the user's LOCAL date resolved above from their
+  // stored IANA timezone (server-side truth); client date only as a bounded
+  // fallback. It is the canonical plan-date for every write below.
 
   // 6. Save the check-in
   const { data: savedCheckin, error: checkinError } = await supabase
@@ -477,6 +506,39 @@ export async function POST(request: Request) {
     .single();
 
   if (planError) {
+    // MW-02: if a concurrent request won the race and already created today's
+    // canonical plan, the partial unique index (migration 049) rejects this
+    // insert with 23505. Don't surface an error or route the user to a broken
+    // state — return the existing canonical plan as a de-duplicated result. The
+    // provider cost this request really incurred is still recorded truthfully.
+    if (planError.code === "23505") {
+      const { data: existingCanonical } = await supabase
+        .from("daily_plans")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("plan_date", today)
+        .is("superseded_at", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      await finish("succeeded", existingCanonical?.id ?? null);
+      await finalizeAiUsage(usageEventId, {
+        status: usedFallback ? "fallback" : "success",
+        promptVersion: PROMPT_VERSION,
+        usage: summedUsage(usedFallback ? "fallback" : "success"),
+        fallbackUsed: usedFallback,
+        retryCount: Math.max(genAttempts - 1, 0),
+        resultId: existingCanonical?.id ?? null,
+      });
+      if (existingCanonical) {
+        return NextResponse.json({
+          blocked: false,
+          plan: existingCanonical,
+          deduplicated: true,
+          adjust_available: true,
+        });
+      }
+    }
     await finish("failed");
     // Generation succeeded and was billed; record the real cost even though the
     // save failed (no result_id). A fallback plan has no tokens → cost 0.

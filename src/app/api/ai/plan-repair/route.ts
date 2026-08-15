@@ -29,6 +29,7 @@ import {
 import type { MealCardType } from "@/schemas/ai-output-v2";
 import { trackEvent } from "@/lib/analytics";
 import { isFlagEnabled } from "@/lib/flags";
+import { checkPlanIsToday } from "@/lib/today/mutation-guard";
 
 /**
  * MW-S02: atomic "Adjust the rest of today".
@@ -137,6 +138,18 @@ export async function POST(request: Request) {
   if (!plan) {
     await releaseReservation(eventId);
     return fail(404, { error: "Plan not found" });
+  }
+
+  // MW-02: only today's canonical plan can be adjusted. If the day rolled over
+  // while this tab was open (or a stale/forged request targets a past day),
+  // refuse with a stable 409 rather than mutating a historical plan.
+  if ((await checkPlanIsToday(supabase, user.id, plan.plan_date as string)) !== "ok") {
+    await releaseReservation(eventId);
+    return fail(409, {
+      error: "stale_day",
+      user_message:
+        "Your day has moved on since this page loaded, so this plan is no longer today's. Refresh to adjust today's plan.",
+    });
   }
 
   trackEvent("plan_repair_requested", {
