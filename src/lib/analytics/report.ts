@@ -32,6 +32,7 @@ import {
   type FirstSessionScorecard,
   type SessionEvent,
 } from "@/lib/today/first-session";
+import { discoveryGate, type DiscoveryVerdict } from "@/lib/pricing/discovery-gate";
 
 /**
  * Server-side metrics report (Launch v6, Prompt 10). Fetches the rows once and
@@ -99,6 +100,12 @@ export interface MetricsReport {
    * (window open) from missed (window closed); small cohorts are suppressed.
    */
   firstSession: FirstSessionScorecard;
+  /**
+   * MW-09: read-only pricing-discovery verdict. `canRecommendPriceChange` is
+   * false until every required cohort is mature and no risk signal is present —
+   * a price change is blocked on immature evidence. Never mutates Stripe.
+   */
+  pricingDiscovery: DiscoveryVerdict;
 }
 
 export async function buildMetricsReport(
@@ -276,6 +283,12 @@ export async function buildMetricsReport(
   }
   const firstSession = firstSessionScorecard([...sessionsByUser.values()], new Date(now));
 
+  // MW-09: the read-only pricing-discovery verdict. A price/packaging change may
+  // only be RECOMMENDED once the canonical mature cohorts support it; immature/
+  // suppressed/unavailable evidence keeps the gate CLOSED. This reads the cohort
+  // scorecard + support burden and never touches Stripe, prices or the catalog.
+  const pricingDiscovery = discoveryGate({ cohort, support: burden });
+
   return {
     generatedAt: new Date().toISOString(),
     // Freshness comes from the events themselves, not the clock — an empty or
@@ -323,6 +336,7 @@ export async function buildMetricsReport(
     cohort,
     cohortDataQuality,
     firstSession,
+    pricingDiscovery,
   };
 }
 
@@ -434,6 +448,11 @@ export function reportToCsv(report: MetricsReport): string {
     push("first_session_value", "pending", report.firstSession.firstValue.pending);
     push("first_session_value", "missed", report.firstSession.firstValue.missed);
   }
+  // MW-09: pricing-discovery gate. `can_recommend_price_change=no` until evidence
+  // matures — a price change is blocked, never guessed.
+  push("pricing_discovery", "can_recommend_price_change", report.pricingDiscovery.canRecommendPriceChange ? "yes" : "no");
+  for (const m of report.pricingDiscovery.requiredButMissing) push("pricing_discovery", "required_but_missing", m);
+  for (const r of report.pricingDiscovery.risksPresent) push("pricing_discovery", "risk_present", r);
   return lines.join("\n");
 }
 

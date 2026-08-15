@@ -91,6 +91,19 @@ export default async function AdminPage({
         <Row label="Retention D1 / D7 / D30" value={`${pct(r.retention.d1)} / ${pct(r.retention.d7)} / ${pct(r.retention.d30)}`} />
       </Section>
 
+      <Section title="Pricing discovery (read-only — no price change here)">
+        <Row
+          label="Can recommend a price change?"
+          value={r.pricingDiscovery.canRecommendPriceChange ? "YES — evaluate on evidence" : "NO — blocked on evidence"}
+        />
+        {r.pricingDiscovery.requiredButMissing.length > 0 && (
+          <Row label="Awaiting maturity" value={r.pricingDiscovery.requiredButMissing.join(", ")} />
+        )}
+        {r.pricingDiscovery.risksPresent.length > 0 && (
+          <Row label="Risk signals" value={r.pricingDiscovery.risksPresent.join(", ")} />
+        )}
+      </Section>
+
       <Section title={`First session (value within ${r.firstSession.windowMin} min)`}>
         {r.firstSession.suppressed ? (
           <Row label="Cohort" value={`— (under 5; ${r.firstSession.cohortSize} entered)`} />
