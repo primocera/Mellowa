@@ -107,13 +107,24 @@ jobs:
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
           STRIPE_SECRET_KEY: ${{ secrets.E2E_STRIPE_SECRET_KEY }}
+          # The matrix re-runs the MW-V18-03 non-production guard with THIS step's
+          # env, so it needs the same identity refs the RC gate passes it —
+          # without them the guard fails closed ("…PROJECT_REF is not set").
+          E2E_SUPABASE_PROJECT_REF: ${{ secrets.E2E_SUPABASE_PROJECT_REF }}
+          E2E_SUPABASE_ALLOWED_REFS: ${{ secrets.E2E_SUPABASE_ALLOWED_REFS }}
+          E2E_SUPABASE_ALLOWED_HOSTS: ${{ secrets.E2E_SUPABASE_ALLOWED_HOSTS }}
+          PRODUCTION_SUPABASE_PROJECT_REF: ${{ secrets.PRODUCTION_SUPABASE_PROJECT_REF }}
           E2E_SUPABASE_TEST: "1"
         run: |
+          # Build first: the matrix serves the app via `npm run start` (playwright
+          # webServer), which needs a .next build — without it the webServer errors
+          # "Could not find a production build".
+          npm run build
           npx playwright install --with-deps chromium
-          npm run test:e2e
-          # MW-V12-02: the matrix runner seeds every fixture and blocks if any
-          # required journey never ran. Under RC_GATE it fails closed; on an
-          # ordinary push it is advisory. It writes SHA-pinned evidence.
+          # MW-V12-02: the matrix runner is the authoritative authenticated run —
+          # it seeds every fixture and blocks if any required journey never ran.
+          # (The bare `npm run test:e2e` was redundant with it and started the
+          # webServer with no build; removed, matching the RC gate.)
           RC_GATE="${{ vars.RC_GATE }}" npm run test:e2e:matrix
 
       # The release-candidate gate. On an ordinary push a missing seeded env is

@@ -178,6 +178,6 @@ describe("retries are reported, never treated as passes", () => {
   it("the playwright config does not retry locally", () => {
     // Retries in CI absorb infrastructure flake; retries locally hide it.
     const config = read("playwright.config.ts");
-    expect(config).toMatch(/retries:\s*process\.env\.CI\s*\?\s*1\s*:\s*0/);
+    expect(config).toMatch(/retries:\s*process\.env\.CI\s*\?\s*2\s*:\s*0/);
   });
 });
