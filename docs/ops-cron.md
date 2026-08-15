@@ -46,10 +46,13 @@ have no stored payload and are dead-lettered with
 
 - `GET /api/health` — public liveness: `{ ok, version }`, no dependencies.
 - `GET /api/health/ready` — deep readiness behind
-  `Authorization: Bearer <ADMIN_STATS_SECRET>`: database reachability,
-  v6 migrations (020/021), email/Stripe/AI/cron config presence.
-  Returns 503 when any component fails; components report only
-  ok / fail / not_configured — never details.
+  `Authorization: Bearer <ADMIN_STATS_SECRET>`: database reachability, the
+  current-product-line migrations (020/021 **and 044–049**), the exact RPC
+  overloads, email/Stripe/AI/cron config presence, and the freshness of the
+  deletion and email-outbox workers (MW-04). Returns 503 when a required object
+  is missing or (in `READINESS_MODE=paid`) a critical worker is degraded/
+  unavailable; components report only ok / degraded / fail / not_configured /
+  unavailable — never details.
 
 Free alerting setup (UptimeRobot or similar):
 1. Monitor `https://mellowa.app/api/health` (interval 5 min) — alerts on
@@ -58,6 +61,63 @@ Free alerting setup (UptimeRobot or similar):
    (custom HTTP monitor) — alerts on any failing dependency, including a
    forgotten migration.
 3. Alert channel: owner email (free tier is enough for beta).
+
+## Background job registry (MW-05)
+
+`src/lib/ops/cron-registry.ts` is the machine-readable source of truth for every
+scheduled/operational job. It is verified against the filesystem and `vercel.json`
+by `tests/cron-registry-contract.test.ts`, so a route under `src/app/api/cron/`
+cannot exist without an entry here, and no entry can name a job whose route is
+missing. It stores env-var **names** only — never secret values.
+
+| Job | Route | Method | Secret | Schedule | Lease | Alert if no success |
+|---|---|---|---|---|---|---|
+| trial-reminders | `/api/cron/trial-reminders` | GET | `CRON_SECRET` | Vercel `0 9 * * *` | cron_leases 10 min | 26 h |
+| daily-reminders | `/api/cron/daily-reminders` | GET | `CRON_SECRET` | Vercel `0 8 * * *` | cron_leases 10 min | 26 h |
+| email-outbox | `/api/cron/email-outbox` | POST | `CRON_SECRET` | external, every 10–15 min | `claim_due_emails` SKIP LOCKED 10 min | 60 min |
+| account-deletion | `/api/cron/account-deletion` | POST | `CRON_SECRET` | external, every 10–15 min | `worker_leased_until` 5 min | 60 min |
+| retention | `/api/cron/retention` | POST | `CRON_SECRET` | external, daily | cron_leases 10 min | 50 h |
+| billing-reconcile | `/api/cron/billing-reconcile` | POST | `CRON_SECRET` | external, daily | cron_leases 10 min | 50 h |
+
+Vercel Hobby exposes only two native cron slots (used by the two reminder jobs).
+The remaining four are driven by an **external pinger** (e.g. cron-job.org) that
+sends `Authorization: Bearer <CRON_SECRET>` to the route on the cadence above.
+
+### Trial and daily reminders
+
+Configured in `vercel.json`. Keyset-paginated batches (200) under a `cron_leases`
+lease; delivery is idempotent via the email outbox. See the reminder-timing notes
+below for the delivery-window contract.
+
+### Account deletion worker
+
+`POST /api/cron/account-deletion` claims due jobs from `account_deletion_requests`
+under a 5-minute row lease (`worker_leased_until`) and advances the durable state
+machine (`src/lib/account-deletion/{machine,worker,receipt}.ts`). A crash leaves
+the job at its last completed milestone with `last_error_code` + `next_attempt_at`;
+the expired lease lets it be re-claimed — there is no permanent-failed terminal, so
+no partial deletion can send a false completion. Freshness (open/stuck/oldest) is
+observed by `account_deletion_stats()` and surfaced in `/api/health/ready`.
+
+### Retention worker
+
+`POST /api/cron/retention` purges completed job rows only after their audit/
+minimization window and applies data-retention windows. Daily; idempotent; a
+`cron_leases` lease prevents overlap.
+
+### Billing reconciliation worker
+
+`POST /api/cron/billing-reconcile` reconciles local subscription/entitlement state
+against Stripe for **owned** (app-namespaced) customers only. Daily; idempotent; a
+`cron_leases` lease prevents overlap. It never adopts a foreign-app event (see the
+cross-app isolation contract).
+
+### Schedule verification (owner)
+
+The deletion and outbox freshness signals in `/api/health/ready` record whether a
+worker has run recently without exposing any secret. To confirm the external pinger
+is wired, ping each POST route once with the bearer secret and expect `200`; a `401`
+means the secret is wrong, a `503 not_configured` means it is unset.
 
 ## Manual testing (replace placeholders, never commit real values)
 
