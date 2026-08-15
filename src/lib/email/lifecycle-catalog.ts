@@ -116,6 +116,16 @@ export const LIFECYCLE_MESSAGES: Record<EmailTemplateName, MessageSpec> =
     ])
   ) as Record<EmailTemplateName, MessageSpec>;
 
+/** True when `template` is a registered lifecycle message (the delivery gate). */
+export function isDeliverableTemplate(template: string): template is EmailTemplateName {
+  return Object.prototype.hasOwnProperty.call(LIFECYCLE_MESSAGES, template);
+}
+
+/** The registered spec for a template, or null when it is not in the catalog. */
+export function messageSpecFor(template: string): MessageSpec | null {
+  return isDeliverableTemplate(template) ? LIFECYCLE_MESSAGES[template] : null;
+}
+
 // --- deep links --------------------------------------------------------------
 
 /** Internal destinations a message may deep-link to. */

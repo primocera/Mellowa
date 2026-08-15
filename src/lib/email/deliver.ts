@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, type SendResult } from "@/lib/email/send";
+import { isDeliverableTemplate } from "@/lib/email/lifecycle-catalog";
 
 /**
  * Idempotent transactional-email delivery over the email_deliveries ledger
@@ -121,6 +122,17 @@ export async function deliverEmail(
   },
   deps: DeliverDeps = defaultDeps()
 ): Promise<DeliverResult> {
+  // MW-12: every delivery resolves through the lifecycle catalog before anything
+  // is queued. An unknown template is a caller/config defect — it is refused
+  // (never queued or sent) with a categorical log, so no message can bypass the
+  // catalog's consent/dedupe/suppression contract or reach a user unregistered.
+  if (!isDeliverableTemplate(args.template)) {
+    console.error("[email] refused: template not in lifecycle catalog", {
+      template: args.template,
+    });
+    return { sent: false, status: "failed_permanent" };
+  }
+
   const row = await deps.claim({
     eventKey: args.eventKey,
     userId: args.userId ?? null,
@@ -271,6 +283,20 @@ export async function replayDeliveries(
         status: "failed_permanent",
         attempts: row.attempts,
         lastError: "no stored payload to replay",
+      });
+      continue;
+    }
+
+    // MW-12: a retry resolves to the SAME catalog entry. If the template was
+    // retired since the row was queued, dead-letter it rather than replay an
+    // unregistered message.
+    if (!isDeliverableTemplate(row.template)) {
+      summary.permanent += 1;
+      await d.finalize({
+        id: row.id,
+        status: "failed_permanent",
+        attempts: row.attempts,
+        lastError: "template not in lifecycle catalog",
       });
       continue;
     }
