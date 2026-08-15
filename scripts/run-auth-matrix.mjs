@@ -271,6 +271,19 @@ if (neverPassed.length) {
   console.log(`Required journeys that never passed:\n  - ${neverPassed.join("\n  - ")}`);
 }
 
+// Print the exact failing tests (title + viewport project) to the console, so a
+// CI failure is diagnosable straight from the step log — the JSON reporter
+// otherwise keeps these titles out of stdout and only the count is visible.
+const failingRecords = allRecords.filter((r) =>
+  ["failed", "timedOut", "interrupted"].includes(r.status),
+);
+if (failingRecords.length) {
+  console.log("Failing authenticated tests:");
+  for (const r of failingRecords) {
+    console.log(`  - [${r.project}] ${r.title} (${r.status})`);
+  }
+}
+
 // ---- gate --------------------------------------------------------------
 if (total === 0) {
   console.error("BLOCKED: zero authenticated tests executed.");
