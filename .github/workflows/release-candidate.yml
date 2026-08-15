@@ -194,6 +194,14 @@ jobs:
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_USER_EMAIL }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_USER_PASSWORD }}
           STRIPE_SECRET_KEY: ${{ secrets.E2E_STRIPE_SECRET_KEY }}
+          # MW-V18-03: run-auth-matrix.mjs re-runs the non-production identity
+          # guard with THIS step's env, so it needs the same identity refs the
+          # standalone guard step gets — without them the guard fails closed
+          # ("E2E_SUPABASE_PROJECT_REF is not set"), even though the secrets exist.
+          E2E_SUPABASE_PROJECT_REF: ${{ secrets.E2E_SUPABASE_PROJECT_REF }}
+          E2E_SUPABASE_ALLOWED_REFS: ${{ secrets.E2E_SUPABASE_ALLOWED_REFS }}
+          E2E_SUPABASE_ALLOWED_HOSTS: ${{ secrets.E2E_SUPABASE_ALLOWED_HOSTS }}
+          PRODUCTION_SUPABASE_PROJECT_REF: ${{ secrets.PRODUCTION_SUPABASE_PROJECT_REF }}
           # The runner, harness and seeder all gate on this explicit flag.
           E2E_SUPABASE_TEST: "1"
           # Force the fail-closed matrix runner regardless of the mutable var.
