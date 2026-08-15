@@ -91,6 +91,20 @@ export default async function AdminPage({
         <Row label="Retention D1 / D7 / D30" value={`${pct(r.retention.d1)} / ${pct(r.retention.d7)} / ${pct(r.retention.d30)}`} />
       </Section>
 
+      <Section title="Scale readiness (SLOs & budgets)">
+        <Row
+          label="Scale ready?"
+          value={r.observability.scaleReady ? "YES" : "NO — not yet (see reasons)"}
+        />
+        <Row
+          label="Capacity"
+          value={r.observability.capacity.available ? (r.observability.capacity.fits ? "fits at 10x" : "over at 10x") : "unavailable (load-test needed)"}
+        />
+        {r.observability.blockingReasons.length > 0 && (
+          <Row label="Blocking" value={r.observability.blockingReasons.join(" · ")} />
+        )}
+      </Section>
+
       <Section title="Pricing discovery (read-only — no price change here)">
         <Row
           label="Can recommend a price change?"

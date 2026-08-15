@@ -33,6 +33,7 @@ import {
   type SessionEvent,
 } from "@/lib/today/first-session";
 import { discoveryGate, type DiscoveryVerdict } from "@/lib/pricing/discovery-gate";
+import { buildObservability, type ObservabilityReport } from "@/lib/observability/report";
 
 /**
  * Server-side metrics report (Launch v6, Prompt 10). Fetches the rows once and
@@ -106,6 +107,13 @@ export interface MetricsReport {
    * a price change is blocked on immature evidence. Never mutates Stripe.
    */
   pricingDiscovery: DiscoveryVerdict;
+  /**
+   * MW-13: SLO + perf-budget scale-readiness. `scaleReady` is false while any
+   * critical journey is breached or unavailable (not yet instrumented), or a
+   * budget is over, or capacity is unmeasured — scale is not supported until the
+   * named owner measurements land.
+   */
+  observability: ObservabilityReport;
 }
 
 export async function buildMetricsReport(
@@ -292,6 +300,30 @@ export async function buildMetricsReport(
   // scorecard + support burden and never touches Stripe, prices or the catalog.
   const pricingDiscovery = discoveryGate({ cohort, support: burden });
 
+  // MW-13: live scale-readiness from the SLO + perf-budget catalogs. Observed
+  // values come from real telemetry where it exists (AI unit cost, deletion
+  // backlog); anything not yet instrumented is UNAVAILABLE, never a silent pass,
+  // and a breached/unavailable critical journey blocks scale. Provider ceiling is
+  // not yet load-tested, so capacity is unavailable (owner measurement named).
+  const economics = unitEconomics(subs, costs);
+  const activatedCount = Object.keys(activation.activatedAtByUser).length;
+  const aiCostPerActivated =
+    activatedCount > 0 && economics.aiCostUsd != null
+      ? economics.aiCostUsd / activatedCount
+      : null;
+  const { data: delStatsRow } = await admin
+    .rpc("account_deletion_stats", { p_stuck_attempts: 3 })
+    .maybeSingle();
+  const deletionStuck =
+    delStatsRow && typeof (delStatsRow as { stuck_jobs?: number }).stuck_jobs === "number"
+      ? Number((delStatsRow as { stuck_jobs: number }).stuck_jobs)
+      : null;
+  const observability = buildObservability({
+    observedSlos: { deletion_stuck: deletionStuck },
+    observedBudgets: { ai_cost_per_activated: aiCostPerActivated },
+    capacity: null,
+  });
+
   return {
     generatedAt: new Date().toISOString(),
     // Freshness comes from the events themselves, not the clock — an empty or
@@ -308,7 +340,7 @@ export async function buildMetricsReport(
       d30: retention(events, "sample_plan_generated", ["checkin_completed", "plan_generated"], 30),
     },
     churn: churnCounts(events),
-    economics: unitEconomics(subs, costs),
+    economics,
     // Ceiling denials are not persisted (a denied claim writes no ledger row),
     // so the count is 0 here; p50/p90 + high-use already flag unsustainable use.
     // Denial logging is a documented follow-up in docs/runbooks/monitoring-alerts.md.
@@ -340,6 +372,7 @@ export async function buildMetricsReport(
     cohortDataQuality,
     firstSession,
     pricingDiscovery,
+    observability,
   };
 }
 
@@ -456,6 +489,13 @@ export function reportToCsv(report: MetricsReport): string {
   push("pricing_discovery", "can_recommend_price_change", report.pricingDiscovery.canRecommendPriceChange ? "yes" : "no");
   for (const m of report.pricingDiscovery.requiredButMissing) push("pricing_discovery", "required_but_missing", m);
   for (const r of report.pricingDiscovery.risksPresent) push("pricing_discovery", "risk_present", r);
+  // MW-13: SLO/budget scale-readiness. An unavailable/breached line is surfaced,
+  // never a silent pass.
+  push("observability", "scale_ready", report.observability.scaleReady ? "yes" : "no");
+  for (const s of report.observability.slos) push(`slo_${s.id}`, "state", s.state);
+  for (const b of report.observability.budgets) push(`budget_${b.id}`, "state", b.state);
+  push("observability", "capacity_available", report.observability.capacity.available ? "yes" : "no");
+  for (const reason of report.observability.blockingReasons) push("observability", "blocking_reason", reason);
   return lines.join("\n");
 }
 
