@@ -6,20 +6,56 @@
  * uptime monitor (e.g. UptimeRobot) can alert the owner on any failure.
  */
 
-export type ComponentStatus = "ok" | "fail" | "not_configured";
+/**
+ * MW-04: the status vocabulary readiness reports.
+ *  - ok            healthy and observed.
+ *  - degraded      reachable but stale/backlogged (e.g. a worker with stuck jobs).
+ *  - fail          a required object/signature is absent — always blocks readiness.
+ *  - not_configured a non-critical dependency isn't wired (allowed in beta).
+ *  - unavailable   the signal could not be observed (probe errored) — for a
+ *                  critical component this is not "healthy" and blocks paid.
+ */
+export type ComponentStatus = "ok" | "degraded" | "fail" | "not_configured" | "unavailable";
+
+export type ReadinessMode = "beta" | "paid";
 
 export interface ReadinessReport {
   ok: boolean;
+  mode?: ReadinessMode;
   components: Record<string, ComponentStatus>;
 }
 
+export interface SummarizeOptions {
+  /** paid fails closed on a degraded/unavailable critical component; beta warns. */
+  mode?: ReadinessMode;
+  /** Component keys whose degraded/unavailable state blocks paid readiness. */
+  critical?: readonly string[];
+}
+
+/**
+ * Aggregate component statuses into an overall verdict.
+ *
+ * A "fail" (missing required object/signature) always blocks readiness. In
+ * paid mode a critical component that is "degraded" (stale/backlogged) or
+ * "unavailable" (unobserved) also blocks — a configured secret without observed
+ * worker freshness is not treated as healthy. In beta mode those are warn-only.
+ * "not_configured" never blocks. Called with no options it keeps the original
+ * behaviour (fail only on "fail").
+ */
 export function summarizeReadiness(
-  components: Record<string, ComponentStatus>
+  components: Record<string, ComponentStatus>,
+  opts: SummarizeOptions = {}
 ): ReadinessReport {
-  // not_configured is visible but does not fail readiness: beta runs without
-  // e.g. Stripe live keys, and the paid-launch gate lives in instrumentation.
-  const ok = Object.values(components).every((s) => s !== "fail");
-  return { ok, components };
+  const critical = new Set(opts.critical ?? []);
+  const paid = opts.mode === "paid";
+  const ok = Object.entries(components).every(([key, s]) => {
+    if (s === "fail") return false;
+    if (paid && critical.has(key) && (s === "degraded" || s === "unavailable")) {
+      return false;
+    }
+    return true;
+  });
+  return opts.mode ? { ok, mode: opts.mode, components } : { ok, components };
 }
 
 /**
@@ -48,6 +84,32 @@ export function classifyRpcProbe(
     return "fail";
   }
   return "ok";
+}
+
+/**
+ * MW-04: classify a job worker's freshness from side-effect-free counts.
+ *  - a dead-letter or stuck job → degraded (needs an operator, but reachable);
+ *  - a due item older than maxDueAgeMs → degraded (the worker is behind);
+ *  - otherwise ok. Counts only — never ids, addresses or content.
+ */
+export function classifyWorkerFreshness(args: {
+  stuckOrDead: number;
+  oldestDueMs?: number | null;
+  now?: number;
+  maxDueAgeMs?: number;
+}): ComponentStatus {
+  const now = args.now ?? Date.now();
+  const maxAge = args.maxDueAgeMs ?? 6 * 60 * 60 * 1000; // 6h default backlog tolerance
+  if (args.stuckOrDead > 0) return "degraded";
+  if (args.oldestDueMs != null && now - args.oldestDueMs > maxAge) return "degraded";
+  return "ok";
+}
+
+/** Resolve the readiness mode from the environment (defaults to beta). */
+export function readinessMode(
+  env: Record<string, string | undefined> = process.env
+): ReadinessMode {
+  return env.READINESS_MODE === "paid" ? "paid" : "beta";
 }
 
 /** Safe release identifier for health output (never a secret). */
