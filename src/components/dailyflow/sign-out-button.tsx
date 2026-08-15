@@ -29,19 +29,22 @@ export function SignOutButton() {
     // Clear purge-on-sign-out browser storage so the next person on this device
     // cannot resume a previous session's onboarding/deferral state.
     purgeSensitiveBrowserStorage();
-    try {
-      await createClient().auth.signOut();
-      // refresh() clears the cached server components for the signed-in user,
-      // so the next render cannot show their data from cache.
-      router.replace("/login");
-      router.refresh();
-    } catch {
-      // Ending the local session is the part that matters to the person
-      // holding the phone; a network failure must not leave them stuck on a
-      // dead button.
-      setBusy(false);
-      router.replace("/login");
-    }
+    // Local sign-out: deterministically clear THIS device's session and auth
+    // cookies without waiting on a global network revoke round-trip. A global
+    // revoke can hang or fail on a slow/unreliable connection and leave the auth
+    // cookie in place — so the person appears signed out but an authenticated
+    // route still renders. Local scope is the correct posture for a per-device
+    // sign-out control and clears the cookie regardless of network state.
+    await createClient()
+      .auth.signOut({ scope: "local" })
+      .catch(() => {
+        // Ending the local session is what matters to the person holding the
+        // phone; a network hiccup must not leave them stuck on a dead button.
+      });
+    // refresh() clears the cached server components for the signed-in user, so
+    // the next render cannot show their data from cache.
+    router.replace("/login");
+    router.refresh();
   }
 
   return (
