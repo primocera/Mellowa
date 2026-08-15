@@ -44,8 +44,25 @@ const CONSTRAINT_LABELS: Record<string, string> = {
   same_as_usual: "Same as usual",
 };
 
+const MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/** Format a completed week range from two YYYY-MM-DD strings, offset-free. */
+function weekRangeLabel(start?: string, end?: string): string | null {
+  if (!start || !end) return null;
+  const [, sm, sd] = start.split("-").map(Number);
+  const [, em, ed] = end.split("-").map(Number);
+  if (!sm || !em) return null;
+  const left = `${MONTHS[sm - 1]} ${sd}`;
+  const right = sm === em ? `${ed}` : `${MONTHS[em - 1]} ${ed}`;
+  return `${left}–${right}`;
+}
+
 export function WeeklyReflection() {
   const [facts, setFacts] = useState<WeeklyFact[]>([]);
+  const [weekLabel, setWeekLabel] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [open, setOpen] = useState(false);
   const [keep, setKeep] = useState<string[]>([]);
@@ -62,6 +79,7 @@ export function WeeklyReflection() {
       .then((d) => {
         if (!active) return;
         setFacts((d.facts as WeeklyFact[]) ?? []);
+        setWeekLabel(weekRangeLabel(d.week_start as string, d.week_end as string));
         const existing = d.reflection;
         if (existing) {
           setKeep(existing.keep ?? []);
@@ -115,8 +133,15 @@ export function WeeklyReflection() {
     <section className="rounded-2xl bg-white p-5 shadow-sm">
       <div className="flex items-center gap-2">
         <CalendarCheck className="h-4 w-4 text-[#7C9A92]" />
-        <h2 className="font-medium text-[#1F2937]">Close out the week</h2>
+        <h2 className="font-medium text-[#1F2937]">
+          Reflect on last week{weekLabel ? <span className="font-normal text-[#6B7280]"> · {weekLabel}</span> : null}
+        </h2>
       </div>
+
+      <p className="mt-1 text-xs text-[#6B7280]">
+        This is about the week that just ended. The week you&apos;re in now stays
+        open until it finishes — there&apos;s nothing to close out early.
+      </p>
 
       {facts.length === 0 ? (
         <div className="mt-2">

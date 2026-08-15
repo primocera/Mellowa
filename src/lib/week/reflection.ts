@@ -1,4 +1,5 @@
 import { isVerdict, type Verdict } from "@/lib/feedback/learned";
+import { localDate } from "@/lib/analytics/cohort";
 
 /**
  * MW-S06: weekly reflection — deterministic factual summaries plus a bounded
@@ -45,10 +46,28 @@ function withinDays(iso: string, now: Date, days: number): boolean {
   return Number.isFinite(t) && t >= now.getTime() - days * 86400_000 && t <= now.getTime();
 }
 
-/** Factual counts/ranges only — reproducible from the user's own rows. */
-export function weeklyFacts(inputs: WeeklyFactInputs, now: Date = new Date()): WeeklyFact[] {
+/** YYYY-MM-DD, `n` days after `ymd` (UTC-midnight arithmetic, offset-free). */
+function addDaysYmd(ymd: string, n: number): string {
+  return new Date(Date.parse(`${ymd}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * MW-03: true when `iso` falls on a local calendar day inside the Monday-Sunday
+ * week starting `weekStartYmd`, resolved in the user's timezone. This is the
+ * exact-boundary membership test that replaces the rolling `created_at >= now-7d`
+ * window — a plan created Sunday 23:59 local belongs to that week, one created
+ * Monday 00:00 local belongs to the next.
+ */
+export function isInLocalWeek(iso: string, weekStartYmd: string, timeZone: string): boolean {
+  const day = localDate(iso, timeZone);
+  if (!day) return false;
+  return day >= weekStartYmd && day < addDaysYmd(weekStartYmd, 7);
+}
+
+/** Build the factual statements from whichever rows the predicate admits. */
+function buildFacts(inputs: WeeklyFactInputs, inWindow: (iso: string) => boolean): WeeklyFact[] {
   const facts: WeeklyFact[] = [];
-  const plans = inputs.plans.filter((p) => withinDays(p.created_at, now, 7));
+  const plans = inputs.plans.filter((p) => inWindow(p.created_at));
   if (plans.length > 0) {
     facts.push({
       text: plans.length === 1 ? "You created 1 daily plan." : `You created ${plans.length} daily plans.`,
@@ -64,7 +83,7 @@ export function weeklyFacts(inputs: WeeklyFactInputs, now: Date = new Date()): W
     const parts = [...modeCounts.entries()].map(([label, n]) => `${label} ×${n}`);
     facts.push({ text: `Modes you chose: ${parts.join(", ")}.`, source: "modes" });
   }
-  const feedback = inputs.feedback.filter((f) => withinDays(f.created_at, now, 7));
+  const feedback = inputs.feedback.filter((f) => inWindow(f.created_at));
   const helpful = feedback.filter((f) => f.verdict === "helpful").length;
   if (helpful > 0) {
     facts.push({
@@ -87,7 +106,7 @@ export function weeklyFacts(inputs: WeeklyFactInputs, now: Date = new Date()): W
       });
     }
   }
-  const saved = inputs.favourites.filter((f) => withinDays(f.created_at, now, 7)).length;
+  const saved = inputs.favourites.filter((f) => inWindow(f.created_at)).length;
   if (saved > 0) {
     facts.push({
       text: saved === 1 ? "You saved 1 meal." : `You saved ${saved} meals.`,
@@ -95,6 +114,28 @@ export function weeklyFacts(inputs: WeeklyFactInputs, now: Date = new Date()): W
     });
   }
   return facts;
+}
+
+/**
+ * Rolling-7-day facts. Retained for back-compat; the live weekly reflection now
+ * uses {@link weeklyFactsForWindow} so a completed week is bounded by the user's
+ * exact local Monday-Sunday, never a rolling window from "now".
+ */
+export function weeklyFacts(inputs: WeeklyFactInputs, now: Date = new Date()): WeeklyFact[] {
+  return buildFacts(inputs, (iso) => withinDays(iso, now, 7));
+}
+
+/**
+ * MW-03: facts for the specific completed local week starting `weekStartYmd`,
+ * resolved in the user's timezone. Rows are classified by their LOCAL calendar
+ * date, so the summary reflects exactly the week the reflection is about.
+ */
+export function weeklyFactsForWindow(
+  inputs: WeeklyFactInputs,
+  weekStartYmd: string,
+  timeZone: string
+): WeeklyFact[] {
+  return buildFacts(inputs, (iso) => isInLocalWeek(iso, weekStartYmd, timeZone));
 }
 
 // --- Bounded carry-forward answers -----------------------------------------
