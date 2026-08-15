@@ -27,6 +27,11 @@ import { readExclusionRegistry, readCanonicalActivation, readCheckinDays } from 
 import { supportBurden, type SupportTicketRow } from "@/lib/support/metrics";
 import { readBetaCapacity, type BetaCapacity } from "@/lib/beta/capacity";
 import { experimentConflicts, runningExperiments } from "@/lib/beta/experiments";
+import {
+  firstSessionScorecard,
+  type FirstSessionScorecard,
+  type SessionEvent,
+} from "@/lib/today/first-session";
 
 /**
  * Server-side metrics report (Launch v6, Prompt 10). Fetches the rows once and
@@ -87,6 +92,13 @@ export interface MetricsReport {
   cohort: CohortScorecard;
   /** MW-V18-05: whether the durable exclusion registry / activation facts read. */
   cohortDataQuality: { exclusionsAvailable: boolean; activationFactsAvailable: boolean };
+  /**
+   * MW-08: the operational first-session funnel from live events —
+   * onboarding → check-in → plan → meaningful action → first_value, with
+   * reached/pending/missed inside the 30-minute window. Distinguishes pending
+   * (window open) from missed (window closed); small cohorts are suppressed.
+   */
+  firstSession: FirstSessionScorecard;
 }
 
 export async function buildMetricsReport(
@@ -249,6 +261,21 @@ export async function buildMetricsReport(
     activationFactsAvailable: factsAvailable,
   };
 
+  // MW-08: the first-session value funnel from LIVE events (not the test-only
+  // helper). Group server events per user, drop staff/test/demo, and compute the
+  // reached/pending/missed scorecard inside the 30-minute window. first_value is
+  // a durable action only — a view or a served fallback never inflates it.
+  const excludedIds = new Set(exclusion.ids);
+  const sessionsByUser = new Map<string, SessionEvent[]>();
+  for (const e of events) {
+    const uid = e.user_id;
+    if (!uid || excludedIds.has(uid)) continue;
+    const list = sessionsByUser.get(uid) ?? [];
+    list.push({ event: e.event, created_at: e.created_at });
+    sessionsByUser.set(uid, list);
+  }
+  const firstSession = firstSessionScorecard([...sessionsByUser.values()], new Date(now));
+
   return {
     generatedAt: new Date().toISOString(),
     // Freshness comes from the events themselves, not the clock — an empty or
@@ -295,6 +322,7 @@ export async function buildMetricsReport(
     ),
     cohort,
     cohortDataQuality,
+    firstSession,
   };
 }
 
@@ -391,6 +419,20 @@ export function reportToCsv(report: MetricsReport): string {
     push(`trial_experiment_${v.variant}`, "conversion_rate", v.conversionRate);
     push(`trial_experiment_${v.variant}`, "cost_usd", v.costUsd);
     push(`trial_experiment_${v.variant}`, "suppressed", v.suppressed ? "yes" : "no");
+  }
+  // MW-08: first-session funnel. cohort_size is the denominator; suppressed marks
+  // a small cell; reached/pending/missed are kept distinct so pending never reads
+  // as failure.
+  push("first_session", "cohort_size", report.firstSession.cohortSize);
+  push("first_session", "suppressed", report.firstSession.suppressed ? "yes" : "no");
+  push("first_session", "window_min", report.firstSession.windowMin);
+  if (!report.firstSession.suppressed) {
+    for (const m of report.firstSession.milestones) {
+      push("first_session_milestone", m.milestone, m.reached);
+    }
+    push("first_session_value", "reached", report.firstSession.firstValue.reached);
+    push("first_session_value", "pending", report.firstSession.firstValue.pending);
+    push("first_session_value", "missed", report.firstSession.firstValue.missed);
   }
   return lines.join("\n");
 }

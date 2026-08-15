@@ -3,6 +3,7 @@ import {
   firstSessionMilestones,
   firstSessionFunnel,
   reachedFirstValueInSession,
+  firstSessionScorecard,
   MEANINGFUL_ACTION_EVENTS,
   VALUE_EVENTS,
   type SessionEvent,
@@ -110,5 +111,56 @@ describe("first_value within the session window", () => {
       reached: false,
       pending: false,
     });
+  });
+});
+
+describe("MW-08: aggregate first-session scorecard", () => {
+  const now = new Date("2026-08-14T10:00:00Z"); // 60 min after the 09:00 base
+
+  it("counts milestones and splits reached / pending / missed within the window", () => {
+    const reachedUser = [
+      ev("onboarding_completed", 0),
+      ev("checkin_completed", 2),
+      ev("plan_generated", 3),
+      ev("now_action_done", 5), // value inside the 30-min window
+    ];
+    const missedUser = [
+      ev("onboarding_completed", 0),
+      ev("plan_generated", 3), // no value; window (30 min) closed by now (60)
+    ];
+    // A user who only viewed things never entered the funnel start? They have no
+    // onboarding/checkin/plan → excluded from the denominator.
+    const notEnteredUser = [ev("now_viewed", 1)];
+    const sc = firstSessionScorecard([reachedUser, missedUser, notEnteredUser], now);
+    expect(sc.cohortSize).toBe(2); // only the two who entered the funnel
+    expect(sc.suppressed).toBe(true); // under the default floor of 5
+    const planCreated = sc.milestones.find((m) => m.milestone === "planCreatedAt");
+    expect(planCreated?.reached).toBe(2);
+    expect(sc.firstValue.reached).toBe(1);
+    expect(sc.firstValue.missed).toBe(1);
+    expect(sc.firstValue.pending).toBe(0);
+  });
+
+  it("a served fallback counts as plan_created but never as first_value", () => {
+    const fallbackUser = [ev("onboarding_completed", 0), ev("plan_fallback_served", 2)];
+    const sc = firstSessionScorecard([fallbackUser], now, 30, 1);
+    expect(sc.milestones.find((m) => m.milestone === "planCreatedAt")?.reached).toBe(1);
+    expect(sc.firstValue.reached).toBe(0);
+    expect(sc.firstValue.missed).toBe(1); // window closed, no durable action
+  });
+
+  it("keeps a still-open window as pending, not a miss", () => {
+    const openNow = new Date("2026-08-14T09:10:00Z"); // 10 min in, window still open
+    const inProgress = [ev("onboarding_completed", 0), ev("plan_generated", 3)];
+    const sc = firstSessionScorecard([inProgress], openNow, 30, 1);
+    expect(sc.firstValue.pending).toBe(1);
+    expect(sc.firstValue.missed).toBe(0);
+  });
+
+  it("suppresses a small cohort but still reports the size", () => {
+    const one = [ev("onboarding_completed", 0), ev("now_action_done", 1)];
+    const sc = firstSessionScorecard([one], now); // default floor 5
+    expect(sc.suppressed).toBe(true);
+    expect(sc.cohortSize).toBe(1);
   });
 });

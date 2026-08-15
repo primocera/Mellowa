@@ -91,6 +91,23 @@ export default async function AdminPage({
         <Row label="Retention D1 / D7 / D30" value={`${pct(r.retention.d1)} / ${pct(r.retention.d7)} / ${pct(r.retention.d30)}`} />
       </Section>
 
+      <Section title={`First session (value within ${r.firstSession.windowMin} min)`}>
+        {r.firstSession.suppressed ? (
+          <Row label="Cohort" value={`— (under 5; ${r.firstSession.cohortSize} entered)`} />
+        ) : (
+          <>
+            <Row label="Entered funnel" value={String(r.firstSession.cohortSize)} />
+            {r.firstSession.milestones.map((m) => (
+              <Row key={m.milestone} label={MILESTONE_LABELS[m.milestone]} value={String(m.reached)} />
+            ))}
+            <Row
+              label="First value: reached / pending / missed"
+              value={`${r.firstSession.firstValue.reached} / ${r.firstSession.firstValue.pending} / ${r.firstSession.firstValue.missed}`}
+            />
+          </>
+        )}
+      </Section>
+
       <Section title="Unit economics (gross — excludes Stripe fees & refunds)">
         <Row label="Active payers" value={String(r.economics.activePayers)} />
         {r.economics.mrrByCurrency.length === 0 ? (
@@ -343,6 +360,14 @@ function chip(active: boolean) {
     border: "1px solid #E5E7EB",
   } as const;
 }
+
+const MILESTONE_LABELS: Record<string, string> = {
+  onboardingCompletedAt: "Onboarding completed",
+  firstCheckinAt: "First check-in",
+  planCreatedAt: "Plan created",
+  firstMeaningfulActionAt: "First meaningful action",
+  firstValueAt: "First value",
+};
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

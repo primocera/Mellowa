@@ -132,3 +132,68 @@ export function reachedFirstValueInSession(
   // No value yet: pending while the window is still open (never a silent miss).
   return { reached: false, pending: now.getTime() < deadline };
 }
+
+// --- MW-08: aggregate first-session scorecard (for the analytics report) ------
+
+export interface FirstSessionScorecard {
+  /** Users who entered the funnel (have a start milestone) — the denominator. */
+  cohortSize: number;
+  /** True when the cohort is below the small-cell floor: read as "—", not zero. */
+  suppressed: boolean;
+  windowMin: number;
+  /** How many users reached each milestone (numerators over cohortSize). */
+  milestones: { milestone: keyof FirstSessionMilestones; reached: number }[];
+  /**
+   * First-value within the session window, split so PENDING (window still open,
+   * not yet value) is never conflated with MISSED (window closed without value).
+   */
+  firstValue: { reached: number; pending: number; missed: number };
+}
+
+const MILESTONE_ORDER: (keyof FirstSessionMilestones)[] = [
+  "onboardingCompletedAt",
+  "firstCheckinAt",
+  "planCreatedAt",
+  "firstMeaningfulActionAt",
+  "firstValueAt",
+];
+
+/**
+ * Aggregate one first-session scorecard from per-user session event lists.
+ * Denominator is users who actually entered the funnel (have onboarding/check-in/
+ * plan). Small cohorts are suppressed. Pending and missed are distinct states.
+ * Pure — caller supplies the already-excluded (no staff/test/demo) sessions.
+ */
+export function firstSessionScorecard(
+  sessions: SessionEvent[][],
+  now: Date,
+  windowMin = DEFAULT_SESSION_WINDOW_MIN,
+  minCohort = 5
+): FirstSessionScorecard {
+  const entered = sessions.filter((evs) => {
+    const m = firstSessionMilestones(evs);
+    return (m.onboardingCompletedAt ?? m.firstCheckinAt ?? m.planCreatedAt) !== null;
+  });
+  const milestoneCounts = new Map<keyof FirstSessionMilestones, number>();
+  const firstValue = { reached: 0, pending: 0, missed: 0 };
+  for (const evs of entered) {
+    const m = firstSessionMilestones(evs);
+    for (const k of MILESTONE_ORDER) {
+      if (m[k] !== null) milestoneCounts.set(k, (milestoneCounts.get(k) ?? 0) + 1);
+    }
+    const v = reachedFirstValueInSession(evs, now, windowMin);
+    if (v.reached) firstValue.reached += 1;
+    else if (v.pending) firstValue.pending += 1;
+    else firstValue.missed += 1;
+  }
+  return {
+    cohortSize: entered.length,
+    suppressed: entered.length < minCohort,
+    windowMin,
+    milestones: MILESTONE_ORDER.map((milestone) => ({
+      milestone,
+      reached: milestoneCounts.get(milestone) ?? 0,
+    })),
+    firstValue,
+  };
+}
