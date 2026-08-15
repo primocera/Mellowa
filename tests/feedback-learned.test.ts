@@ -152,7 +152,9 @@ describe("MW-S03: suppression boundary and control-center contract", () => {
     const route = readFileSync("src/app/api/plan/feedback/route.ts", "utf8");
     // Reset only suppresses currently-active signals; history is preserved.
     expect(route).toContain('reset") === "learned"');
-    expect(route).toContain("deriveLearned");
+    // MW-07: the active set comes from the canonical versioned preference model
+    // (buildPreferences), the same one generation and the center use.
+    expect(route).toContain("buildPreferences");
     // It never deletes plan_feedback rows.
     expect(route).not.toMatch(/from\("plan_feedback"\)\s*\.delete\(\)[\s\S]{0,80}reset/);
   });

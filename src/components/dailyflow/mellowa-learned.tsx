@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { Sparkles, X, Undo2 } from "lucide-react";
 import { trackClient } from "@/lib/analytics/client";
 
-type LearnedItem = { signal: string; label: string; effect: string };
+type LearnedItem = {
+  signal: string;
+  label: string;
+  effect: string;
+  /** MW-07: plain "Mellowa used this because…" explanation from the model. */
+  whyUsed?: string;
+};
 
 /**
  * "What Mellowa uses" (Prompt 14, MW-S03): the transparent personalization
@@ -158,6 +164,11 @@ export function MellowaLearned() {
                 >
                   <span className="flex-1">
                     {item.label}
+                    {item.whyUsed && (
+                      <span className="mt-0.5 block text-xs text-[#6B7280]">
+                        Why: {item.whyUsed}
+                      </span>
+                    )}
                     {item.effect && (
                       <span className="mt-0.5 block text-xs text-[#6B7280]">
                         Effect on future plans: {item.effect}

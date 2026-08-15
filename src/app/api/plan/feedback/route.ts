@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import {
-  deriveLearned,
   isVerdict,
   type FeedbackRow,
   type SignalSuppression,
 } from "@/lib/feedback/learned";
+import { buildPreferences, preferenceToView } from "@/lib/feedback/preferences";
 import {
   reflectionSelectionsFromRow,
   isReflectionFresh,
@@ -118,8 +118,12 @@ export async function GET() {
       .maybeSingle(),
   ]);
 
-  const learned = deriveLearned((data ?? []) as FeedbackRow[], suppressions).map(
-    ({ signal, label, hint }) => ({ signal, label, effect: hint })
+  // MW-07: the personalization center reads the SAME canonical versioned model
+  // that generation uses — so an expired (60-day decay) or removed preference
+  // shown here is exactly one that no longer shapes a plan. Each item carries
+  // its plain "used because", source and expiry for transparency.
+  const learned = buildPreferences((data ?? []) as FeedbackRow[], suppressions).map(
+    preferenceToView
   );
 
   // MW-V9-05: the same carry-forward view the weekly prompt builder uses, so
@@ -184,8 +188,8 @@ export async function DELETE(request: Request) {
         .limit(60),
       readSuppressions(supabase, user.id),
     ]);
-    const active = deriveLearned((fb ?? []) as FeedbackRow[], suppressions).map(
-      (l) => l.signal as string
+    const active = buildPreferences((fb ?? []) as FeedbackRow[], suppressions).map(
+      (p) => p.signal as string
     );
     if (active.length === 0) {
       return NextResponse.json({ ok: true, reset: [] });

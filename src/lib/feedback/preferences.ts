@@ -1,5 +1,8 @@
 import {
   isVerdict,
+  hintForSignal,
+  labelForSignal,
+  MAX_PROMPT_HINTS,
   type FeedbackRow,
   type SignalSuppression,
   type Verdict,
@@ -143,4 +146,68 @@ export function applyCurrentContext(
 ): LearnedPreference[] {
   const contra = new Set(todayContradicts);
   return preferences.filter((p) => !contra.has(p.signal));
+}
+
+/**
+ * MW-07: which inferred signals TODAY's explicit check-in contradicts, so the
+ * fresh explicit signal outranks a stale inferred one for today's plan.
+ *  - reporting good energy today outranks a historical "too much" (→ lighter);
+ *  - reporting ample time today outranks a historical "too little time".
+ * Deterministic and conservative — only clear opposites drop a preference.
+ */
+export function todayContradictions(checkin: {
+  energy_level?: number | null;
+  time_available?: string | null;
+}): Verdict[] {
+  const out: Verdict[] = [];
+  if ((checkin.energy_level ?? 0) >= 4) out.push("too_much");
+  // "Flexible today" is the check-in's ample-time signal — it outranks a
+  // historical "too little time" for today only.
+  if ((checkin.time_available ?? "").toLowerCase().includes("flexible")) {
+    out.push("too_little_time");
+  }
+  return out;
+}
+
+/**
+ * MW-07: the canonical, bounded generator hint block — built from the SAME
+ * versioned preference model the personalization center shows, using the SAME
+ * canonical phrases as {@link hintForSignal}. There is no second derivation.
+ */
+export function preferencesToPromptHints(preferences: LearnedPreference[]): string {
+  if (preferences.length === 0) return "";
+  const hints = preferences
+    .slice(0, MAX_PROMPT_HINTS)
+    .map((p) => `- ${hintForSignal(p.signal as Exclude<Verdict, "helpful">)}`);
+  return `WHAT THE USER PREFERS (from their own feedback):\n${hints.join("\n")}`;
+}
+
+/** The transparent view of a preference for "What Mellowa uses". */
+export interface PreferenceView {
+  signal: Verdict;
+  label: string;
+  /** The concrete effect on future plans (the canonical generator hint). */
+  effect: string;
+  whyUsed: string;
+  source: PreferenceSource;
+  confidence: number;
+  count: number;
+  lastSeen: string;
+  expiresAt: string;
+}
+
+/** Map the canonical model to the personalization-center view (one mapping). */
+export function preferenceToView(p: LearnedPreference): PreferenceView {
+  const key = p.signal as Exclude<Verdict, "helpful">;
+  return {
+    signal: p.signal,
+    label: labelForSignal(key),
+    effect: hintForSignal(key),
+    whyUsed: p.whyUsed,
+    source: p.source,
+    confidence: p.confidence,
+    count: p.count,
+    lastSeen: p.lastSeen,
+    expiresAt: p.expiresAt,
+  };
 }

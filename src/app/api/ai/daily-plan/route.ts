@@ -15,11 +15,13 @@ import {
 } from "@/lib/safety/allergens";
 import { checkDailyPlanV2Quality } from "@/lib/ai/quality-checks";
 import { buildFallbackDailyPlan } from "@/lib/ai/fallback-plan";
+import { type FeedbackRow } from "@/lib/feedback/learned";
 import {
-  deriveLearned,
-  learnedToPromptHints,
-  type FeedbackRow,
-} from "@/lib/feedback/learned";
+  buildPreferences,
+  applyCurrentContext,
+  preferencesToPromptHints,
+  todayContradictions,
+} from "@/lib/feedback/preferences";
 import { isFlagEnabled } from "@/lib/flags";
 import { trackEvent } from "@/lib/analytics";
 import {
@@ -270,12 +272,22 @@ export async function POST(request: Request) {
       .select("signal, suppressed_at")
       .eq("user_id", user.id),
   ]);
-  const learnedHints = learnedToPromptHints(
-    deriveLearned(
+  // MW-07: one canonical, versioned preference model (60-day decay, suppression
+  // boundaries, confidence) drives BOTH generation and the personalization
+  // center — no parallel derivation. Today's explicit check-in outranks a
+  // conflicting inferred preference (e.g. good energy today beats a historical
+  // "too much").
+  const preferences = applyCurrentContext(
+    buildPreferences(
       (feedback ?? []) as FeedbackRow[],
       (suppressions ?? []) as { signal: string; suppressed_at: string }[]
-    )
+    ),
+    todayContradictions({
+      energy_level: checkin.energy_level,
+      time_available: checkin.time_available,
+    })
   );
+  const learnedHints = preferencesToPromptHints(preferences);
   if (learnedHints) modeInstruction += `\n${learnedHints}`;
 
   // Severe-allergy users get a meal-free plan. Ask the model to keep the

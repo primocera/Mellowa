@@ -79,6 +79,19 @@ const SIGNALS: Record<
   },
 };
 
+/** Max canonical hints ever fed to the generator (shared by the canonical model). */
+export const MAX_PROMPT_HINTS = MAX_HINTS;
+
+/** Canonical user-facing label for a signal — the single phrase source. */
+export function labelForSignal(signal: Exclude<Verdict, "helpful">): string {
+  return SIGNALS[signal].label;
+}
+
+/** Canonical generator hint fragment for a signal (never user text). */
+export function hintForSignal(signal: Exclude<Verdict, "helpful">): string {
+  return SIGNALS[signal].hint;
+}
+
 /**
  * Build the user-facing learned list from recent feedback rows. Bounded and
  * ordered by how strongly each signal appears.
