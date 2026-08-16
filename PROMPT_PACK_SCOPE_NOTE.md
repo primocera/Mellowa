@@ -1,6 +1,8 @@
 # Note to the prompt-pack author — stop re-selling owner-gated work as code work
 
-**Read this before writing the next pack (v16+).** This note is Mellowa-only
+**Read this before writing the next pack (v16+).** As of v19 the engineering line
+is done and certified — the next pack should be **MARKETING / GTM, not engineering**;
+see [`docs/NEXT_STEPS.md`](docs/NEXT_STEPS.md). This note is Mellowa-only
 (`primocera/Mellowa`). It previously carried Scalvya/LaunchBloom paths, candidate
 SHAs and a react-router advisory that **do not exist in this repository**; those
 were corrected in the v16 truth-freeze (MW-95-00). Every file, script, candidate
