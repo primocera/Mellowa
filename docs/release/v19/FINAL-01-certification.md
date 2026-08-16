@@ -40,15 +40,20 @@ Code is ready. **Blockers (owner):**
 3. Observe `/api/health` + `/api/health/ready` on the deployed candidate (MW-04);
    for paid, `READINESS_MODE=paid` fails closed on a degraded critical worker.
 
-### Public paid — NO-GO
-Adds, on top of the capped-beta blockers:
+### Public paid (bounded) — CONDITIONAL GO
+On top of the capped-beta blockers, one condition gates opening paid:
 1. **Live-money rehearsal** — the full charge→cancel→reactivate→recovery→refund
    sequence witnessed on the current code/price (`P0-LIVE-TRANSACTION`). Owner has
    **accepted this risk** for a bounded launch (carried forward from v16); re-verify
-   with one completed current-code live charge before scaling volume.
-2. A **mature 4-week bounded-cohort window** meeting the predeclared hypotheses
-   (D2/D3/Week/carry-forward/trial→charge/renewal/refund) — none exist yet; pricing
-   discovery and scale readiness are correctly `unavailable`/blocked.
+   with one completed current-code live charge before opening paid.
+
+A **mature 4-week bounded-cohort window** (D2/D3/Week/carry-forward/trial→charge/
+renewal/refund) is **not** a launch blocker — it cannot exist before real paying
+users do. It is an **optional gate on scaling volume**, enforced where it belongs:
+XAPP-03's `expand` decision stays BLOCKED until the window matures, and pricing
+discovery / scale readiness remain `unavailable`/blocked until then. Bounded paid
+may open once the live-money rehearsal is witnessed and the capped-beta blockers
+clear; growing past the bounded cohort waits on the mature window.
 
 ## Monitoring
 
@@ -73,6 +78,8 @@ that candidate.
 ## What may launch now
 
 Nothing new is auto-launched by this pack. Capped beta may proceed **once the owner
-completes the three capped-beta blockers**. Public paid **waits** on live-money
-evidence and a mature value window. One active release truth remains per repo;
-superseded v-docs stay marked superseded.
+completes the three capped-beta blockers**. **Bounded** public paid may then open
+**once the live-money rehearsal is witnessed** — it does not wait on a mature value
+window; that window is an optional gate on **scaling past the bounded cohort**
+(XAPP-03 `expand`). One active release truth remains per repo; superseded v-docs stay
+marked superseded.

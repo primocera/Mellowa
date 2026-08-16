@@ -14,12 +14,18 @@ describe("FINAL-01 issues honest, separate verdicts", () => {
   it("gives a distinct verdict for product / capped beta / public paid", () => {
     expect(final).toMatch(/Product capability\s*—\s*STRONG/i);
     expect(final).toMatch(/Capped beta\s*—\s*CONDITIONAL GO/i);
-    expect(final).toMatch(/Public paid\s*—\s*NO-GO/i);
+    expect(final).toMatch(/Public paid[^—]*—\s*CONDITIONAL GO/i);
   });
 
-  it("never declares public paid GO (owner live-money gate is open)", () => {
-    expect(final).not.toMatch(/Public paid\s*—\s*GO\b/i);
+  it("keeps bounded paid conditional on the live-money gate, not unconditional GO", () => {
+    // bounded paid is CONDITIONAL GO, never a bare/unconditional GO
+    expect(final).not.toMatch(/Public paid[^—]*—\s*GO\b/i);
     expect(final).toMatch(/P0-LIVE-TRANSACTION/);
+  });
+
+  it("demotes the 4-week window to an optional scaling gate, not a launch blocker", () => {
+    expect(final).toMatch(/not\W+a\s+launch\s+blocker/i);
+    expect(final).toMatch(/scal(e|ing)/i);
   });
 
   it("names the immutable-RC blocker and the re-opened auth matrix", () => {
