@@ -1,9 +1,10 @@
 # Mellowa
 
 > **Next prompt pack?** The engineering build (v6–v19) is done and certified. The
-> next pack must be **MARKETING / GTM**, not engineering — read
-> [`docs/NEXT_STEPS.md`](docs/NEXT_STEPS.md) **first.** Coding stays open for real
-> fixes; just don't write another engineering pack by default.
+> project is now moving toward marketing — the next pack is the **v20 "Moving Toward
+> Marketing" pack**, not engineering. Read [`docs/NEXT_STEPS.md`](docs/NEXT_STEPS.md)
+> **first.** Coding stays open for real fixes; just don't write another engineering
+> pack by default.
 
 A gentle daily wellbeing planner for adults with inconsistent routines. One
 realistic plan for food, energy, mood and habits — adapted to how the day

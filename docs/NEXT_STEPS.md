@@ -6,12 +6,13 @@
 > own sake). Auditing a mature repo always surfaces something to "harden" — that has
 > already looped across v6–v19, and it can stop here.
 >
-> **The next prompt pack should be the v20 _marketing_ pack** — call it that. It
-> produces copy, plans and experiments, not code.
+> **The next prompt pack should be the v20 "Moving Toward Marketing" pack** — call it
+> that. It produces copy, plans and experiments, not code.
 
 If your job is "the previous prompts are done, check the repo, and write the next
-prompt pack," then the next pack is the **v20 marketing pack** — not another
-engineering pack.
+prompt pack," then the next pack is the **v20 "Moving Toward Marketing" pack** — the
+project is shifting from building to reaching people, not opening another engineering
+pack.
 
 The v6–v19 engineering packs are done and shipped, and the code is in strong shape.
 The focus now is **getting Mellowa in front of the people it's for.** Coding stays
@@ -48,7 +49,7 @@ realistic plan for the day you actually have, **reshapes the rest of the day whe
 day changes**, keeps what you already did, and carries value forward — free Undo, no
 shame, and you stay in control of what it learned.
 
-## What the v20 marketing pack should cover (write prompts for THESE)
+## What the v20 "Moving Toward Marketing" pack should cover (write prompts for THESE)
 
 1. **Positioning & core messaging** — sharpen the promise for the people Mellowa is
    for: **busy women 25–45 with inconsistent routines** who want simple
@@ -76,4 +77,4 @@ shame, and you stay in control of what it learned.
 
 Frame all of these as marketing prompts (copy, plans, experiments, outreach) — not
 code. If your task was merely "the previous prompts are done, check the repo, write the
-next ones," the correct next pack is the **v20 marketing pack**.
+next ones," the correct next pack is the **v20 "Moving Toward Marketing" pack**.
