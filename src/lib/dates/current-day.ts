@@ -40,6 +40,38 @@ export function hasDay(
   return r.status === "resolved" || r.status === "missing_or_invalid";
 }
 
+/**
+ * Error-aware resolution of the user's stored IANA timezone (MW-03). Unlike
+ * resolveCurrentDay this returns the timezone STRING (callers that compute local
+ * week boundaries need the zone, not just today's date), but keeps the same
+ * three-state contract so a database read failure is never laundered into a UTC
+ * fallback that mutates the wrong day/week.
+ *
+ *   - resolved           a valid stored IANA timezone;
+ *   - missing_or_invalid  profile read succeeded but no usable timezone → the
+ *                         caller may use its documented UTC fallback;
+ *   - unavailable         the read itself failed → the caller MUST fail closed.
+ */
+export type TimeZoneResolution =
+  | { status: "resolved"; timeZone: string }
+  | { status: "missing_or_invalid"; timeZone: null }
+  | { status: "unavailable" };
+
+export async function resolveTimeZoneState(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<TimeZoneResolution> {
+  const { data, error } = await supabase
+    .from("wellbeing_profiles")
+    .select("timezone")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) return { status: "unavailable" };
+  const tz = data?.timezone ?? null;
+  if (isValidTimeZone(tz)) return { status: "resolved", timeZone: tz };
+  return { status: "missing_or_invalid", timeZone: null };
+}
+
 export async function resolveCurrentDay(
   supabase: SupabaseClient,
   userId: string,

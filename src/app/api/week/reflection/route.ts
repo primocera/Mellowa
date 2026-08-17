@@ -10,9 +10,31 @@ import {
   type WeeklyReflectionSelections,
 } from "@/lib/week/reflection";
 import { reflectionWindow } from "@/lib/weekly/window";
-import { isValidTimeZone } from "@/lib/dates/local-day";
+import { resolveTimeZoneState } from "@/lib/dates/current-day";
 import { trackEvent } from "@/lib/analytics";
 import { isFlagEnabled } from "@/lib/flags";
+
+/**
+ * MW-03: distinguish a genuinely missing/invalid timezone (documented UTC
+ * fallback is safe) from a database read that FAILED (must fail closed). A
+ * `null` return means the timezone read errored — the caller returns 503 and
+ * never mutates or presents a week.
+ */
+async function resolveTimeZoneOrUnavailable(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<string | null> {
+  const state = await resolveTimeZoneState(supabase, userId);
+  if (state.status === "unavailable") return null;
+  // resolved → the stored zone; missing/invalid → documented UTC fallback.
+  return state.status === "resolved" ? state.timeZone : "UTC";
+}
+
+const DATA_UNAVAILABLE = {
+  error: "data_unavailable",
+  user_message:
+    "We couldn't load your week just now — nothing you saved was lost. Please refresh in a moment.",
+} as const;
 
 /**
  * MW-S06 / MW-03: weekly reflection.
@@ -28,19 +50,6 @@ import { isFlagEnabled } from "@/lib/flags";
  * completed source week, after the client showed their exact effects.
  */
 
-/** Resolve the user's stored timezone (server-side truth), defaulting to UTC. */
-async function resolveTimeZone(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string
-): Promise<string> {
-  const { data } = await supabase
-    .from("wellbeing_profiles")
-    .select("timezone")
-    .eq("user_id", userId)
-    .maybeSingle();
-  return isValidTimeZone(data?.timezone) ? (data!.timezone as string) : "UTC";
-}
-
 /** YYYY-MM-DD, `n` days after `ymd` (UTC-midnight arithmetic). */
 function addDaysYmd(ymd: string, n: number): string {
   return new Date(Date.parse(`${ymd}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
@@ -54,7 +63,12 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const now = new Date();
-  const tz = await resolveTimeZone(supabase, user.id);
+  const tz = await resolveTimeZoneOrUnavailable(supabase, user.id);
+  // MW-03: a failed timezone read is an outage, not a missing profile — fail
+  // closed rather than silently computing the week in UTC.
+  if (tz === null) {
+    return NextResponse.json(DATA_UNAVAILABLE, { status: 503 });
+  }
   const window = reflectionWindow(now, tz);
   if (!window) {
     return NextResponse.json({ error: "timezone_unresolved" }, { status: 500 });
@@ -94,6 +108,19 @@ export async function GET() {
       .eq("week_start", sourceWeekStart)
       .maybeSingle(),
   ]);
+
+  // MW-03: if ANY required query failed, this is an outage — return 503 rather
+  // than computing facts from partial arrays and presenting a real week as blank
+  // (or a saved reflection as absent). An outage and a genuinely empty week are
+  // observably different states.
+  if (
+    plansRes.error ||
+    feedbackRes.error ||
+    favouritesRes.error ||
+    reflectionRes.error
+  ) {
+    return NextResponse.json(DATA_UNAVAILABLE, { status: 503 });
+  }
 
   const facts = weeklyFactsForWindow(
     {
@@ -166,7 +193,12 @@ export async function POST(request: Request) {
   // timezone — the only week that can be closed out. The current in-progress
   // week is never a valid target.
   const now = new Date();
-  const tz = await resolveTimeZone(supabase, user.id);
+  const tz = await resolveTimeZoneOrUnavailable(supabase, user.id);
+  // MW-03: fail closed on a timezone read outage — never save a reflection to a
+  // UTC-fallback week.
+  if (tz === null) {
+    return NextResponse.json(DATA_UNAVAILABLE, { status: 503 });
+  }
   const window = reflectionWindow(now, tz);
   if (!window) {
     return NextResponse.json({ error: "timezone_unresolved" }, { status: 500 });

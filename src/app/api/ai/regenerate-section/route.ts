@@ -172,7 +172,21 @@ export async function POST(request: Request) {
   // MW-02: only today's canonical plan can be regenerated. A tab open across
   // local midnight, a wrong clock or a forged past/future target is refused
   // (and any sample-adjustment claim is refunded) rather than mutating history.
-  if ((await checkPlanIsToday(supabase, user.id, plan.plan_date as string)) !== "ok") {
+  const dayState = await checkPlanIsToday(supabase, user.id, plan.plan_date as string);
+  if (dayState === "unavailable") {
+    // MW-03: timezone read outage — fail closed and refund any sample claim.
+    await releaseReservation(eventId);
+    await refundSampleAdjustment();
+    return NextResponse.json(
+      {
+        error: "data_unavailable",
+        user_message:
+          "We couldn't confirm today's plan just now — nothing was changed. Please try again in a moment.",
+      },
+      { status: 503 }
+    );
+  }
+  if (dayState !== "ok") {
     await releaseReservation(eventId);
     await refundSampleAdjustment();
     return NextResponse.json(

@@ -89,7 +89,22 @@ Each row: reproduction · affected journey · severity · code evidence · accep
 - **Acceptance:** one error-aware resolver → `resolved | missing_or_invalid | unavailable`;
   mutations/weekly GET return 503 `data_unavailable` on read failure with zero writes/events;
   documented UTC fallback only for genuinely absent/invalid profile data.
-- **Prompt:** MW-03.
+- **Prompt:** MW-03. **Status: CLOSED** — shared error-aware resolvers
+  (`resolveTimeZoneState` / `resolveCurrentDay` in `src/lib/dates/current-day.ts`)
+  and the mutation guard (`checkPlanIsToday`, now returns `unavailable`) fail
+  closed with 503 on a read outage. Weekly GET returns 503 if the tz read OR any
+  of the four facts queries errors (no partial-array facts); daily-plan/repair/
+  regenerate profile-read outages → 503 instead of wrong-day mutation.
+  Fallback policy: valid stored IANA zone → local date; genuinely missing/invalid
+  → documented UTC/bounded-client fallback; read **error** → `unavailable`/503.
+
+**Canonical fallback policy** (single source of truth): the timezone fallback is
+defined in `src/lib/dates/current-day.ts` (`resolveTimeZoneState` /
+`resolveCurrentDay`) and `src/lib/dates/local-day.ts` (`resolvePlanDate`). A
+resolved valid IANA zone wins; a genuinely absent/invalid zone uses the bounded
+client-date-or-server-date fallback (never mutates outside ±1 day); a failed
+**read** is `unavailable` and every content mutation / weekly surface returns
+503 `data_unavailable` with zero writes and zero analytics.
 
 ### G4 — Paid readiness does not fail closed on config/schema/worker truth (P0/P1) → MW-04
 - **Evidence:** `src/app/api/health/ready/route.ts:70-76` marks email/stripe/ai/cron config

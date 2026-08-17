@@ -143,7 +143,18 @@ export async function POST(request: Request) {
   // MW-02: only today's canonical plan can be adjusted. If the day rolled over
   // while this tab was open (or a stale/forged request targets a past day),
   // refuse with a stable 409 rather than mutating a historical plan.
-  if ((await checkPlanIsToday(supabase, user.id, plan.plan_date as string)) !== "ok") {
+  const dayState = await checkPlanIsToday(supabase, user.id, plan.plan_date as string);
+  if (dayState === "unavailable") {
+    // MW-03: timezone read outage — fail closed rather than adjust the plan
+    // against a UTC-fallback day.
+    await releaseReservation(eventId);
+    return fail(503, {
+      error: "data_unavailable",
+      user_message:
+        "We couldn't confirm today's plan just now — nothing was changed. Please try again in a moment.",
+    });
+  }
+  if (dayState !== "ok") {
     await releaseReservation(eventId);
     return fail(409, {
       error: "stale_day",

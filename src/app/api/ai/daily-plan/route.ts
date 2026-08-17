@@ -62,12 +62,21 @@ export async function POST(request: Request) {
   }
 
   // 2. Load wellbeing profile
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("wellbeing_profiles")
     .select("*")
     .eq("user_id", user.id)
     .maybeSingle();
 
+  // MW-03: a failed profile read is an outage, not a missing profile — fail
+  // closed (503) instead of misreporting it as "needs onboarding" (which would
+  // also mean the plan-date resolution below runs without timezone truth).
+  if (profileError) {
+    return NextResponse.json(
+      { error: "data_unavailable" },
+      { status: 503 }
+    );
+  }
   if (!profile) {
     return NextResponse.json(
       { error: "onboarding_required" },
