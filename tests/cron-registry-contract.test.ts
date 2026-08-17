@@ -85,4 +85,18 @@ describe("cron registry completeness + safety", () => {
       expect(doc, `${job.route} undocumented`).toContain(job.route);
     }
   });
+
+  // MW-05: a registry-declared cron_leases lease must be ACQUIRED at runtime —
+  // metadata claiming a lease the route never takes is exactly the retention /
+  // billing-reconcile gap this pack closed.
+  it("every cron_leases-declared job actually acquires a lease at runtime", () => {
+    for (const job of CRON_REGISTRY.filter((j) => /cron_leases/i.test(j.lease.mechanism))) {
+      const dir = job.route.replace("/api/cron/", "");
+      const src = readFileSync(`${CRON_DIR}/${dir}/route.ts`, "utf8");
+      const acquires = /acquireCronLease|runCronJob/.test(src);
+      expect(acquires, `${job.route} declares a cron_leases lease but never acquires one`).toBe(
+        true
+      );
+    }
+  });
 });

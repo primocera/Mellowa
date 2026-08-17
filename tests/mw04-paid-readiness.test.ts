@@ -134,6 +134,16 @@ function healthyAdmin() {
       }
       if (name === "account_deletion_stats")
         return { data: { stuck_jobs: 0, oldest_open: null }, error: null };
+      if (name === "cron_job_health") {
+        const nowIso = new Date().toISOString();
+        return {
+          data: [
+            { job_id: "retention", last_success_at: nowIso, last_failure_at: null, last_status: "success", last_run_at: nowIso },
+            { job_id: "billing-reconcile", last_success_at: nowIso, last_failure_at: null, last_status: "success", last_run_at: nowIso },
+          ],
+          error: null,
+        };
+      }
       // claim_ai_generation / undo_plan_repair: expected coercion error
       return { data: null, error: { code: "22P02", message: "invalid input syntax for type uuid" } };
     },

@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { serverEnv } from "@/lib/env";
 import { requireBearerSecret } from "@/lib/cron-auth";
 import { getStripe } from "@/lib/stripe/client";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { reconcileBilling } from "@/lib/stripe/reconcile";
+import { runCronJob } from "@/lib/ops/run-cron-job";
 
 /**
  * Billing reconciliation job (Launch v6, Prompt 18). Compares every local
@@ -20,19 +20,45 @@ export async function POST(request: Request) {
   const denied = requireBearerSecret(request, serverEnv.cronSecret);
   if (denied) return denied;
 
-  const report = await reconcileBilling(getStripe(), createAdminClient());
-  if (!report.ok || report.driftFixed.length > 0) {
-    console.error("[billing-reconcile] exceptions", {
-      driftFixed: report.driftFixed.length,
-      unresolvable: report.unresolvable.length,
-      duplicateCustomers: report.duplicateCustomers.length,
-      unknownPrices: report.unknownPrices,
-      stuckWebhookEvents: report.stuckWebhookEvents.length,
-    });
+  // MW-05: reconciliation calls live Stripe, so a duplicate concurrent run is
+  // real provider load. Run through the shared helper with a fail-closed lease
+  // (a run whose lease cannot be evaluated skips rather than double-reconciling)
+  // and a durable cron_runs record.
+  let report: Awaited<ReturnType<typeof reconcileBilling>> | null = null;
+
+  const outcome = await runCronJob(
+    "billing-reconcile",
+    async ({ admin }) => {
+      report = await reconcileBilling(getStripe(), admin);
+      if (!report.ok || report.driftFixed.length > 0) {
+        console.error("[billing-reconcile] exceptions", {
+          driftFixed: report.driftFixed.length,
+          unresolvable: report.unresolvable.length,
+          duplicateCustomers: report.duplicateCustomers.length,
+          unknownPrices: report.unknownPrices,
+          stuckWebhookEvents: report.stuckWebhookEvents.length,
+        });
+      }
+      const processed =
+        report.driftFixed.length +
+        report.unresolvable.length +
+        report.duplicateCustomers.length;
+      return report.ok
+        ? { processed }
+        : { processed, ok: false, errorCategory: "reconcile_exception" };
+    },
+    { leaseFailurePolicy: "fail_closed" }
+  );
+
+  if (!outcome.ran) {
+    return NextResponse.json({ ok: true, skipped: outcome.status }, { status: 200 });
   }
   // Non-2xx on exceptions so the pinger's own alerting notices without any
   // extra email infrastructure.
-  return NextResponse.json({ ok: report.ok, report }, { status: report.ok ? 200 : 500 });
+  return NextResponse.json(
+    { ok: outcome.status === "success", report },
+    { status: outcome.status === "success" ? 200 : 500 }
+  );
 }
 
 export const GET = POST;

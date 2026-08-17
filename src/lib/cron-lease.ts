@@ -19,6 +19,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface CronLease {
   acquired: boolean;
+  /**
+   * MW-05: true when the lease RPC actually ran (so `acquired` is authoritative);
+   * false when the RPC errored and we FAILED OPEN. A fail-closed job uses this to
+   * skip rather than risk a duplicate run when the lease could not be evaluated.
+   */
+  evaluated: boolean;
   runId: string;
   release(): Promise<void>;
 }
@@ -43,19 +49,21 @@ export async function acquireCronLease(
 
   if (error) {
     // Fail OPEN — see the module comment. Logged so it is visible in ops.
+    // `evaluated: false` lets a fail-closed caller (MW-05) override this.
     console.warn("[cron-lease] could not evaluate lease, proceeding", {
       job: jobName,
       message: error.message,
     });
-    return { acquired: true, runId, release: noop };
+    return { acquired: true, evaluated: false, runId, release: noop };
   }
 
   if (data !== true) {
-    return { acquired: false, runId, release: noop };
+    return { acquired: false, evaluated: true, runId, release: noop };
   }
 
   return {
     acquired: true,
+    evaluated: true,
     runId,
     async release() {
       // Best effort: an unreleased lease simply expires on its own.

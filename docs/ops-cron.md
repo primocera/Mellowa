@@ -338,3 +338,47 @@ because reproducing them live would mean waiting for a DST boundary or putting a
 crisis signal on a real account. The rehearsal proves *delivery*: that a real
 message reaches a real inbox, at the right time, saying the right thing, and
 that the controls stop it.
+
+---
+
+## Durable cron run ledger + external-pinger verification (MW-05)
+
+Every registered job now runs through one shared helper (`src/lib/ops/run-cron-job.ts`)
+that records a durable row in `cron_runs` (migration 053): `job_id`, `run_id`,
+`status` (running / success / failure / skipped_locked / lease_unavailable / degraded),
+timings, `processed` count, a **safe error category** (never a message, id, address or
+content), the lease outcome and the release SHA. `retention` and `billing-reconcile` now
+also acquire the registry's `cron_leases` lease through the helper with a **fail-closed**
+policy — a run whose lease cannot be evaluated **skips** rather than risk a duplicate
+prune or a duplicate live-Stripe reconcile.
+
+**Where to look**
+- Machine: `select * from public.cron_job_health();` — last run/success/failure per job.
+- Admin: `GET /api/admin/cron-runs` — per-job health, the 50 most recent runs (status /
+  category / counts only) and a `neverRun` list of registered jobs with **no** ledger row
+  yet (a scheduler that was never configured is visible, not silently absent).
+- Readiness: `/api/health/ready` reads `cron_job_health()` and turns each critical job's
+  last success into `cron_retention_freshness` / `cron_billing_reconcile_freshness`. A
+  configured pinger with **no observed success** is `unavailable` and fails paid closed.
+
+**Owner external-pinger checklist (NOT RUN by Claude — owner-only).** For each
+external job (`email-outbox`, `account-deletion`, `retention`, `billing-reconcile`),
+configure the free pinger (cron-job.org) with:
+
+| Field | Value |
+|---|---|
+| Method | `POST` |
+| URL | `https://mellowa.app/api/cron/<job>` |
+| Header | `Authorization: Bearer <CRON_SECRET>` (never commit the value) |
+| Cadence | email-outbox/account-deletion: every 10–15 min · retention/billing: daily |
+| Timeout | 60 s |
+| Alert | notify on non-2xx (the routes return 500 on exceptions on purpose) |
+
+**Verify after configuring (owner):**
+1. Trigger each job once; confirm a `success` row appears in `GET /api/admin/cron-runs`.
+2. Trigger `retention`/`billing-reconcile` twice within the lease window; the second must
+   record `skipped_locked` (never a double run).
+3. Confirm `/api/health/ready` (paid mode) reports `cron_*_freshness: ok` only **after** a
+   real success — not before.
+
+Live pinger configuration and delivery observation remain **owner-only, NOT RUN**.

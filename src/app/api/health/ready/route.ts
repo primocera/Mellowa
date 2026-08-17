@@ -13,6 +13,7 @@ import {
   paidConfigComponents,
   paidConfigComponentKeys,
 } from "@/lib/health/paid-config";
+import { CRON_REGISTRY } from "@/lib/ops/cron-registry";
 
 /**
  * Deep operational readiness (v6 Prompt 5, extended MW-04). Authenticated
@@ -55,10 +56,27 @@ const CRITICAL: readonly string[] = [
   "rpc_account_deletion_stats_v044",
   "deletion_worker_freshness",
   "outbox_freshness",
+  // MW-05: ledger-backed freshness for the external-pinger jobs that previously
+  // had no durable run evidence. A configured pinger with no observed success is
+  // "unavailable" and blocks paid.
+  "cron_retention_freshness",
+  "cron_billing_reconcile_freshness",
   // MW-04: paid-critical config (Stripe/AI/cron/email/legal). not_configured is
   // allowed in beta but fails closed in paid.
   ...paidConfigComponentKeys(),
 ];
+
+/** MW-05: classify a ledger-backed job's freshness against its registry threshold. */
+function classifyLedgerFreshness(
+  jobId: string,
+  lastSuccessAt: number | null,
+  now = Date.now()
+): ComponentStatus {
+  if (lastSuccessAt == null) return "unavailable"; // never observed a success
+  const job = CRON_REGISTRY.find((j) => j.id === jobId);
+  const maxAgeMs = (job?.alertThresholdMinutes ?? 24 * 60) * 60 * 1000;
+  return now - lastSuccessAt > maxAgeMs ? "degraded" : "ok";
+}
 
 export async function GET(request: Request) {
   const unauthorized = requireBearerSecret(
@@ -91,6 +109,9 @@ export async function GET(request: Request) {
     // Worker freshness — unavailable until observed.
     deletion_worker_freshness: "unavailable",
     outbox_freshness: "unavailable",
+    // MW-05: ledger-backed freshness (cron_runs) — unavailable until a success.
+    cron_retention_freshness: "unavailable",
+    cron_billing_reconcile_freshness: "unavailable",
     // MW-04: paid-critical config from the canonical contract (Stripe secret +
     // webhook + prices, AI key, cron/admin secrets, email sender, legal
     // identity, support email). Present → ok, absent → not_configured (blocks
@@ -227,6 +248,25 @@ export async function GET(request: Request) {
         oldestDueMs: oldestDue,
       });
     }
+
+    // MW-05: consume the durable cron_runs ledger for the external-pinger jobs.
+    const { data: cronHealth, error: cronErr } = await admin.rpc("cron_job_health");
+    if (!cronErr && Array.isArray(cronHealth)) {
+      const byJob = new Map(
+        (cronHealth as Array<{ job_id: string; last_success_at: string | null }>).map(
+          (r) => [r.job_id, r.last_success_at ? Date.parse(r.last_success_at) : null]
+        )
+      );
+      components.cron_retention_freshness = classifyLedgerFreshness(
+        "retention",
+        byJob.get("retention") ?? null
+      );
+      components.cron_billing_reconcile_freshness = classifyLedgerFreshness(
+        "billing-reconcile",
+        byJob.get("billing-reconcile") ?? null
+      );
+    }
+    // On a cron_job_health error the two stay "unavailable" (fail closed in paid).
   } catch {
     // createAdminClient throws without service-role config.
     components.database = "fail";

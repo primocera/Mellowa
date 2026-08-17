@@ -151,7 +151,17 @@ opts into strict.
   start/success/failure; real overlap protection or documented tested idempotency; readiness
   consumes ledger; admin status view (no PII); owner setup checklist for external pingers
   (**config stays NOT RUN**).
-- **Prompt:** MW-05.
+- **Prompt:** MW-05. **Status: CLOSED.** Migration 053 adds the durable
+  `cron_runs` ledger + `record_cron_run_start/finish` + `cron_job_health()`. One
+  shared helper `runCronJob` validates the registry id, acquires the declared
+  `cron_leases` lease with an explicit fail-closed policy (`evaluated` flag on
+  `acquireCronLease`), and records every run (safe category only). retention +
+  billing-reconcile now genuinely acquire the lease they declared. Readiness
+  consumes `cron_job_health()` for `cron_retention_freshness` /
+  `cron_billing_reconcile_freshness` (critical in paid). Admin view
+  `/api/admin/cron-runs` (counts/categories only, `neverRun` surfaced). Contract
+  test now fails if a `cron_leases` job never acquires a lease. Owner external-
+  pinger config + live delivery remain NOT RUN (checklist in `docs/ops-cron.md`).
 
 ### G6 — Two competing "expansion OK" signals; doc-string test only (P0 for scale) → MW-06
 - **Evidence:** `src/lib/analytics/loop-decisions.ts` `expansionVerdict` can return
