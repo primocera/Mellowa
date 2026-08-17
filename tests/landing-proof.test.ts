@@ -113,8 +113,9 @@ describe("the proof is an illustration, not a fake product", () => {
   });
 
   it("marks state with a border, not colour alone, for forced-colors mode", () => {
-    // Each status chip carries a border so it survives a forced palette.
-    expect(proof).toMatch(/border-\[#166534\]\/20 bg-\[#DCFCE7\]/);
+    // Each status chip carries a border so it survives a forced palette. The
+    // "already done — kept" chip is solid sage; the "kept" chip is sage-tinted.
+    expect(proof).toMatch(/border border-\[#7C9A92\] bg-\[#7C9A92\] px-2\.5/);
     expect(proof).toMatch(/border-\[#7C9A92\] bg-\[#7C9A92\]\/10/);
   });
 });
