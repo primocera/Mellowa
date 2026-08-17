@@ -192,7 +192,16 @@ opts into strict.
   body/subject/email/attachments), idempotent upsert, durable coverage/staleness → verified
   state; missing/stale coverage ⇒ unavailable in burden + scale decision; deletion handling.
   Real inbox ingestion stays **NOT RUN**.
-- **Prompt:** MW-07.
+- **Prompt:** MW-07. **Status: CLOSED (manual import path); real inbox/provider
+  ingestion stays NOT RUN.** Migration 054 adds `support_ingestion_runs` (durable
+  coverage: source/counts/window/actor, metadata only). Admin route gains a
+  privacy-safe BATCH import (`{source, coverage_start/end, tickets[]}`) — strict
+  schema rejects any body/subject/email/attachment key, chronology validated,
+  idempotent upsert by unique `external_ref`, one durable coverage run per batch.
+  `verified` now = durable recent coverage **AND** the operator attestation (env
+  flag alone no longer certifies an empty ledger); stale/absent coverage →
+  unavailable in burden → pricing-discovery closed → scaleDecision HOLD. Deletion
+  anonymization already via `account_user_id ... on delete set null` (047).
 
 ### Owner-gated (release evidence, not code gaps) → MW-08 / MW-09 / MW-FINAL
 - Migrations 044–049 (+ new v20 migrations) not proven applied in production.
