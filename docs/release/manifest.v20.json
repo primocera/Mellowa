@@ -1,0 +1,155 @@
+{
+  "schema": 1,
+  "release": "v20",
+  "baselineSha": "5fea5a98e763876c16a07f3ad63448a8e68b9bbd",
+  "rcSha": null,
+  "candidateLifecycle": "draft",
+  "reconciledAtUtc": "2026-08-17T00:00:00Z",
+  "buildId": null,
+  "migrations": [
+    "001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
+    "011", "012", "013", "014", "015", "016", "017", "018", "019", "020",
+    "021", "022", "023", "024", "025", "026", "027", "028", "029", "030",
+    "031", "032", "033", "034", "035", "036", "037", "038", "039", "040",
+    "041", "042", "043", "044", "045", "046", "047", "048", "049", "050",
+    "051", "052", "053", "054"
+  ],
+  "suites": [
+    {
+      "id": "lint",
+      "command": "npm run lint",
+      "required": true,
+      "status": "not_run",
+      "note": "Per-commit in ordinary CI (advisory). Frozen with SHA-pinned evidence only when the immutable release-candidate workflow cuts an RC. No candidate is frozen for v20, so no result is recorded as candidate evidence."
+    },
+    {
+      "id": "typecheck",
+      "command": "npm run typecheck",
+      "required": true,
+      "status": "not_run",
+      "note": "Per-commit in CI; frozen only at an RC via .github/workflows/release-candidate.yml."
+    },
+    {
+      "id": "unit-contract-safety",
+      "command": "npx vitest run",
+      "required": true,
+      "status": "not_run",
+      "note": "Per-commit in CI; frozen only at an RC. The RC workflow fails if zero tests are discovered. At the v20 branch HEAD this suite is green locally (2107 passed) but that is NOT candidate evidence until an RC is cut."
+    },
+    {
+      "id": "eval-gate",
+      "command": "npm run eval",
+      "required": true,
+      "status": "not_run",
+      "note": "Safety plus golden fit/variety gates; no LLM judges safety. Frozen only at an RC."
+    },
+    {
+      "id": "production-build",
+      "command": "npm run build",
+      "required": true,
+      "status": "not_run",
+      "note": "Per-commit in CI; frozen only at an RC."
+    },
+    {
+      "id": "e2e-public",
+      "command": "npm run test:e2e:public",
+      "required": true,
+      "status": "not_run",
+      "note": "Public browser journeys, per-commit in CI; frozen only at an RC."
+    },
+    {
+      "id": "e2e-authenticated",
+      "command": "npm run test:e2e:matrix",
+      "required": true,
+      "status": "blocked",
+      "note": "BLOCKED: the authenticated matrix needs a seeded non-production Supabase + Stripe test mode with migrations 050-054 applied. The immutable RC workflow REQUIRES this suite; missing seeded secrets or zero discovered tests fail the RC run. Owner-run. Superseded-candidate evidence never carries forward."
+    },
+    {
+      "id": "release-check",
+      "command": "npm run release-check",
+      "required": true,
+      "status": "blocked",
+      "note": "Fails closed without the production env pulled, by design. Owner runs it with the real environment; it prints presence only, never a value. MW-04 makes this and deep readiness share config/paid-required-env.json."
+    }
+  ],
+  "ownerEvidence": [
+    {
+      "id": "migrations-050-054-applied",
+      "action": "Apply v20 migrations 050-054 to production Supabase per docs/release/v20/MIGRATION_PLAN.md, then verify each with the recorded query.",
+      "status": "not_run",
+      "note": "Additive/idempotent. Claude never applies production migrations. Confirm via /api/health/ready (paid mode) once applied — the exact-schema probe (052) must report ok."
+    },
+    {
+      "id": "authenticated-e2e-matrix",
+      "action": "Run the full authenticated E2E matrix once, unattended, against a throwaway non-production Supabase with 050-054 applied, pinned at the frozen candidate SHA.",
+      "status": "not_run",
+      "note": "Not observed at any v20 SHA. Prior-release runs do not carry forward across v20 product/schema drift."
+    },
+    {
+      "id": "live-transaction",
+      "action": "One real low-value transaction end to end on live Stripe: charge, cancel, reactivate, payment recovery, refund, per docs/runbooks/live-transaction-rehearsal.md.",
+      "status": "not_run",
+      "note": "Carried forward as an accepted risk for public paid from v16 (P0-LIVE-TRANSACTION). Claude never executes live money."
+    },
+    {
+      "id": "cron-rehearsal",
+      "action": "Configure the external pingers and observe a durable success in cron_runs for each external job, then confirm cron_*_freshness=ok in paid readiness (MW-05 checklist in docs/ops-cron.md).",
+      "status": "not_run",
+      "note": "External scheduler configuration and live delivery are owner-only."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "P0-V20-MIGRATIONS-APPLIED",
+      "level": "P0",
+      "title": "v20 migrations 050-054 are required by current product code and are not proven applied to production.",
+      "owner": "Owner",
+      "blocks": ["capped_beta", "public_paid"],
+      "acceptance": "Recorded owner evidence that 050-054 are applied and verified in production, and paid readiness (052 exact-schema probe) reports ok."
+    },
+    {
+      "id": "P0-V20-RC-NOT-CUT",
+      "level": "P0",
+      "title": "No immutable release candidate has been cut at a v20 SHA; ordinary CI success cannot promote the manifest.",
+      "owner": "Eng (CI) / Owner",
+      "blocks": ["automated_code_gate", "capped_beta", "public_paid"],
+      "acceptance": "The release-candidate workflow freezes an artifact at a full v20 SHA (npm ci, manifest validation, lint, typecheck, unit/contract/safety, eval, build, public E2E, authenticated seeded matrix) with exact counts and evidence hashes, then promote-candidate attaches it."
+    },
+    {
+      "id": "P1-V20-AUTH-E2E-AT-HEAD",
+      "level": "P1",
+      "title": "The authenticated E2E matrix has not been observed at a v20 candidate SHA with 050-054 applied.",
+      "owner": "Eng (CI) / Owner (env)",
+      "blocks": ["capped_beta", "public_paid"],
+      "acceptance": "The authenticated matrix observed at the candidate SHA (Stripe TEST mode, seeded non-production Supabase, 050-054 applied), or a recorded owner-accepted risk for capped beta."
+    },
+    {
+      "id": "P0-LIVE-TRANSACTION",
+      "level": "P0",
+      "title": "The full live payment failure-to-recovery/refund ordering has not been witnessed over a live wire; carried forward from v16 as an owner-accepted risk for public paid.",
+      "owner": "Owner",
+      "blocks": ["public_paid"],
+      "acceptance": "Recorded owner evidence for the full charge to cancel to reactivate to recovery to refund sequence on the live plan, per docs/runbooks/live-transaction-rehearsal.md."
+    }
+  ],
+  "acceptedRisks": [
+    {
+      "blockerId": "P0-LIVE-TRANSACTION",
+      "acceptedBy": "Primoz Cerar",
+      "acceptedOnUtc": "2026-08-09T00:00:00Z",
+      "tiers": ["public_paid"],
+      "rationale": "Carried forward from v16: the full live payment failure-to-recovery/refund ordering is covered by order-resilient billing + customer-ownership contract tests (green) and owner-accepted for a bounded public-paid launch, to be re-verified with one completed current-code live charge before scaling volume. v20 does not change Stripe code (billing frozen at v16); it only adds fail-closed failure-path and readiness/ops correctness."
+    }
+  ],
+  "verdicts": {
+    "automated_code_gate": "UNASSESSED",
+    "capped_beta": "UNASSESSED",
+    "public_paid": "UNASSESSED"
+  },
+  "rollback": "Every v20 migration (050-054) is additive and reversible with a data-safe rollback recorded in its file and in docs/release/v20/MIGRATION_PLAN.md. No Stripe code changed (frozen at v16). Code rollback target for the shipped product line remains the last promoted RC; v20 is not promoted.",
+  "documents": [
+    "docs/release/v20/STATUS.md",
+    "docs/release/v20/GAP_REGISTER.md",
+    "docs/release/v20/MIGRATION_PLAN.md"
+  ]
+}

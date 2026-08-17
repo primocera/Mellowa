@@ -203,7 +203,17 @@ opts into strict.
   unavailable in burden → pricing-discovery closed → scaleDecision HOLD. Deletion
   anonymization already via `account_user_id ... on delete set null` (047).
 
-### Owner-gated (release evidence, not code gaps) → MW-08 / MW-09 / MW-FINAL
+### MW-08 — migration plan + immutable RC prep. **Status: PREPARED (owner cuts RC).**
+`docs/release/manifest.v20.json` (draft, UNASSESSED, migrations 001–054, owner-gate
+blockers P0-V20-MIGRATIONS-APPLIED / P0-V20-RC-NOT-CUT / P1-V20-AUTH-E2E-AT-HEAD) +
+rendered `docs/release/v20/STATUS.md`. `docs/release/v20/MIGRATION_PLAN.md` gives the
+ordered preflight/apply/verify/rollback for 050–054 and the deploy-after-migrate
+invariant. `tests/mw08-release-candidate.test.ts` validates the manifest, its honest
+non-certified state, migration idempotency/rollback, and plan coverage. The immutable
+RC workflow (`.github/workflows/release-candidate.yml`) is intact; **cutting/promoting
+it and applying prod migrations remain OWNER-ONLY, NOT RUN.**
+
+### Owner-gated (release evidence, not code gaps) → MW-09 / MW-FINAL
 - Migrations 044–049 (+ new v20 migrations) not proven applied in production.
 - No immutable RC cut at the current SHA; authenticated E2E matrix not carried at this SHA.
 - Live billing/email/reminder/outbox/cron/deletion rehearsals NOT DONE.
