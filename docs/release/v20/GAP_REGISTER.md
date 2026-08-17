@@ -239,5 +239,22 @@ pinger config remain OWNER-ONLY, NOT RUN.**
 - Skipped authenticated E2E and unapplied migrations recorded as such — not "passed".
 - Manifest left UNASSESSED; no RC marked certified.
 
-## Next single action
-Implement **MW-01** (completion parent-ownership + stale-day) — highest severity (P0 security).
+## MW-FINAL + XAPP-FINAL — truthful certification. **Status: DONE (documents).**
+`docs/release/v20/FINAL-CERTIFICATION.md` gives independent per-tier verdicts from
+exact-SHA evidence only (Product STRONG; Automated gate CONDITIONAL—not-frozen;
+Capped beta / Bounded paid BLOCKED ON OWNER; Unrestricted paid NO-GO; Expansion
+HOLD). No bare GO while an owner gate is `not_run`; nothing contradicts the
+UNASSESSED manifest. `docs/release/v20/XAPP-FINAL-launch-plan.md` stages the two
+apps independently (never both public-paid at once; shared incident stops both;
+side-by-side dashboard, no averaging). `tests/mw-final-certification.test.ts` (8).
+
+## Status of all v20 prompts
+MW-00 ✅ · MW-01 ✅ · MW-02 ✅ · MW-03 ✅ · MW-04 ✅ · MW-05 ✅ · MW-06 ✅ · MW-07 ✅ ·
+MW-08 ✅ (RC prepared, not cut) · MW-09 ✅ (validators only) · XAPP-01 ✅ · MW-FINAL ✅ ·
+XAPP-FINAL ✅. Full suite green; migrations 050–054 additive.
+
+## Next single action (OWNER)
+Apply migrations **050–054** to a disposable Supabase and verify per
+`docs/release/v20/MIGRATION_PLAN.md`, then confirm paid readiness = 200 and cut the
+immutable RC. Everything code-level is done and gated; the remaining gates are
+owner-only (migrations, RC, auth E2E at SHA, live rehearsals) and are **NOT RUN**.

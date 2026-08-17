@@ -150,6 +150,9 @@
   "documents": [
     "docs/release/v20/STATUS.md",
     "docs/release/v20/GAP_REGISTER.md",
-    "docs/release/v20/MIGRATION_PLAN.md"
+    "docs/release/v20/MIGRATION_PLAN.md",
+    "docs/release/v20/XAPP-01-isolation.md",
+    "docs/release/v20/FINAL-CERTIFICATION.md",
+    "docs/release/v20/XAPP-FINAL-launch-plan.md"
   ]
 }
