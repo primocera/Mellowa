@@ -226,7 +226,12 @@ pinger config remain OWNER-ONLY, NOT RUN.**
 - Migrations 044–049 (+ new v20 migrations) not proven applied in production.
 - No immutable RC cut at the current SHA; authenticated E2E matrix not carried at this SHA.
 - Live billing/email/reminder/outbox/cron/deletion rehearsals NOT DONE.
-- Cross-app shared-Stripe isolation must be re-proven at the v20 SHA (XAPP-01).
+- Cross-app shared-Stripe isolation re-proven at the v20 SHA — **DONE.** The
+  ownership predicate (app==mellowa AND supabase_user_id; never email/price) is
+  unchanged (Stripe frozen at v16) and the negative fixture matrix passes at v20:
+  `tests/xapp01-shared-stripe-isolation.test.ts` (14) + carried v17/v19 matrices
+  (101). Evidence pinned in `docs/release/v20/XAPP-01-isolation.md`. Production
+  Stripe inventory + live foreign-event rehearsal remain owner evidence, NOT RUN.
 
 ## Constraints honored in MW-00
 - No change to pricing, trial length, medical/safety posture, IA, or public positioning.
