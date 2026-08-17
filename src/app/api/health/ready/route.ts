@@ -9,6 +9,10 @@ import {
   summarizeReadiness,
   type ComponentStatus,
 } from "@/lib/health";
+import {
+  paidConfigComponents,
+  paidConfigComponentKeys,
+} from "@/lib/health/paid-config";
 
 /**
  * Deep operational readiness (v6 Prompt 5, extended MW-04). Authenticated
@@ -24,8 +28,18 @@ import {
  * object still fails. Kept separate from the public pricing readiness endpoint.
  */
 
-/** Components whose degraded/unavailable state blocks PAID readiness. */
-const CRITICAL = [
+// Exact-schema probe components (migration 052) — the precise invariants, not
+// just a column. A missing one is a hard fail in any mode.
+const SCHEMA_PROBE_KEYS = [
+  "schema_daily_plans_canonical_index",
+  "schema_plan_completions_parent_ownership",
+  "schema_daily_plan_claims_table",
+  "schema_claim_daily_plan_fn",
+  "schema_finish_daily_plan_fn",
+] as const;
+
+/** Components whose degraded/unavailable/not_configured state blocks PAID readiness. */
+const CRITICAL: readonly string[] = [
   "database",
   "migration_020",
   "migration_021",
@@ -35,12 +49,16 @@ const CRITICAL = [
   "migration_047_support_tickets",
   "migration_048_activation_facts",
   "migration_049_canonical_daily_plan",
+  ...SCHEMA_PROBE_KEYS,
   "rpc_claim_ai_generation_v035",
   "rpc_undo_plan_repair_v034",
   "rpc_account_deletion_stats_v044",
   "deletion_worker_freshness",
   "outbox_freshness",
-] as const;
+  // MW-04: paid-critical config (Stripe/AI/cron/email/legal). not_configured is
+  // allowed in beta but fails closed in paid.
+  ...paidConfigComponentKeys(),
+];
 
 export async function GET(request: Request) {
   const unauthorized = requireBearerSecret(
@@ -64,16 +82,20 @@ export async function GET(request: Request) {
     rpc_claim_ai_generation_v035: "fail",
     rpc_undo_plan_repair_v034: "fail",
     rpc_account_deletion_stats_v044: "fail",
+    // Exact-schema invariants (migration 052) — unavailable until probed.
+    schema_daily_plans_canonical_index: "unavailable",
+    schema_plan_completions_parent_ownership: "unavailable",
+    schema_daily_plan_claims_table: "unavailable",
+    schema_claim_daily_plan_fn: "unavailable",
+    schema_finish_daily_plan_fn: "unavailable",
     // Worker freshness — unavailable until observed.
     deletion_worker_freshness: "unavailable",
     outbox_freshness: "unavailable",
-    email_config: process.env.RESEND_API_KEY ? "ok" : "not_configured",
-    stripe_config:
-      process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET
-        ? "ok"
-        : "not_configured",
-    ai_config: process.env.AI_PROVIDER_API_KEY ? "ok" : "not_configured",
-    cron_config: process.env.CRON_SECRET ? "ok" : "not_configured",
+    // MW-04: paid-critical config from the canonical contract (Stripe secret +
+    // webhook + prices, AI key, cron/admin secrets, email sender, legal
+    // identity, support email). Present → ok, absent → not_configured (blocks
+    // paid, allowed in beta).
+    ...paidConfigComponents(),
   };
 
   try {
@@ -132,6 +154,36 @@ export async function GET(request: Request) {
       p_expected_version: -1,
     });
     components.rpc_undo_plan_repair_v034 = classifyRpcProbe(undoError);
+
+    // MW-04: exact-schema invariants via the read-only probe (migration 052).
+    // A present column is not proof the enforcing index/policy exists.
+    const { data: schema, error: schemaError } = await admin.rpc(
+      "readiness_schema_probe"
+    );
+    if (schemaError) {
+      // Function missing (not applied) or unreadable — fail the exact invariants
+      // closed rather than assume them healthy.
+      const status: ComponentStatus =
+        schemaError.code === "PGRST202" ||
+        /could not find the function/i.test(schemaError.message ?? "")
+          ? "fail"
+          : "unavailable";
+      for (const key of SCHEMA_PROBE_KEYS) components[key] = status;
+    } else {
+      const row = (Array.isArray(schema) ? schema[0] : schema) as
+        | Record<string, boolean>
+        | null;
+      const mapBool = (v: unknown): ComponentStatus => (v === true ? "ok" : "fail");
+      components.schema_daily_plans_canonical_index = mapBool(
+        row?.daily_plans_canonical_index
+      );
+      components.schema_plan_completions_parent_ownership = mapBool(
+        row?.plan_completions_parent_ownership
+      );
+      components.schema_daily_plan_claims_table = mapBool(row?.daily_plan_claims_table);
+      components.schema_claim_daily_plan_fn = mapBool(row?.claim_daily_plan_fn);
+      components.schema_finish_daily_plan_fn = mapBool(row?.finish_daily_plan_fn);
+    }
 
     // account_deletion_stats is read-only, so it doubles as a signature probe
     // AND the deletion-worker freshness signal (open/stuck jobs + oldest open).

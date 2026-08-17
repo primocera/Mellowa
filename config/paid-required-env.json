@@ -1,0 +1,40 @@
+{
+  "_comment": "MW-04: single source of truth for the environment a PAID launch requires. Consumed by scripts/release-check.mjs (startup/pre-deploy validation) and src/lib/health/paid-config.ts (runtime deep readiness). A parity test (tests/readiness-release-check-parity.test.ts) proves the two cannot disagree: everything readiness treats as paid-critical config must be declared here as a required env var.",
+  "requiredEnv": [
+    "NEXT_PUBLIC_APP_URL",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "AI_PROVIDER_API_KEY",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+    "STRIPE_PRICE_PRO_MONTHLY",
+    "STRIPE_PRICE_PRO_YEARLY",
+    "CRON_SECRET",
+    "ADMIN_STATS_SECRET",
+    "RESEND_API_KEY",
+    "EMAIL_FROM"
+  ],
+  "paidLaunchEnv": [
+    "LEGAL_ENTITY_NAME",
+    "LEGAL_REGISTERED_ADDRESS",
+    "LEGAL_GOVERNING_LAW",
+    "SUPPORT_EMAIL"
+  ],
+  "paidReadinessConfig": [
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "STRIPE_PRICE_PRO_MONTHLY",
+    "STRIPE_PRICE_PRO_YEARLY",
+    "AI_PROVIDER_API_KEY",
+    "CRON_SECRET",
+    "ADMIN_STATS_SECRET",
+    "RESEND_API_KEY",
+    "EMAIL_FROM",
+    "LEGAL_ENTITY_NAME",
+    "LEGAL_REGISTERED_ADDRESS",
+    "LEGAL_GOVERNING_LAW",
+    "SUPPORT_EMAIL"
+  ]
+}

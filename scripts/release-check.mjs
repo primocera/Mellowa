@@ -14,29 +14,19 @@
  * `vercel env pull .env.production.local` — note Sensitive vars pull empty).
  */
 
-const REQUIRED_ENV = [
-  "NEXT_PUBLIC_APP_URL",
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "AI_PROVIDER_API_KEY",
-  "STRIPE_SECRET_KEY",
-  "STRIPE_WEBHOOK_SECRET",
-  "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-  "STRIPE_PRICE_PRO_MONTHLY",
-  "STRIPE_PRICE_PRO_YEARLY",
-  "CRON_SECRET",
-  "ADMIN_STATS_SECRET",
-  "RESEND_API_KEY",
-  "EMAIL_FROM",
-];
+// MW-04: the required-env lists are the ONE canonical config contract, shared
+// with runtime deep readiness (src/lib/health/paid-config.ts). A parity test
+// proves readiness cannot require paid config this check does not.
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
-const PAID_LAUNCH_ENV = [
-  "LEGAL_ENTITY_NAME",
-  "LEGAL_REGISTERED_ADDRESS",
-  "LEGAL_GOVERNING_LAW",
-  "SUPPORT_EMAIL",
-];
+const __dir = dirname(fileURLToPath(import.meta.url));
+const CONTRACT = JSON.parse(
+  readFileSync(join(__dir, "..", "config", "paid-required-env.json"), "utf8")
+);
+const REQUIRED_ENV = CONTRACT.requiredEnv;
+const PAID_LAUNCH_ENV = CONTRACT.paidLaunchEnv;
 
 let failures = 0;
 let warnings = 0;

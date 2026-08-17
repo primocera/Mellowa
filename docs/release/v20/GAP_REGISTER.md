@@ -116,7 +116,30 @@ client-date-or-server-date fallback (never mutates outside ±1 day); a failed
   probes exact index predicate + MW-01 constraint; RPC probe accepts only the precise
   expected coercion error or a clean result; freshness for all registered critical jobs;
   release-check ↔ readiness config parity; unknown ⇒ fail closed for paid.
-- **Prompt:** MW-04.
+- **Prompt:** MW-04. **Status: CLOSED (schema/config/RPC parts); worker-freshness
+  for the remaining jobs completes in MW-05.** `summarizeReadiness` now fails paid
+  closed on a critical `not_configured`; config components derive from the shared
+  contract `config/paid-required-env.json` (also drives `release-check.mjs`);
+  migration 052 adds a read-only `readiness_schema_probe()` proving the 049 partial
+  unique index predicate + MW-01 ownership policy + 051 claim objects (not just a
+  column); `classifyRpcProbe` now maps permission/timeout/transport/unknown →
+  `unavailable` (not optimistic ok). See the component matrix below.
+
+### Readiness component matrix (MW-04)
+| Component | Probe | Critical (paid) | Failure status | Owner action |
+|---|---|---|---|---|
+| database | select profiles head | yes | fail | check Supabase/service-role |
+| migration_044–049 | table/column presence | yes | fail | apply migration |
+| schema_daily_plans_canonical_index | `readiness_schema_probe()` index predicate | yes | fail | apply 049 |
+| schema_plan_completions_parent_ownership | probe INSERT policy WITH CHECK | yes | fail | apply 050 |
+| schema_daily_plan_claims_table / _fn | probe table + fns | yes | fail | apply 051 |
+| rpc_claim/undo/deletion_stats | malformed-uuid coercion | yes | fail/unavailable | apply RPC migration |
+| deletion_worker_freshness / outbox_freshness | account_deletion_stats / email_deliveries counts | yes (paid) | degraded/unavailable | run/inspect worker |
+| config_* (Stripe/AI/cron/email/legal) | env presence | yes (paid) | not_configured→fail(paid) | set env var |
+
+Beta mode: worker degraded/unavailable and config not_configured are warn-only;
+a missing required object (`fail`) blocks in **both** modes. `READINESS_MODE=paid`
+opts into strict.
 
 ### G5 — Cron registry is descriptive metadata, not enforced execution (P1, operations) → MW-05
 - **Evidence:** `vercel.json` schedules only `trial-reminders` and `daily-reminders`; four

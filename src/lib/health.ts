@@ -50,7 +50,15 @@ export function summarizeReadiness(
   const paid = opts.mode === "paid";
   const ok = Object.entries(components).every(([key, s]) => {
     if (s === "fail") return false;
-    if (paid && critical.has(key) && (s === "degraded" || s === "unavailable")) {
+    // MW-04: in paid mode a CRITICAL component that is degraded, unavailable OR
+    // not_configured fails closed. A missing paid-critical secret (Stripe/AI/
+    // cron/email/legal) is treated as "not_configured" but is not acceptable for
+    // paid — only for beta, where these keys are not marked critical.
+    if (
+      paid &&
+      critical.has(key) &&
+      (s === "degraded" || s === "unavailable" || s === "not_configured")
+    ) {
       return false;
     }
     return true;
@@ -65,11 +73,16 @@ export function summarizeReadiness(
  * outcomes apart without ever running the function body — so readiness can
  * never consume a generation, write usage or mutate a plan:
  *
- *   - PGRST202 "function not found in schema cache" → the overload the app
- *     calls does not exist on this database. The migration was not applied,
- *     or was applied with a different argument list. Fail.
- *   - anything else (typically 22P02 invalid input syntax for uuid) → the
- *     signature resolved and argument coercion ran. The overload exists.
+ *   - no error → the function executed cleanly (side-effect-free probe): ok.
+ *   - PGRST202 "function not found in schema cache" / "could not find the
+ *     function" → the overload the app calls does not exist. Fail.
+ *   - 22P02 invalid input syntax (the EXPECTED coercion error from the malformed
+ *     uuid) → the signature resolved and argument coercion ran: ok.
+ *   - anything else — permission denied (42501), statement timeout (57014),
+ *     transport/cache/unknown — is NOT proof the overload is healthy, so it is
+ *     reported as "unavailable" and (for a critical component in paid mode)
+ *     fails closed. Previously any non-PGRST202 error was optimistically "ok",
+ *     which could mask a permission or transport fault as healthy (MW-04).
  *
  * A missing overload is exactly the failure that would surface as a runtime
  * 500 on the first real generation after a deploy, which is far too late.
@@ -83,7 +96,12 @@ export function classifyRpcProbe(
   if (code === "PGRST202" || /could not find the function/i.test(message)) {
     return "fail";
   }
-  return "ok";
+  // The precise expected coercion error proves the signature resolved.
+  if (code === "22P02" || /invalid input syntax|invalid input value/i.test(message)) {
+    return "ok";
+  }
+  // Permission, timeout, transport, cache, unknown — not observed as healthy.
+  return "unavailable";
 }
 
 /**
