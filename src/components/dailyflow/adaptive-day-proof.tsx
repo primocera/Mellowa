@@ -102,7 +102,7 @@ export function AdaptiveDayProof() {
                   {item.label}
                 </span>
                 {item.state === "done" && (
-                  <span className="shrink-0 rounded-full border border-[#7C9A92] bg-[#7C9A92] px-2.5 py-0.5 text-xs text-white">
+                  <span className="shrink-0 rounded-full border border-[#92400E]/20 bg-[#FEF3C7] px-2.5 py-0.5 text-xs text-[#92400E]">
                     Already done — kept
                   </span>
                 )}
@@ -117,13 +117,13 @@ export function AdaptiveDayProof() {
         </li>
 
         {/* 4 — committed, and reversible */}
-        <li className="rounded-2xl border border-[#7C9A92] bg-[#7C9A92]/10 p-5">
+        <li className="rounded-2xl border border-[#92400E]/20 bg-[#FEF3C7] p-5">
           <p className="font-medium text-[#1F2937]">Rest of today adjusted</p>
           <p className="mt-1 text-sm text-[#1F2937]">
             Dinner and the wind-down got smaller. Kept as they were: {kept} kept
             item and {alreadyDone} already-done items — untouched.
           </p>
-          <p className="mt-3 inline-flex rounded-xl border border-[#7C9A92]/40 px-3.5 py-1.5 text-xs font-medium text-[#6D8C7D]">
+          <p className="mt-3 inline-flex rounded-xl border border-[#92400E]/30 px-3.5 py-1.5 text-xs font-medium text-[#92400E]">
             Undo — bring the previous plan back
           </p>
         </li>

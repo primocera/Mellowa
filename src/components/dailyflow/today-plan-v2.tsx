@@ -608,7 +608,7 @@ export function TodayPlanV2({
         <div
           role="status"
           aria-live="polite"
-          className="flex items-center justify-between gap-2 rounded-xl border border-[#7C9A92]/30 bg-[#7C9A92]/10 px-4 py-2.5 text-sm text-[#1F2937]"
+          className="flex items-center justify-between gap-2 rounded-xl border border-[#92400E]/20 bg-[#FEF3C7] px-4 py-2.5 text-sm text-[#92400E]"
         >
           <span>Marked done.</span>
           <button
@@ -616,7 +616,7 @@ export function TodayPlanV2({
               toggleDone(justDone, "now");
               setJustDone(null);
             }}
-            className="inline-flex min-h-[44px] shrink-0 items-center px-2 font-medium underline underline-offset-2 hover:text-[#6D8C7D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C9A92] focus-visible:ring-offset-2"
+            className="inline-flex min-h-[44px] shrink-0 items-center px-2 font-medium underline underline-offset-2 hover:text-[#78350F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#92400E] focus-visible:ring-offset-2"
           >
             Undo
           </button>
@@ -1056,7 +1056,7 @@ export function TodayPlanV2({
 
       {/* MW-S02/MW-V9-04: after a committed repair — deterministic diff + free Undo */}
       {repairResult && (
-        <div className="rounded-2xl border border-[#7C9A92] bg-[#7C9A92]/10 p-5 text-sm text-[#1F2937]" aria-live="polite">
+        <div className="rounded-2xl border border-[#92400E]/20 bg-[#FEF3C7] p-5 text-sm text-[#1F2937]" aria-live="polite">
           <p className="font-medium">Rest of today adjusted</p>
           <p className="mt-1">
             {deterministicDiff(repairResult.changed)}
@@ -1069,7 +1069,7 @@ export function TodayPlanV2({
           <button
             onClick={undoRepair}
             disabled={simplifying}
-            className="mt-3 rounded-xl border border-[#7C9A92]/40 px-3.5 py-1.5 text-xs font-medium text-[#6D8C7D] transition hover:bg-white/60 disabled:opacity-60"
+            className="mt-3 rounded-xl border border-[#92400E]/30 px-3.5 py-1.5 text-xs font-medium text-[#92400E] transition hover:bg-white/60 disabled:opacity-60"
           >
             Undo — bring the previous plan back
           </button>
@@ -1133,7 +1133,7 @@ export function TodayPlanV2({
                     {item.label}
                   </span>
                   {isDone ? (
-                    <span className="rounded-full bg-[#7C9A92] px-2.5 py-0.5 text-xs text-white">
+                    <span className="rounded-full bg-[#FEF3C7] px-2.5 py-0.5 text-xs text-[#92400E]">
                       Already done — kept
                     </span>
                   ) : (
@@ -1246,7 +1246,7 @@ function DoneToggle({ done, onClick }: { done: boolean; onClick: () => void }) {
       className={clsx(
         "mt-3 flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-medium transition",
         done
-          ? "bg-[#7C9A92]/15 text-[#6D8C7D]"
+          ? "bg-[#FEF3C7] text-[#92400E]"
           : "bg-[#7C9A92] text-white hover:bg-[#6D8C7D]"
       )}
     >
