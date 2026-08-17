@@ -213,7 +213,16 @@ non-certified state, migration idempotency/rollback, and plan coverage. The immu
 RC workflow (`.github/workflows/release-candidate.yml`) is intact; **cutting/promoting
 it and applying prod migrations remain OWNER-ONLY, NOT RUN.**
 
-### Owner-gated (release evidence, not code gaps) → MW-09 / MW-FINAL
+### MW-09 — owner-live rehearsal validators. **Status: PREPARED (validators only).**
+`src/lib/release/rehearsal-evidence.ts` validates a per-gate evidence artifact and
+refuses stale SHA, wrong environment, a missing transition, a billing run with no
+refund, a zero-test synthetic claim, and any PII/card/token content. Runbook
+`docs/runbooks/v20-rehearsals.md` gives steps + STOP conditions per gate (billing/
+email/reminder/outbox/cron/deletion) and the foreign-app isolation note. Tests
+`tests/mw09-rehearsal-evidence.test.ts` (11). **Live money/email/deletion + external
+pinger config remain OWNER-ONLY, NOT RUN.**
+
+### Owner-gated (release evidence, not code gaps) → MW-FINAL
 - Migrations 044–049 (+ new v20 migrations) not proven applied in production.
 - No immutable RC cut at the current SHA; authenticated E2E matrix not carried at this SHA.
 - Live billing/email/reminder/outbox/cron/deletion rehearsals NOT DONE.
