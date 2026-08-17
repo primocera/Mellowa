@@ -22,6 +22,7 @@ import {
   type UsageRow,
 } from "@/lib/analytics/metrics";
 import { loopDecisions, expansionVerdict } from "@/lib/analytics/loop-decisions";
+import { scaleDecision, type ScaleDecision } from "@/lib/analytics/scale-decision";
 import { buildCohortScorecard, localDate, type CohortScorecard, type CohortEventRow, type CohortSubRow } from "@/lib/analytics/cohort";
 import { readExclusionRegistry, readCanonicalActivation, readCheckinDays } from "@/lib/analytics/facts";
 import { supportBurden, type SupportTicketRow } from "@/lib/support/metrics";
@@ -73,6 +74,12 @@ export interface MetricsReport {
   email: ReturnType<typeof emailHealth>;
   /** MW-V10-06: the value loop with a decision per step, and the one question. */
   loop: ReturnType<typeof loopDecisions>;
+  /**
+   * DIAGNOSTIC ONLY (MW-06): the legacy daily-return signal. It is NO LONGER an
+   * expansion authority — it answers "did people come back?" for the daily loop.
+   * The single authoritative expansion decision is `scaleDecision` below; admin
+   * and CSV read expansion from there, never from this field.
+   */
   expansion: ReturnType<typeof expansionVerdict>;
   /** MW-V10-06: cost per outcome. `null` means unknown, never zero. */
   costPerOutcome: ReturnType<typeof costPerOutcome>;
@@ -114,6 +121,15 @@ export interface MetricsReport {
    * named owner measurements land.
    */
   observability: ObservabilityReport;
+  /**
+   * MW-06: the SINGLE canonical scale/expansion decision. It composes the value
+   * gates, support burden, pricing discovery, operational readiness, data
+   * freshness, billing incidents, cohort cap and owner gates under a strict
+   * precedence — no averaging. `canExpand` is true ONLY for a bounded expansion
+   * with every required gate mature and passing. This is the only expansion
+   * verdict admin and CSV surface.
+   */
+  scaleDecision: ScaleDecision;
 }
 
 export async function buildMetricsReport(
@@ -373,6 +389,20 @@ export async function buildMetricsReport(
     firstSession,
     pricingDiscovery,
     observability,
+    // MW-06: the one authoritative expansion decision, composed from the pieces
+    // above. releaseGatesPassed is intentionally NOT inferred here — it defaults
+    // to false, so real-world expansion stays blocked until the owner attaches
+    // RC / paid-readiness / live-rehearsal evidence.
+    scaleDecision: scaleDecision({
+      cohort,
+      pricingDiscovery,
+      observability,
+      dataStale: dataFreshness(eventRows, new Date(now)).stale,
+      disputes: null,
+      betaCapReached:
+        beta && beta.remaining !== null ? beta.remaining <= 0 : undefined,
+      releaseGatesPassed: false,
+    }),
   };
 }
 
@@ -421,7 +451,22 @@ export function reportToCsv(report: MetricsReport): string {
   push("email", "dead_letter", report.email.deadLetter);
   push("email", "oldest_backlog_hours", report.email.oldestBacklogHours);
   push("email", "delivery_rate", report.email.deliveryRate);
-  push("expansion", "can_expand", report.expansion.canExpand ? "yes" : "no");
+  // MW-06: the SINGLE authoritative expansion output is the canonical scale
+  // decision. The legacy expansionVerdict is emitted only as a DIAGNOSTIC daily-
+  // return signal so no second "Expansion OK" can disagree with the authority.
+  push("scale_decision", "verdict", report.scaleDecision.verdict);
+  push("scale_decision", "can_expand", report.scaleDecision.canExpand ? "yes" : "no");
+  if (report.scaleDecision.blocker) {
+    push("scale_decision", "blocker", report.scaleDecision.blocker);
+  }
+  for (const g of report.scaleDecision.gates) {
+    push("scale_decision", `gate_${g.id}`, g.status);
+  }
+  push(
+    "daily_return_signal",
+    "diagnostic_only_meets_return",
+    report.expansion.canExpand ? "yes" : "no"
+  );
   push("cost_per", "sample_usd", report.costPerOutcome.perSampleUsd);
   push("cost_per", "activated_trial_usd", report.costPerOutcome.perActivatedTrialUsd);
   push("cost_per", "retained_payer_usd", report.costPerOutcome.perRetainedPayerUsd);

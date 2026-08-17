@@ -238,19 +238,32 @@ export default async function AdminPage({
       )}
 
       <Section title="Beta value loop (signup → renewal) — with the decision">
+        {/* MW-06: the SINGLE authoritative expansion result is scaleDecision.
+            The legacy expansionVerdict is shown only as a diagnostic daily-return
+            signal below, so no second card can say "Expansion OK" in conflict. */}
         <div
           style={{
-            background: r.expansion.canExpand ? "#DCFCE7" : "#FEF3C7",
+            background: r.scaleDecision.canExpand ? "#DCFCE7" : "#FEF3C7",
             borderRadius: 8,
             padding: 10,
             marginBottom: 10,
             fontSize: 13,
           }}
         >
-          <strong>
-            {r.expansion.canExpand ? "Expansion: OK" : "Expansion: BLOCKED"}
-          </strong>
-          <div style={{ marginTop: 4 }}>{r.expansion.reason}</div>
+          <strong>Scale decision: {r.scaleDecision.verdict}</strong>
+          {r.scaleDecision.blocker && (
+            <div style={{ marginTop: 2, opacity: 0.8 }}>
+              Blocker: {r.scaleDecision.blocker}
+            </div>
+          )}
+          <div style={{ marginTop: 4 }}>{r.scaleDecision.reasons[0]}</div>
+          <div style={{ marginTop: 4, fontStyle: "italic" }}>
+            Next: {r.scaleDecision.nextAction}
+          </div>
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 10 }}>
+          Daily-return signal (diagnostic only, not an expansion authority):{" "}
+          {r.expansion.canExpand ? "meets return" : "below return"} — {r.expansion.reason}
         </div>
         {r.loop.map((d) => (
           <div key={d.event} style={{ marginBottom: 8 }}>

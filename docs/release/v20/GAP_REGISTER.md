@@ -173,7 +173,16 @@ opts into strict.
   observability + billing incidents + owner gates with strict precedence (no averaging);
   `pricingDiscovery=false` or `scaleReady=false` force `canExpand=false`; runtime-composition
   tests replace source-string tests; single authoritative expansion result in admin + CSV.
-- **Prompt:** MW-06.
+- **Prompt:** MW-06. **Status: CLOSED.** New `src/lib/analytics/scale-decision.ts`
+  composes value gates + pricing discovery + observability + data freshness +
+  disputes + cap + owner gates under strict precedence (STOP→HOLD/BLOCK→PAUSE_INTAKE
+  →ITERATE→SMALL_BOUNDED_EXPANSION), no averaging. `pricingDiscovery=false` or
+  `scaleReady=false` force `canExpand=false`; unavailable/immature/suppressed/stale
+  all mean WAIT. `releaseGatesPassed` defaults false so real-world expansion stays
+  BLOCKED. `report.scaleDecision` is the single authority; `expansion` re-labeled
+  diagnostic; admin + CSV surface only the canonical result. Runtime-composition
+  truth-table tests (`tests/mw06-scale-decision.test.ts`, 14) replace reliance on
+  the doc-string test.
 
 ### G7 — Support burden ledger honest-but-empty; no verifiable ingestion (P1) → MW-07
 - **Evidence:** `src/lib/support/metrics.ts` + `src/app/api/admin/support-tickets/route.ts`
