@@ -351,6 +351,20 @@ export function TodayPlanV2({
         body: JSON.stringify({ plan_id: plan.id, item_key: key, done: next, source }),
       });
       const data = await res.json().catch(() => null);
+      // MW-01: a stale-day (409) or unavailable (503) reply is not a retry —
+      // it means this view is no longer today's plan, or settings couldn't be
+      // read. Revert the optimistic paint and guide a refresh rather than
+      // telling the user to tap again (which cannot succeed).
+      if (res.status === 409 || res.status === 503) {
+        setDoneItems((d) => ({ ...d, [key]: !next }));
+        setJustDone((j) => (j === key ? null : j));
+        setMessage(
+          typeof data?.user_message === "string"
+            ? data.user_message
+            : "This plan is no longer today's plan — refresh to pick up the current day."
+        );
+        return;
+      }
       if (!res.ok || typeof data?.done !== "boolean") {
         throw new Error("save failed");
       }
