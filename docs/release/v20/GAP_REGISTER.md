@@ -72,7 +72,11 @@ Each row: reproduction · affected journey · severity · code evidence · accep
   date` acquired **before** usage reservation / check-in write / provider call; exactly one
   provider call, one reservation/finalization, one plan, one sample event; deterministic
   lease recovery on crash; 049 remains an integrity backstop, not the dedup mechanism.
-- **Prompt:** MW-02.
+- **Prompt:** MW-02. **Status: CLOSED** — migration 051 adds a `(user_id,
+  local_date)` claim table + `claim_/finish_daily_plan_generation` RPCs (advisory
+  lock, lease, `owner_request_id` fencing token). Route acquires it before usage
+  reservation/check-in/provider; unavailable → 503 fail-closed. Tests assert
+  provider-call-count under gated concurrency (`tests/daily-plan-claim-route.test.ts`).
 
 ### G3 — Timezone / weekly-facts fail *open* on DB errors (P1, data truth) → MW-03
 - **Evidence:** `src/app/api/week/reflection/route.ts:31-42` `resolveTimeZone` discards the

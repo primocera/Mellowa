@@ -43,6 +43,10 @@ import {
   finishGenerationRequest,
   isValidIdempotencyKey,
 } from "@/lib/ai/idempotency";
+import {
+  claimDailyPlanGeneration,
+  finishDailyPlanGeneration,
+} from "@/lib/ai/daily-plan-claim";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
 const PROMPT_VERSION = promptVersionId("daily-plan-v2");
@@ -136,6 +140,62 @@ export async function POST(request: Request) {
     }
   }
 
+  // MW-02: atomic PRE-provider claim keyed by (user, canonical local date),
+  // independent of the idempotency key. Acquired BEFORE usage reservation, the
+  // check-in write and any provider call, so two concurrent requests with
+  // DIFFERENT idempotency keys can never both spend AI budget for one canonical
+  // day. Exactly one becomes the `claimed` winner; everyone else is a follower.
+  let dayClaimOwnerId: string | null = null;
+  {
+    const dayClaim = await claimDailyPlanGeneration(supabase, {
+      userId: user.id,
+      localDate: today,
+    });
+    if (dayClaim.outcome === "unavailable") {
+      // Fail closed — never fall back to unguarded generation, which would
+      // reopen the duplicate-provider-cost hole this claim closes.
+      return NextResponse.json(
+        { error: "generation_unavailable", status: "unavailable" },
+        { status: 503 }
+      );
+    }
+    if (dayClaim.outcome === "duplicate") {
+      if (dayClaim.resultId) {
+        const { data: existing } = await supabase
+          .from("daily_plans")
+          .select("*")
+          .eq("id", dayClaim.resultId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (existing) {
+          return NextResponse.json({
+            blocked: false,
+            plan: existing,
+            deduplicated: true,
+            adjust_available: true,
+          });
+        }
+      }
+      // Winner finished but the canonical plan isn't visible to this request
+      // yet — ask the follower to retry rather than generate a duplicate.
+      return NextResponse.json(
+        { error: "generation_in_progress", status: "in_progress", retry_after_seconds: 3 },
+        { status: 409 }
+      );
+    }
+    if (dayClaim.outcome === "in_progress") {
+      return NextResponse.json(
+        {
+          error: "generation_in_progress",
+          status: "in_progress",
+          retry_after_seconds: dayClaim.retryAfterSeconds,
+        },
+        { status: 409 }
+      );
+    }
+    dayClaimOwnerId = dayClaim.ownerRequestId;
+  }
+
   // Idempotency (v6 Prompt 7): duplicate concurrent/retried requests converge
   // on one claim so a double click can never launch two provider calls.
   const idemKey = request.headers.get("x-idempotency-key");
@@ -147,6 +207,15 @@ export async function POST(request: Request) {
       idempotencyKey: idemKey,
     });
     if (!claim.claimed) {
+      // We already hold the (user, day) claim; release it before bailing out on
+      // the same-key idempotency path so the lease never leaks.
+      await finishDailyPlanGeneration(supabase, {
+        userId: user.id,
+        localDate: today,
+        ownerRequestId: dayClaimOwnerId ?? "",
+        status: "failed",
+        failureCode: "idempotency_follower",
+      });
       if (claim.status === "succeeded" && claim.resultId) {
         const { data: existing } = await supabase
           .from("daily_plans")
@@ -165,8 +234,20 @@ export async function POST(request: Request) {
     }
     requestId = claim.requestId;
   }
-  const finish = (status: "succeeded" | "failed", resultId?: string | null) =>
-    finishGenerationRequest(supabase, { requestId, userId: user.id, status, resultId });
+  // MW-02: one finalizer closes BOTH the idempotency ledger row and the atomic
+  // (user, day) claim, so every exit path releases the lease exactly once. A
+  // 'failed' finish leaves the day reclaimable; 'succeeded' pins the result id.
+  const finish = async (status: "succeeded" | "failed", resultId?: string | null) => {
+    await finishGenerationRequest(supabase, { requestId, userId: user.id, status, resultId });
+    await finishDailyPlanGeneration(supabase, {
+      userId: user.id,
+      localDate: today,
+      ownerRequestId: dayClaimOwnerId ?? "",
+      status,
+      resultId,
+      failureCode: status === "failed" ? "generation_failed" : null,
+    });
+  };
 
   // Abuse guard — rate limit (sample allowance already checked above).
   const guard = await guardAiRoute(user.id, {
