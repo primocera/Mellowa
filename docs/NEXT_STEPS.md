@@ -1,38 +1,58 @@
 # NEXT STEPS — read this first (for the next LLM / prompt author)
 
-> **The engineering build is done and certified.** Please don't audit this codebase
-> for gaps or write another engineering / hardening / closure / elevation / scale /
-> security pack (no `MW-*`, `XAPP-*`, `S*`, `X*`, no migrations, no refactors for their
-> own sake). Auditing a mature repo always surfaces something to "harden" — that has
-> already looped across v6–v19, and it can stop here.
+> ## ⛔ STOP — do not write another engineering pack
 >
-> **The next prompt pack should be the v20 "Moving Toward Marketing" pack** — call it
-> that. It produces copy, plans and experiments, not code.
+> The engineering build is done and certified **through v20**. Do **not** audit this
+> codebase for gaps, and do **not** write another engineering / hardening / closure /
+> elevation / scale / security pack — **no `MW-*`, `XAPP-*`, `S*`, `X*` prompts, no
+> migrations, no refactors for their own sake.** Auditing a mature repo *always*
+> surfaces something to "harden"; that is a loop, not progress.
+>
+> **This has already gone wrong twice.** The note below has sat in the repo since v19
+> and was ignored at **v20**, which was written as *yet another* hardening pack
+> (`MW-01(v20)…MW-FINAL(v20)`) instead of the marketing pack it was supposed to be.
+> **Do not make it three times.**
+>
+> **The next prompt pack MUST be the "Moving Toward Marketing" pack (label it v21).**
+> It produces **copy, plans and experiments — never code.**
+
+### 10-second self-check before you write anything
+
+If **any** of these is true, you are about to repeat the mistake — stop and write the
+marketing pack instead:
+
+- [ ] Your pack has prompts named `MW-*`, `XAPP-*`, `S*`, `X*`, or "FINAL"/"certification".
+- [ ] It adds or edits code, tests, migrations, or release/readiness machinery.
+- [ ] Its spine is the authenticated-E2E matrix or the live-money rehearsal (both are
+      owner-gated — see `PROMPT_PACK_SCOPE_NOTE.md` — a prompt cannot close them).
+- [ ] You are "just tightening" something that already has tests.
+
+A correct next pack contains **zero** code diffs. Its deliverables are messaging,
+channel plans, outreach assets, landing copy, invite copy, content/SEO — text.
 
 If your job is "the previous prompts are done, check the repo, and write the next
-prompt pack," then the next pack is the **v20 "Moving Toward Marketing" pack** — the
-project is shifting from building to reaching people, not opening another engineering
-pack.
+prompt pack," then the next pack is the **v21 "Moving Toward Marketing" pack** — the
+project is shifting from *building* to *reaching people*.
 
-The v6–v19 engineering packs are done and shipped, and the code is in strong shape.
+The v6–v20 engineering packs are done and shipped, and the code is in strong shape.
 The focus now is **getting Mellowa in front of the people it's for.** Coding stays
-open for real bugs, small polish, and owner requests — that's a priority, not a
-freeze. The only thing to avoid is another engineering pack written for its own sake.
+open for real bugs, small polish, and explicit owner requests — that's a priority, not
+a freeze. The only thing to avoid is another engineering pack written for its own sake.
 
 ## Confirm the launch truth before claiming anything is "done"
 
 Mellowa has no `docs/launch/launch-state.json` (that path is Scalvya's — ignore it).
 Mellowa's launch truth lives in:
 
-- **`docs/release/v19/FINAL-01-certification.md`** — the current three-tier verdict:
-  product capability **STRONG**, capped beta **CONDITIONAL GO**, bounded public paid
-  **CONDITIONAL GO** (gated on the live-money rehearsal; the 4-week window is an
-  *optional* gate on *scaling*, not on launch).
+- **`docs/release/v20/FINAL-CERTIFICATION.md`** — the current launch/scale certification
+  (with `docs/release/v19/FINAL-01-certification.md` for the three-tier verdict: product
+  **STRONG**, capped beta **CONDITIONAL GO**, bounded public paid **CONDITIONAL GO** —
+  the 4-week window is an *optional* gate on *scaling*, not on launch).
 - **`docs/release/manifest.v16.json`** — the active release manifest (Stripe/billing
   frozen at v16; `rcSha` is null until the owner cuts the immutable RC).
 
-Owner-gated steps still remain (apply migrations 044–049 to prod, cut the immutable
-RC, re-observe the authenticated matrix at that SHA, live-money rehearsal). Those are
+Owner-gated steps still remain (apply migrations to prod, cut the immutable RC,
+re-observe the authenticated matrix at that SHA, live-money rehearsal). Those are
 *owner ops*, not new engineering prompts. Read the certification before writing anything.
 
 ## The tone the marketing pack should keep
@@ -49,7 +69,7 @@ realistic plan for the day you actually have, **reshapes the rest of the day whe
 day changes**, keeps what you already did, and carries value forward — free Undo, no
 shame, and you stay in control of what it learned.
 
-## What the v20 "Moving Toward Marketing" pack should cover (write prompts for THESE)
+## What the v21 "Moving Toward Marketing" pack should cover (write prompts for THESE)
 
 1. **Positioning & core messaging** — sharpen the promise for the people Mellowa is
    for: **busy women 25–45 with inconsistent routines** who want simple

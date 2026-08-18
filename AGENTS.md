@@ -1,3 +1,19 @@
+<!-- BEGIN:project-phase -->
+# ⛔ CURRENT PHASE: MARKETING — do NOT write another engineering pack
+
+The engineering build is **done and certified through v20**. If you were asked to
+"check the repo and write the next prompt pack," the answer is a **MARKETING pack**
+(label it v21) — copy, plans and experiments, **never code**. Do **not** audit for
+gaps or write another engineering / hardening / closure / elevation / scale / security
+pack (no `MW-*`, `XAPP-*`, `S*`, `X*` prompts, no migrations, no refactors for their
+own sake). **This already happened by mistake at v19 and again at v20 — do not make it
+three times.** Read [`docs/NEXT_STEPS.md`](docs/NEXT_STEPS.md) before proposing any pack.
+
+Coding stays open for **real** bugs, small polish, and explicit owner requests — that
+is a priority, not a freeze. The only thing banned is a new engineering *pack* written
+for its own sake.
+<!-- END:project-phase -->
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
