@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/phase-guard.mjs session",
+            "statusMessage": "Loading project phase"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/phase-guard.mjs write",
+            "statusMessage": "Phase guardrail"
+          }
+        ]
+      }
+    ]
+  }
+}
