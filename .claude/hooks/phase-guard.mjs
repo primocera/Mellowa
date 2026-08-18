@@ -8,6 +8,12 @@
  *   - session : injects the phase directive at SessionStart so every agent —
  *               including a fresh "check the repo and write the next pack" run —
  *               loads it before doing anything.
+ *   - prompt  : UserPromptSubmit — fires on EVERY user message inside a running
+ *               session (the common case: same session, "improvements are done,
+ *               now write the prompts"). When the message looks like a request to
+ *               write a pack / prompts / "improvements", it re-injects the phase
+ *               directive so the reminder survives a long single session where
+ *               SessionStart and AGENTS.md only loaded once at the very start.
  *   - write   : on Write/Edit of an engineering-PACK artifact (new migration,
  *               docs/release/vNN pack doc, or an MW-/XAPP- named file) it forces
  *               an "ask" so the write can't happen silently. Real bug fixes /
@@ -42,6 +48,31 @@ process.stdin.on("end", () => {
     }
 
     const data = JSON.parse(input || "{}");
+
+    if (mode === "prompt") {
+      const text = String(data.prompt || "").toLowerCase();
+      // Fires on messages that smell like "write the next pack / prompts" or
+      // "improvements are done" — the exact same-session trigger that AGENTS.md
+      // (loaded once at session start) can't catch mid-conversation.
+      const triggers =
+        /(prompt|pack|prompte|izbolj|improv|hard(en|ening)|elevation|closure|scale|launch pack|naslednj|next pack|migration|migracij|MW-|XAPP-|engineer)/i;
+      if (triggers.test(text)) {
+        const context =
+          "REMINDER — PROJECT PHASE = MARKETING. Engineering is done and certified through v20. " +
+          'If this message is asking to "write the next prompt pack / prompts", the answer is the v21 MARKETING pack (copy, plans, experiments) — NOT another engineering / hardening / MW-*/XAPP-* / migration pack. ' +
+          "This already happened by mistake at v19 and v20 — do not make it three times. Real bug fixes and explicit owner requests are fine. See docs/NEXT_STEPS.md.";
+        process.stdout.write(
+          JSON.stringify({
+            hookSpecificOutput: {
+              hookEventName: "UserPromptSubmit",
+              additionalContext: context,
+            },
+          })
+        );
+      }
+      return;
+    }
+
     const fp =
       (data.tool_input && (data.tool_input.file_path || data.tool_input.path)) ||
       "";
