@@ -11,12 +11,13 @@ correct result at this stage.
 | Field | Value |
 |---|---|
 | Repository | primocera/Mellowa (local `dailyflowai`) |
-| Branch | `v21` |
-| Implementation SHA | `2ccc58779145a240837b6b7d8059bf9aa18a858f` |
+| Branch | merged to `main` |
+| Implementation SHA | `2ccc58779145a240837b6b7d8059bf9aa18a858f` (WS-A/B/C) |
+| **Frozen candidate SHA** | **`363e124cd1f18f30d2a30b1c64dc346e4687b904`** — RC frozen via `release-candidate.yml`; auth matrix 120 passed / 0 failed / 27 skipped |
+| Post-impl commits | `76c1edd` cert · `f655241` runner surfaces test errors · `de6911b` + `363e124` fix a pre-existing CI-only sign-out console/response flake (test-harness only) |
 | Audited base SHA | `e94adcc5b5f8b8a5fcb0f4ef38d5db4baa18c01a` (HEAD matched exactly at start — no drift) |
-| package-lock hash | `cc21b8bc68425de288f8bfc3fba85bcafdcdb845` |
 | Migration range | `001`–`054` (no new migration added by this pack) |
-| Candidate lifecycle | **draft** — not frozen, not promoted |
+| Candidate lifecycle | **frozen** at `363e124` — not yet promoted into the tracked manifest |
 | Build id / deployment id | none — not deployed by this work |
 
 ## 2. Change scope since the audited base
@@ -112,23 +113,24 @@ none may be marked complete without redacted owner evidence at `2ccc587`.
 
 ## 6. Open blocker register
 
-| # | Severity | Blocker | Affected tier | Owner | Closure test |
+| # | Severity | Blocker | Affected tier | Owner | Status |
 |---|---|---|---|---|---|
-| 1 | High | RC not frozen at `2ccc587`; local tests are not candidate evidence | capped beta+ | owner | `release-candidate.yml` green at the full SHA with attached artifacts |
-| 2 | High | Migrations `050`–`054` NOT RUN in production | capped beta+ | owner | schema/RPC/RLS verification attached from prod |
-| 3 | High | Paid readiness 200 under `LAUNCH_MODE=paid` unproven live | bounded paid | owner | authenticated `/api/health/ready` 200 at candidate SHA |
-| 4 | High | Live billing/email/worker owner evidence absent | bounded paid | owner | Stage-5 owner checklist completed with redacted receipts |
-| 5 | Low | Pre-existing STATUS-page↔manifest byte drift (2 snapshot tests) | none (doc hygiene) | owner | regenerate the STATUS pages from their manifests (out of v21 scope) |
+| 1 | High | ~~RC not frozen; local tests are not candidate evidence~~ | capped beta+ | owner | **CLOSED (23.8.2026)** — `release-candidate.yml` frozen at `363e124`, auth matrix 120/0/27, evidence artifact attached |
+| 2 | High | ~~Migrations `050`–`054` NOT RUN in production~~ | capped beta+ | owner | **CLOSED (23.8.2026)** — applied + verified on prod (`rxciojzhzqdcvrcfkgho`): `readiness_schema_probe()` all-true, 053/054 objects present, 0 cross-owner completions. Disposable env brought to parity (049–054) too |
+| 3 | High | Paid readiness 200 under `LAUNCH_MODE=paid` unproven live | bounded paid | owner | OPEN — authenticated `/api/health/ready` 200 at candidate SHA |
+| 4 | High | Live billing/email/worker owner evidence absent | bounded paid | owner | OPEN — Stage-5 owner checklist completed with redacted receipts |
+| 5 | Low | Pre-existing STATUS-page↔manifest byte drift (2 snapshot tests) | none (doc hygiene) | owner | OPEN — regenerate the STATUS pages from their manifests (out of v21 scope) |
 
 ## 7. Tiered verdicts (honest, evidence-based)
 
 - **Product capability — STRONG.** The adaptive-day loop, safety boundaries and
   entitlement model are intact; v21 removes fail-open reads and a duplicate-spend
   window without changing positioning.
-- **Capped beta — CONDITIONAL GO.** Code gate is green at `2ccc587`; the
-  conditions are bounded, reversible and owner-accepted: freeze the RC (blocker 1)
-  and apply/verify migrations `050`–`054` (blocker 2). Until both close, this is
-  not a GO.
+- **Capped beta — GO (23.8.2026).** Both conditions are now met: the RC is
+  frozen at `363e124` with a 120/0 auth matrix and attached evidence (blocker 1),
+  and migrations `050`–`054` are applied and verified in production (blocker 2).
+  The two sign-out commits since `2ccc587` are test-harness only (a pre-existing
+  CI-only console/response 401 flake), so product behaviour is unchanged.
 - **Bounded paid — NO-GO.** Paid readiness 200 and live billing/email/worker owner
   evidence do not exist at this SHA (blockers 3–4). No score substitutes for them.
 - **Unrestricted scale — NO-GO.** Only MVP/code evidence exists.
