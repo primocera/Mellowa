@@ -183,8 +183,21 @@ function runSpec(spec, seededState) {
     for (const child of suite.suites ?? []) walk(child);
     for (const s of suite.specs ?? []) {
       for (const t of s.tests ?? []) {
-        const status = t.results?.[t.results.length - 1]?.status ?? t.status ?? "unknown";
-        records.push({ title: s.title, project: t.projectName ?? "?", status });
+        const lastResult = t.results?.[t.results.length - 1];
+        const status = lastResult?.status ?? t.status ?? "unknown";
+        // Capture the failing assertion/timeout so a CI failure is diagnosable
+        // straight from the step log. Playwright's JSON reporter keeps this out
+        // of stdout, and the runner previously dropped it — leaving a failed
+        // matrix row with no reason. Keep it a trimmed, single-block message
+        // (no secrets are present in these UI assertions).
+        const rawError =
+          lastResult?.error?.message ??
+          lastResult?.errors?.map((e) => e.message).filter(Boolean).join("\n") ??
+          null;
+        const error = rawError
+          ? rawError.replace(/\[[0-9;]*m/g, "").trim().slice(0, 1200)
+          : null;
+        records.push({ title: s.title, project: t.projectName ?? "?", status, error });
       }
     }
   };
@@ -281,6 +294,9 @@ if (failingRecords.length) {
   console.log("Failing authenticated tests:");
   for (const r of failingRecords) {
     console.log(`  - [${r.project}] ${r.title} (${r.status})`);
+    if (r.error) {
+      console.log(r.error.split("\n").map((l) => `      ${l}`).join("\n"));
+    }
   }
 }
 
