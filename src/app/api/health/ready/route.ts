@@ -137,7 +137,14 @@ export async function GET(request: Request) {
     components.migration_021 = await probeTable("email_deliveries", "next_attempt_at");
     // 044-049: a missing object here means the current product line cannot run.
     components.migration_044_account_deletion = await probeTable("account_deletion_requests");
-    components.migration_045_cohort_facts = await probeTable("analytics_excluded_users");
+    // analytics_excluded_users is keyed by user_id and has NO `id` column, so
+    // the default `id` probe always errored and reported this critical migration
+    // as fail (blocking paid readiness) even though the table is present. Probe
+    // the actual primary key.
+    components.migration_045_cohort_facts = await probeTable(
+      "analytics_excluded_users",
+      "user_id"
+    );
     // 046 added provenance columns to onboarding_completions; probe the column.
     components.migration_046_onboarding_provenance = await probeTable(
       "onboarding_completions",
