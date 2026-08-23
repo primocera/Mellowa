@@ -1,17 +1,25 @@
 <!-- BEGIN:project-phase -->
-# ⛔ CURRENT PHASE: MARKETING — do NOT write another engineering pack
+# CURRENT PHASE: MVP launch — closing owner-named gaps, then marketing
 
-The engineering build is **done and certified through v20**. If you were asked to
-"check the repo and write the next prompt pack," the answer is a **MARKETING pack**
-(label it v21) — copy, plans and experiments, **never code**. Do **not** audit for
-gaps or write another engineering / hardening / closure / elevation / scale / security
-pack (no `MW-*`, `XAPP-*`, `S*`, `X*` prompts, no migrations, no refactors for their
-own sake). **This already happened by mistake at v19 and again at v20 — do not make it
-three times.** Read [`docs/NEXT_STEPS.md`](docs/NEXT_STEPS.md) before proposing any pack.
+The engineering build is broadly complete. The owner directs the work:
 
-Coding stays open for **real** bugs, small polish, and explicit owner requests — that
-is a priority, not a freeze. The only thing banned is a new engineering *pack* written
-for its own sake.
+- **v21 (owner-authorized MVP closure) — EXECUTED.** The owner explicitly named the
+  gaps in `Mellowa_MVP_Launch_Closure_v21` (Prompt 2) and asked for them to be built
+  on top of the existing code. Executed on branch `v21`: fail-closed required-context
+  reads in `plan-repair` and `regenerate-section` (WS-A), a bounded provider deadline
+  under the daily-plan claim lease (WS-B), and ONE canonical `LAUNCH_MODE` contract
+  shared by the release check and runtime readiness (WS-C). No new migrations; owner
+  gates (RC cut, prod migrations 050–054, live money) remain owner-only and were NOT
+  run. See `docs/release/v21/MELLOWA-CLOSURE-CERTIFICATION.md`.
+
+- **Default remains marketing/users, not more engineering.** Do **not** invent a new
+  engineering / hardening / elevation / scale / security *pack* for its own sake, and
+  do not audit for gaps unprompted (this went wrong at v19 and v20). Copy, plans and
+  experiments are the ordinary next work. Read
+  [`docs/NEXT_STEPS.md`](docs/NEXT_STEPS.md) before proposing any pack.
+
+- **Coding is open** for real bugs, small polish, and explicit owner requests like
+  v21 — that is a priority, not a freeze.
 <!-- END:project-phase -->
 
 <!-- BEGIN:nextjs-agent-rules -->

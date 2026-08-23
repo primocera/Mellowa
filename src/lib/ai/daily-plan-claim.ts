@@ -16,6 +16,23 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * closed (503). This mirrors the billing/quota fail-closed rule.
  */
 
+/**
+ * The (user, day) claim lease, in seconds. A single request holds it across the
+ * whole generation — including the quality and allergen regenerations.
+ */
+export const DAILY_PLAN_LEASE_SECONDS = 120;
+
+/**
+ * WS-B (v21): total provider wall-time budget for ONE daily-plan request, shared
+ * across every generation call it makes (initial + quality retry + allergen
+ * retry, each of which may itself retry once on rate-limit/overload). Held
+ * comfortably below the lease so the claim can never expire while the original
+ * request is still legitimately awaiting the provider — which would let a
+ * follower reclaim the day and incur a second billable generation. The ~20s
+ * headroom also covers the surrounding DB writes inside the lease.
+ */
+export const DAILY_PLAN_PROVIDER_BUDGET_MS = 100_000;
+
 export type DailyClaimResult =
   | { outcome: "claimed"; ownerRequestId: string; attempt: number; reclaimed: boolean }
   | { outcome: "in_progress"; retryAfterSeconds: number }

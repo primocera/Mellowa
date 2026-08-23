@@ -20,9 +20,15 @@ export async function generateDailyPlanV2(args: {
   modeInstruction?: string;
   /** Extra corrective instruction, e.g. after a failed quality check. */
   extraInstruction?: string;
+  /**
+   * Absolute wall-clock deadline (epoch ms) shared across every generation call
+   * in one request, so the total provider time stays within the (user, day)
+   * claim lease (WS-B). Omitted → only the per-attempt timeout applies.
+   */
+  deadline?: number;
   usageSink?: UsageSink;
 }): Promise<DailyPlanV2OutputType> {
-  const { profile, checkin, habits, date, modeInstruction, extraInstruction, usageSink } = args;
+  const { profile, checkin, habits, date, modeInstruction, extraInstruction, deadline, usageSink } = args;
 
   const profileContext = {
     primary_goal: profile.primary_goal,
@@ -68,6 +74,7 @@ export async function generateDailyPlanV2(args: {
     zodSchema: DailyPlanV2Output,
     temperature: 0.6,
     maxTokens: 8192,
+    deadline,
     usageSink,
   });
 }

@@ -49,7 +49,7 @@ describe("deep readiness probes the current migration line", () => {
 
   it("marks the migration + worker components critical and fails paid closed", () => {
     expect(route).toContain("CRITICAL");
-    expect(route).toContain("readinessMode()");
+    expect(route).toContain("resolveLaunchMode()");
     expect(route).toMatch(/summarizeReadiness\(components,\s*\{\s*mode,\s*critical:\s*CRITICAL\s*\}\)/);
   });
 

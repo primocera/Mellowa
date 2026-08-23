@@ -129,12 +129,23 @@ export async function POST(request: Request) {
   };
 
   // Server-derived ownership: the plan must belong to this user (RLS + filter).
-  const { data: plan } = await supabase
+  // A query ERROR is an outage, not a missing plan — fail closed (503) rather
+  // than mutating/adjusting from an unobserved state. Only a successful no-row
+  // result is a genuine 404.
+  const { data: plan, error: planError } = await supabase
     .from("daily_plans")
     .select("*")
     .eq("id", plan_id)
     .eq("user_id", user.id)
     .maybeSingle();
+  if (planError) {
+    await releaseReservation(eventId);
+    return fail(503, {
+      error: "data_unavailable",
+      user_message:
+        "We couldn't confirm today's plan just now — nothing was changed. Please try again in a moment.",
+    });
+  }
   if (!plan) {
     await releaseReservation(eventId);
     return fail(404, { error: "Plan not found" });
@@ -190,11 +201,23 @@ export async function POST(request: Request) {
   }
 
   // Completed items are protected server-side from the persisted rows — the
-  // client cannot un-protect them by omitting keys.
-  const { data: completions } = await supabase
+  // client cannot un-protect them by omitting keys. A READ ERROR here must never
+  // be collapsed into "no completed items": that could let the adjustment
+  // replace an item the user already finished. Fail closed before building the
+  // replaceable scope or calling the provider. A successful no-row read is a
+  // genuine "nothing completed yet" and is safe to treat as [].
+  const { data: completions, error: completionsError } = await supabase
     .from("plan_completions")
     .select("item_key")
     .eq("daily_plan_id", plan_id);
+  if (completionsError) {
+    await releaseReservation(eventId);
+    return fail(503, {
+      error: "data_unavailable",
+      user_message:
+        "We couldn't confirm today's plan just now — nothing was changed. Please try again in a moment.",
+    });
+  }
   const completedKeys = (completions ?? []).map((c) => c.item_key);
 
   const scope = replaceableScope(plan as RepairPlanRow, completedKeys, keep_keys);
@@ -207,14 +230,35 @@ export async function POST(request: Request) {
     });
   }
 
-  const { data: profile } = await supabase
+  // Allergies, food preferences and movement limitations are required SAFETY
+  // context for the repair prompt. A read ERROR must never become an empty
+  // allergy list — fail closed. A verified-absent profile means onboarding is
+  // incomplete: we cannot honour allergies/limitations, so refuse rather than
+  // generate blind (mirrors the daily-plan route's onboarding_required guard).
+  const { data: profile, error: profileError } = await supabase
     .from("wellbeing_profiles")
     .select(
       "primary_goal, cooking_time, cooking_skill, budget_level, movement_level, movement_limitations, food_preferences, allergies, preferred_tone"
     )
     .eq("user_id", user.id)
     .maybeSingle();
-  const allergies = (profile?.allergies ?? []).filter(Boolean);
+  if (profileError) {
+    await releaseReservation(eventId);
+    return fail(503, {
+      error: "data_unavailable",
+      user_message:
+        "We couldn't confirm your wellbeing profile just now — nothing was changed. Please try again in a moment.",
+    });
+  }
+  if (!profile) {
+    await releaseReservation(eventId);
+    return fail(400, {
+      error: "onboarding_required",
+      user_message:
+        "Let's finish your wellbeing setup first — nothing was changed.",
+    });
+  }
+  const allergies = (profile.allergies ?? []).filter(Boolean);
 
   const schema = repairOutputSchema(scope);
   const currentOpen: Record<string, unknown> = {};
@@ -237,7 +281,7 @@ Reason: ${REPAIR_REASON_INSTRUCTIONS[reason]}
 ${user_note ? `User note (context for this repair only): """${user_note}"""` : ""}
 
 User profile (respect allergies, preferences, cooking skill and limitations):
-${JSON.stringify(profile ?? {}, null, 2)}
+${JSON.stringify(profile, null, 2)}
 
 Current still-open sections to replace:
 ${JSON.stringify(currentOpen, null, 2)}

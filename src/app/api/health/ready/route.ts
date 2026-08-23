@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   classifyRpcProbe,
   classifyWorkerFreshness,
-  readinessMode,
+  resolveLaunchMode,
   releaseVersion,
   summarizeReadiness,
   type ComponentStatus,
@@ -23,7 +23,7 @@ import { CRON_REGISTRY } from "@/lib/ops/cron-registry";
  * freshness of the critical background workers — all with side-effect-free
  * probes that never leak an id, address, error detail or content.
  *
- * In paid mode (READINESS_MODE=paid) a missing required object (fail) or a
+ * In paid mode (LAUNCH_MODE=paid) a missing required object (fail) or a
  * degraded/unavailable critical worker fails closed with 503. In beta mode a
  * degraded/unavailable worker is surfaced but warn-only; a missing required
  * object still fails. Kept separate from the public pricing readiness endpoint.
@@ -272,7 +272,14 @@ export async function GET(request: Request) {
     components.database = "fail";
   }
 
-  const mode = readinessMode();
+  // Canonical launch tier (LAUNCH_MODE). A misconfiguration — a production
+  // deployment without a valid mode, or a deprecated READINESS_MODE that
+  // disagrees — is surfaced as an explicit failing component so readiness fails
+  // closed (503) rather than silently running the wrong tier. The safe reason
+  // string never contains a secret.
+  const launch = resolveLaunchMode();
+  const mode = launch.mode;
+  components.launch_mode = launch.ok ? "ok" : "fail";
   const report = summarizeReadiness(components, { mode, critical: CRITICAL });
   return NextResponse.json(
     { ...report, version: releaseVersion() },

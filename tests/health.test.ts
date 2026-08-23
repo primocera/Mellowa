@@ -62,10 +62,18 @@ describe("MW-04: beta vs paid readiness modes", () => {
     expect(summarizeReadiness({ database: "ok" }, { mode: "paid" }).mode).toBe("paid");
   });
 
-  it("readinessMode defaults to beta and only 'paid' opts in", () => {
+  it("readinessMode derives from the canonical LAUNCH_MODE (WS-C)", () => {
+    // Dev default is beta; paid is opt-in via the canonical variable.
     expect(readinessMode({})).toBe("beta");
-    expect(readinessMode({ READINESS_MODE: "paid" })).toBe("paid");
-    expect(readinessMode({ READINESS_MODE: "anything" })).toBe("beta");
+    expect(readinessMode({ LAUNCH_MODE: "paid" })).toBe("paid");
+    expect(readinessMode({ LAUNCH_MODE: "beta" })).toBe("beta");
+    // The deprecated READINESS_MODE alone no longer drives the mode — LAUNCH_MODE
+    // is the single source of truth (mismatch/misconfig is reported via
+    // resolveLaunchMode().ok, exercised in launch-mode-parity.test.ts).
+    expect(readinessMode({ READINESS_MODE: "paid" })).toBe("beta");
+    // A production deployment without a valid mode gates as paid (strictest) and
+    // is flagged as a misconfiguration rather than silently running as beta.
+    expect(readinessMode({ NODE_ENV: "production" })).toBe("paid");
   });
 });
 

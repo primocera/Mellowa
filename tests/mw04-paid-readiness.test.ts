@@ -187,14 +187,14 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe("GET /api/health/ready — paid mode fail-closed (MW-04)", () => {
   it("200 in paid mode when all config + schema are present", async () => {
-    vi.stubEnv("READINESS_MODE", "paid");
+    vi.stubEnv("LAUNCH_MODE", "paid");
     const res = await GET(req());
     expect(res.status).toBe(200);
     expect((await res.json()).ok).toBe(true);
   });
 
   it("503 in paid mode when a Stripe config is missing", async () => {
-    vi.stubEnv("READINESS_MODE", "paid");
+    vi.stubEnv("LAUNCH_MODE", "paid");
     vi.stubEnv("STRIPE_SECRET_KEY", "");
     const res = await GET(req());
     expect(res.status).toBe(503);
@@ -202,7 +202,7 @@ describe("GET /api/health/ready — paid mode fail-closed (MW-04)", () => {
   });
 
   it("200 in BETA mode even with a Stripe config missing (not_configured allowed)", async () => {
-    vi.stubEnv("READINESS_MODE", "");
+    vi.stubEnv("LAUNCH_MODE", "beta");
     vi.stubEnv("STRIPE_SECRET_KEY", "");
     const res = await GET(req());
     expect(res.status).toBe(200);
@@ -210,15 +210,15 @@ describe("GET /api/health/ready — paid mode fail-closed (MW-04)", () => {
 
   it("503 in BOTH modes when the canonical unique index is absent", async () => {
     h.schemaAllTrue = false; // index/policy missing
-    vi.stubEnv("READINESS_MODE", "paid");
+    vi.stubEnv("LAUNCH_MODE", "paid");
     expect((await GET(req())).status).toBe(503);
-    vi.stubEnv("READINESS_MODE", "");
+    vi.stubEnv("LAUNCH_MODE", "beta");
     expect((await GET(req())).status).toBe(503);
   });
 
   it("503 when the schema probe function itself is missing", async () => {
     h.schemaError = { code: "PGRST202", message: "could not find the function" };
-    vi.stubEnv("READINESS_MODE", "paid");
+    vi.stubEnv("LAUNCH_MODE", "paid");
     expect((await GET(req())).status).toBe(503);
   });
 });

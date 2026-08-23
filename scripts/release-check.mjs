@@ -20,6 +20,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { resolveLaunchMode } from "./launch-mode.mjs";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 const CONTRACT = JSON.parse(
@@ -47,10 +48,19 @@ for (const name of REQUIRED_ENV) {
   else fail(name);
 }
 
+// Canonical launch tier (LAUNCH_MODE). The exact same resolver runs at runtime
+// (src/lib/health.ts) so this check and deep readiness cannot classify an
+// environment differently. A misconfiguration — production without a valid
+// mode, or a deprecated READINESS_MODE that disagrees — fails here.
+console.log("\nLaunch mode (canonical: LAUNCH_MODE=beta|paid)");
+const launch = resolveLaunchMode(process.env);
+if (launch.ok) ok(`launch mode resolved to '${launch.mode}'`);
+else fail(`launch mode misconfigured: ${launch.problem}`);
+
 console.log("\nPaid-launch identity (LAUNCH_MODE=paid requires all of these)");
 for (const name of PAID_LAUNCH_ENV) {
   if (process.env[name]) ok(name);
-  else (process.env.LAUNCH_MODE === "paid" ? fail : warn)(name);
+  else (launch.mode === "paid" ? fail : warn)(name);
 }
 
 console.log("\nValue sanity (no values shown)");

@@ -146,8 +146,10 @@ export async function POST(request: Request) {
     sampleAdjustment = true;
   }
 
-  // Plan must belong to the user (RLS also enforces this)
-  const { data: plan } = await supabase
+  // Plan must belong to the user (RLS also enforces this). A query ERROR is an
+  // outage, not a missing plan — fail closed (503) rather than mutate from an
+  // unobserved state. Only a successful no-row read is a genuine 404.
+  const { data: plan, error: planError } = await supabase
     .from("daily_plans")
     .select("*")
     .eq("id", plan_id)
@@ -163,6 +165,18 @@ export async function POST(request: Request) {
       .eq("user_id", user.id);
   };
 
+  if (planError) {
+    await releaseReservation(eventId);
+    await refundSampleAdjustment();
+    return NextResponse.json(
+      {
+        error: "data_unavailable",
+        user_message:
+          "We couldn't confirm today's plan just now — nothing was changed. Please try again in a moment.",
+      },
+      { status: 503 }
+    );
+  }
   if (!plan) {
     await releaseReservation(eventId);
     await refundSampleAdjustment();
@@ -212,13 +226,43 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data: profile } = await supabase
+  // The profile carries required safety/context facts: allergies and food
+  // preferences for meal cards, movement limitations for movement moments. One
+  // consistent fail-closed policy for every section: a read ERROR is an outage
+  // (503) and a verified-absent profile means onboarding is incomplete (400).
+  // We never fall back to an empty allergy list or pick a "safe" replacement
+  // while the limitations read is unavailable.
+  const { data: profile, error: profileError } = await supabase
     .from("wellbeing_profiles")
     .select(
       "primary_goal, cooking_time, cooking_skill, budget_level, movement_level, movement_limitations, food_preferences, allergies, preferred_tone"
     )
     .eq("user_id", user.id)
     .maybeSingle();
+  if (profileError) {
+    await releaseReservation(eventId);
+    await refundSampleAdjustment();
+    return NextResponse.json(
+      {
+        error: "data_unavailable",
+        user_message:
+          "We couldn't confirm your wellbeing profile just now — nothing was changed. Please try again in a moment.",
+      },
+      { status: 503 }
+    );
+  }
+  if (!profile) {
+    await releaseReservation(eventId);
+    await refundSampleAdjustment();
+    return NextResponse.json(
+      {
+        error: "onboarding_required",
+        user_message:
+          "Let's finish your wellbeing setup first — nothing was changed.",
+      },
+      { status: 400 }
+    );
+  }
 
   // Prompts 7/8/9: curated sections are served from the reviewed library —
   // no provider call, instant, and always safe wording. A time-based seed
@@ -235,7 +279,7 @@ export async function POST(request: Request) {
         break;
       case "movement_moment":
         curated = pickMovement(seed, {
-          limitations: profile?.movement_limitations,
+          limitations: profile.movement_limitations,
           lowEnergy: reason === "lower_energy" || reason === "make_easier",
         });
         break;
@@ -279,7 +323,7 @@ Reason: ${REASON_INSTRUCTIONS[reason]}
 ${user_note ? `User note: """${user_note}"""` : ""}
 
 User profile (respect allergies, preferences, cooking skill and limitations):
-${JSON.stringify(profile ?? {}, null, 2)}
+${JSON.stringify(profile, null, 2)}
 
 Current content:
 ${JSON.stringify(currentContent ?? {}, null, 2)}
@@ -292,7 +336,7 @@ Return ONLY the regenerated part as a single JSON object matching the same shape
   // Combined deterministic gate (Prompts 5 + 13): allergens are zero-tolerance
   // and quality (banned language, required safety notes, usable steps) shares
   // the single allowed corrective retry, then we fail closed.
-  const allergies = (profile?.allergies ?? []).filter(Boolean);
+  const allergies = (profile.allergies ?? []).filter(Boolean);
   const gateReasons = (meal: MealCardType): { allergen: string[]; quality: string[] } => {
     const allergen = allergies.length
       ? findMealAllergenViolations(meal, allergies).map((v) => v.category)

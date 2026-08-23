@@ -46,6 +46,8 @@ import {
 import {
   claimDailyPlanGeneration,
   finishDailyPlanGeneration,
+  DAILY_PLAN_LEASE_SECONDS,
+  DAILY_PLAN_PROVIDER_BUDGET_MS,
 } from "@/lib/ai/daily-plan-claim";
 import type { WellbeingProfile } from "@/types/dailyflow";
 
@@ -159,6 +161,7 @@ export async function POST(request: Request) {
     const dayClaim = await claimDailyPlanGeneration(supabase, {
       userId: user.id,
       localDate: today,
+      leaseSeconds: DAILY_PLAN_LEASE_SECONDS,
     });
     if (dayClaim.outcome === "unavailable") {
       // Fail closed — never fall back to unguarded generation, which would
@@ -204,6 +207,14 @@ export async function POST(request: Request) {
     }
     dayClaimOwnerId = dayClaim.ownerRequestId;
   }
+
+  // WS-B: bound the TOTAL provider wall-time for this request to a budget held
+  // comfortably below the lease that started at the claim above. Every provider
+  // generation below (initial + quality retry + allergen retry) shares this one
+  // deadline, so the lease cannot expire while this request is still legitimately
+  // awaiting the provider — which would let a follower reclaim the day and incur
+  // a second billable generation.
+  const providerDeadline = Date.now() + DAILY_PLAN_PROVIDER_BUDGET_MS;
 
   // Idempotency (v6 Prompt 7): duplicate concurrent/retried requests converge
   // on one claim so a double click can never launch two provider calls.
@@ -423,6 +434,7 @@ export async function POST(request: Request) {
       habits,
       date: today,
       modeInstruction,
+      deadline: providerDeadline,
       usageSink,
     });
     accumulate();
@@ -445,6 +457,7 @@ export async function POST(request: Request) {
         extraInstruction: `The previous plan failed quality review (${quality.reasons.join(
           "; "
         )}). Create a LIGHTER, gentler plan: simpler meals with a clear safety note, gentle movement with a caution note, short calm-reset steps, no medical or diet language, warm encouragement, and a clear minimum version for the habit.`,
+        deadline: providerDeadline,
         usageSink,
       });
       accumulate();
@@ -490,6 +503,7 @@ export async function POST(request: Request) {
           date: today,
           modeInstruction,
           extraInstruction: allergenExclusionInstruction(allergies),
+          deadline: providerDeadline,
           usageSink,
         });
         accumulate();

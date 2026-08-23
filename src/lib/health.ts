@@ -123,11 +123,88 @@ export function classifyWorkerFreshness(args: {
   return "ok";
 }
 
-/** Resolve the readiness mode from the environment (defaults to beta). */
+/**
+ * The launch tier this deployment runs at.
+ *  - mode     the effective gating tier (beta|paid).
+ *  - ok       false → the launch-mode configuration is inconsistent and
+ *             readiness MUST fail closed (and the release check MUST exit
+ *             non-zero). Never run production as beta by accident.
+ *  - problem  a safe, non-secret description of the misconfiguration.
+ */
+export interface LaunchModeResolution {
+  mode: ReadinessMode;
+  ok: boolean;
+  problem?: string;
+}
+
+/**
+ * Resolve the canonical launch tier from the environment.
+ *
+ * ONE canonical contract: `LAUNCH_MODE=beta|paid`. It is already the variable
+ * the release check, the legal-config guard and instrumentation use; runtime
+ * readiness now derives its mode from the same source so the CLI and the
+ * running app can never silently disagree.
+ *
+ * `READINESS_MODE` is a DEPRECATED alias kept only for backwards compatibility.
+ * If it is present it must AGREE with LAUNCH_MODE; a mismatch or an invalid
+ * value is a misconfiguration (`ok:false`).
+ *
+ * A production deployment (NODE_ENV=production) with LAUNCH_MODE unset or
+ * invalid is a misconfiguration — it does NOT silently fall back to beta. Local
+ * development may default to beta only when NODE_ENV is not production.
+ */
+export function resolveLaunchMode(
+  env: Record<string, string | undefined> = process.env
+): LaunchModeResolution {
+  const raw = env.LAUNCH_MODE;
+  const legacy = env.READINESS_MODE;
+  const isProd = env.NODE_ENV === "production";
+
+  let mode: ReadinessMode;
+  let ok = true;
+  let problem: string | undefined;
+
+  if (raw === "paid" || raw === "beta") {
+    mode = raw;
+  } else if (raw == null || raw === "") {
+    if (isProd) {
+      // Never silently default a production deployment to beta.
+      ok = false;
+      problem = "LAUNCH_MODE is not set in production";
+      mode = "paid"; // strictest gating while misconfigured
+    } else {
+      mode = "beta"; // local/dev default only
+    }
+  } else {
+    ok = false;
+    problem = "LAUNCH_MODE has an invalid value (allowed: beta, paid)";
+    mode = "paid";
+  }
+
+  if (legacy != null && legacy !== "") {
+    const legacyMode: ReadinessMode | null =
+      legacy === "paid" ? "paid" : legacy === "beta" ? "beta" : null;
+    if (legacyMode == null) {
+      ok = false;
+      problem = problem ?? "READINESS_MODE has an invalid value (allowed: beta, paid)";
+    } else if (ok && legacyMode !== mode) {
+      ok = false;
+      problem = "READINESS_MODE disagrees with LAUNCH_MODE";
+    }
+  }
+
+  return problem ? { mode, ok, problem } : { mode, ok };
+}
+
+/**
+ * Resolve the readiness mode from the environment (canonical: LAUNCH_MODE).
+ * Kept for callers that only need the effective tier; use resolveLaunchMode
+ * when you also need to fail closed on a misconfiguration.
+ */
 export function readinessMode(
   env: Record<string, string | undefined> = process.env
 ): ReadinessMode {
-  return env.READINESS_MODE === "paid" ? "paid" : "beta";
+  return resolveLaunchMode(env).mode;
 }
 
 /** Safe release identifier for health output (never a secret). */

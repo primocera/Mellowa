@@ -18,6 +18,11 @@ function isRetryableProviderError(err: unknown): boolean {
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
+// Minimum remaining budget worth spending on a rate-limit/overload retry. If a
+// caller-supplied `deadline` leaves less than this, we fail closed instead of
+// starting an attempt that cannot finish before the deadline.
+const MIN_RETRY_BUDGET_MS = 2_000;
+
 /**
  * Mutable sink for provider usage (Prompt 11). The caller passes an object; this
  * function writes the attempt's tokens/latency/model/outcome into `.usage` on
@@ -35,6 +40,17 @@ type GenerateOptions<S extends z.ZodTypeAny> = {
   temperature?: number;
   maxTokens?: number;
   timeoutMs?: number;
+  /**
+   * Absolute wall-clock deadline (epoch ms) that bounds the TOTAL provider time
+   * for this call, including the rate-limit/overload retry and its jitter. When
+   * a caller shares one deadline across several generation calls in a single
+   * request (e.g. the daily-plan quality/allergen regenerations), it guarantees
+   * every provider call collectively finishes before the deadline — so an
+   * atomic (user, day) claim lease cannot expire while the original request is
+   * still legitimately awaiting the provider. Omitted → only the per-attempt
+   * timeout applies (unchanged behaviour for every other route).
+   */
+  deadline?: number;
   usageSink?: UsageSink;
 };
 
@@ -56,6 +72,7 @@ export async function generateStructuredJson<S extends z.ZodTypeAny>({
   temperature,
   maxTokens,
   timeoutMs,
+  deadline,
   usageSink,
 }: GenerateOptions<S>): Promise<z.infer<S>> {
   const policy = route ? policyFor(route) : null;
@@ -63,6 +80,9 @@ export async function generateStructuredJson<S extends z.ZodTypeAny>({
   const temp = temperature ?? policy?.temperature ?? 0.6;
   const tokens = maxTokens ?? policy?.maxTokens ?? 4096;
   const timeout = timeoutMs ?? policy?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  /** Effective per-attempt timeout, capped by any remaining deadline budget. */
+  const attemptTimeout = () =>
+    deadline == null ? timeout : Math.min(timeout, deadline - Date.now());
   const started = Date.now();
   const record = (
     status: AiUsage["status"],
@@ -105,11 +125,21 @@ export async function generateStructuredJson<S extends z.ZodTypeAny>({
 
   const client = getAiClient();
 
+  // A caller-supplied deadline may already be spent (e.g. earlier regenerations
+  // in the same request used the shared budget). Fail closed BEFORE the provider
+  // try/catch — otherwise this deliberate timeout would be rewritten as a
+  // generic provider error.
+  const firstTimeout = attemptTimeout();
+  if (deadline != null && firstTimeout <= 0) {
+    record("timeout");
+    throw new AiGenerationError("AI provider deadline exceeded", "timeout");
+  }
+
   let responseText: string;
   let inputTokens = 0;
   let outputTokens = 0;
   try {
-    const request = () =>
+    const request = (perCallTimeout: number) =>
       client.messages.create(
         {
           model,
@@ -118,18 +148,28 @@ export async function generateStructuredJson<S extends z.ZodTypeAny>({
           system: `${systemPrompt}\n\nRespond with a single valid JSON object only. No prose, no markdown.`,
           messages: [{ role: "user", content: userPrompt }],
         },
-        { timeout }
+        { timeout: perCallTimeout }
       );
 
     // Bounded retry: exactly one, only for rate-limit/overload, with jitter
-    // (backpressure, never a request storm).
+    // (backpressure, never a request storm). Under a deadline the jitter and the
+    // second attempt are clamped to the remaining budget, and the retry is
+    // skipped entirely when too little budget remains.
     let message;
     try {
-      message = await request();
+      message = await request(firstTimeout);
     } catch (err) {
       if (!isRetryableProviderError(err)) throw err;
-      await new Promise((r) => setTimeout(r, 500 + Math.random() * 1000));
-      message = await request();
+      const remaining = deadline == null ? timeout : deadline - Date.now();
+      const jitter =
+        deadline == null
+          ? 500 + Math.random() * 1000
+          : Math.min(500 + Math.random() * 1000, Math.max(0, remaining - MIN_RETRY_BUDGET_MS));
+      if (deadline != null && remaining - jitter < MIN_RETRY_BUDGET_MS) throw err;
+      await new Promise((r) => setTimeout(r, jitter));
+      const secondTimeout = attemptTimeout();
+      if (deadline != null && secondTimeout <= 0) throw err;
+      message = await request(secondTimeout);
     }
 
     // Provider token truth — the basis for actual cost.
