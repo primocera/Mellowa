@@ -146,10 +146,43 @@ none may be marked complete without redacted owner evidence at `2ccc587`.
 - **Data:** no new migration; nothing to roll back. Migrations `050`–`054` carry
   their own data-safe rollback in each file.
 
-## 9. Next single owner action
+## 9. Paid-mode go-live state (23.8.2026)
 
-**Freeze the release candidate at `2ccc587`** by running the immutable
-`release-candidate.yml` against the disposable Supabase env with migrations
-`050`–`054` applied there first. That produces the exact-SHA evidence needed to
-turn the capped-beta CONDITIONAL GO into a GO; everything else in the paid tier
-follows from the Stage-5 owner checklist.
+Prod is now `LAUNCH_MODE=paid` (deployed version `35a4fb0`), and has been on
+**live Stripe accepting real money since ~v15/v16**. Deep readiness
+(`/api/health/ready`) was worked through:
+
+- **Fixed** a real readiness bug (`35a4fb0`, on `main`, AHEAD of the frozen RC
+  `363e124`): `migration_045_cohort_facts` probed `analytics_excluded_users` by a
+  non-existent `id` column (its PK is `user_id`), so it always reported `fail` in
+  prod and blocked paid. Now `ok`. **The frozen RC does not include this fix — a
+  re-cut RC at `35a4fb0` is advisable.**
+- **Workers woken** via the cron endpoints; `cron_runs` ledger (mig 053) now
+  records runs. `cron_retention_freshness` → ok.
+- **Prod data cleanup (owner-run SQL):** deleted 11 `failed_permanent`
+  `email_deliveries` (historical, old `EMAIL_FROM` bug; sending works — 13 sent)
+  → `outbox_freshness` ok. Deleted 4 `incomplete` (abandoned-checkout)
+  subscription rows (one referenced a deleted Stripe customer = the reconcile
+  "unresolvable"). Left the single `active` sub (`688ba16f…`, `sub_1Tzah…`,
+  cancel_at_period_end).
+
+**Remaining non-ok component:** `cron_billing_reconcile_freshness` =
+`unavailable`. Cause is the owner's own active sub being on a legacy price
+(`price_1TxjJI…`) not in the catalog env (`STRIPE_PRICE_PRO_MONTHLY/YEARLY`);
+`reconcile.ts` sets `ok:false` on any unknown price, so no success is recorded.
+Not a real-customer problem (new checkouts use the catalog price; verify-prices
+passed). Self-closes when that sub cancels (**2026-09-01**) or immediately after
+a cancel + a successful `billing-reconcile` run.
+
+**Security:** DB passwords, disposable anon/service keys, `CRON_SECRET` and the
+rotated `ADMIN_STATS_SECRET` were exposed in the working session and MUST be
+rotated by the owner. The auto-mode classifier blocks Claude from mutating the
+prod/disposable DBs and from hitting cron endpoints — the owner runs those.
+
+## 10. Next single owner action
+
+Capped beta is **GO** and live (signups open, cap 50). No required action.
+Optional: (a) rotate the leaked secrets; (b) let the last billing gate self-close
+on 2026-09-01 (or cancel the test sub + run billing-reconcile once); (c) re-cut
+the RC at `35a4fb0` to fold in the readiness probe fix. Product default now is
+**marketing**, not more engineering.
