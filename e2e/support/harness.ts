@@ -103,6 +103,23 @@ const GENERIC_RESOURCE_LOAD_ERROR =
   /^Failed to load resource: the server responded with a status of \d+/;
 
 /**
+ * (url, status) pairs whose HTTP failure is an expected transient during a
+ * journey, not a defect. Status-scoped on purpose: unlike EXPECTED_FAILURES
+ * (which skips a URL for any status), each entry names the ONE status that is
+ * legitimate for that route, so a different failure on the same route is still
+ * caught.
+ */
+const EXPECTED_RESPONSE_FAILURES: { url: RegExp; status: number }[] = [
+  // Signing out invalidates the session while the authenticated layout is still
+  // mounted, so the consent probe (ConsentCheckpoint's mount fetch) can fire
+  // once more before the redirect to /login settles and legitimately 401s. The
+  // component already tolerates it (r.ok ? … : null), so it is a benign race,
+  // not a bug — the same class as the /auth/v1/user 401. Only 401 is expected
+  // here; any other status on /api/consent remains a real failure.
+  { url: /\/api\/consent$/, status: 401 },
+];
+
+/**
  * Attach listeners that record anything the page did wrong in the background.
  *
  * A journey that "passes" while the console is full of React errors, or while a
@@ -135,6 +152,10 @@ export function installFailureGuards(page: Page): PageFailures {
     if (status < 400) return;
     const url = response.url();
     if (EXPECTED_FAILURES.some((pattern) => pattern.test(url))) return;
+    if (
+      EXPECTED_RESPONSE_FAILURES.some((e) => e.status === status && e.url.test(url))
+    )
+      return;
     failures.badResponses.push(`${status} ${url}`);
   });
 
