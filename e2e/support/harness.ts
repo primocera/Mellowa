@@ -86,6 +86,23 @@ const EXPECTED_FAILURES: RegExp[] = [
 ];
 
 /**
+ * Chromium logs a generic, URL-less console error for every 4xx/5xx response:
+ * "Failed to load resource: the server responded with a status of N (...)".
+ *
+ * It carries no URL, so it can never be matched against EXPECTED_FAILURES the
+ * way a response URL can — and it is redundant with the `response` guard below,
+ * which IS url-aware and records genuinely unexpected HTTP failures by URL.
+ *
+ * Left in the console channel it makes tests flaky: e.g. signing out fires a
+ * session check that legitimately 401s (already allowlisted by URL in the
+ * response guard), but whether Chromium also emits this URL-less console echo —
+ * and on which viewport — is a timing race. Ignore the generic echo here; a
+ * truly unexpected HTTP failure is still caught by `badResponses` (by URL).
+ */
+const GENERIC_RESOURCE_LOAD_ERROR =
+  /^Failed to load resource: the server responded with a status of \d+/;
+
+/**
  * Attach listeners that record anything the page did wrong in the background.
  *
  * A journey that "passes" while the console is full of React errors, or while a
@@ -102,6 +119,7 @@ export function installFailureGuards(page: Page): PageFailures {
   page.on("console", (message) => {
     if (message.type() !== "error") return;
     const text = message.text();
+    if (GENERIC_RESOURCE_LOAD_ERROR.test(text)) return;
     if (EXPECTED_FAILURES.some((pattern) => pattern.test(text))) return;
     failures.consoleErrors.push(text);
   });
