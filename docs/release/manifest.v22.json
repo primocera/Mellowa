@@ -1,0 +1,177 @@
+{
+  "schema": 1,
+  "release": "v22",
+  "baselineSha": "30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b",
+  "rcSha": null,
+  "candidateLifecycle": "draft",
+  "reconciledAtUtc": "2026-08-29T00:00:00Z",
+  "buildId": null,
+  "migrations": [
+    "001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
+    "011", "012", "013", "014", "015", "016", "017", "018", "019", "020",
+    "021", "022", "023", "024", "025", "026", "027", "028", "029", "030",
+    "031", "032", "033", "034", "035", "036", "037", "038", "039", "040",
+    "041", "042", "043", "044", "045", "046", "047", "048", "049", "050",
+    "051", "052", "053", "054"
+  ],
+  "suites": [
+    {
+      "id": "lint",
+      "command": "npm run lint",
+      "required": true,
+      "status": "not_run",
+      "note": "Green locally at the v22 baseline (eslint exit 0), but a local run is NOT candidate evidence. Frozen with SHA-pinned evidence only when the immutable release-candidate workflow cuts an RC. No RC is frozen for v22."
+    },
+    {
+      "id": "typecheck",
+      "command": "npm run typecheck",
+      "required": true,
+      "status": "not_run",
+      "note": "Green locally at the v22 baseline (tsc --noEmit, no errors). Frozen only at an RC via .github/workflows/release-candidate.yml."
+    },
+    {
+      "id": "unit-contract-safety",
+      "command": "npx vitest run",
+      "required": true,
+      "status": "not_run",
+      "note": "At the v22 baseline this suite is 2186 passed / 2 failed locally. The 2 failures are pre-existing byte-for-byte render-drift on the historical v16 STATUS page (release-v16.test.ts, mw08-release-candidate.test.ts); they predate v22 and are unrelated to the v22 change. Local counts are NOT candidate evidence until an RC is cut; the RC workflow fails if zero tests are discovered."
+    },
+    {
+      "id": "eval-gate",
+      "command": "npm run eval",
+      "required": true,
+      "status": "not_run",
+      "note": "Safety plus golden fit/variety gates; no LLM judges safety. Frozen only at an RC."
+    },
+    {
+      "id": "production-build",
+      "command": "npm run build",
+      "required": true,
+      "status": "not_run",
+      "note": "Run locally at the v22 baseline; result recorded in the v22 certification prose. Frozen as candidate evidence only at an RC."
+    },
+    {
+      "id": "dependency-audit",
+      "command": "npm audit --omit=dev",
+      "required": true,
+      "status": "not_run",
+      "note": "0 vulnerabilities in production dependencies at the v22 baseline. A point-in-time local result; it can drift, so it is not frozen as candidate evidence outside an RC."
+    },
+    {
+      "id": "e2e-public",
+      "command": "npm run test:e2e:public",
+      "required": true,
+      "status": "not_run",
+      "note": "Public browser journeys, per-commit in CI; frozen only at an RC. Not run for v22 by this pack (no browser environment)."
+    },
+    {
+      "id": "e2e-authenticated",
+      "command": "npm run test:e2e:matrix",
+      "required": true,
+      "status": "blocked",
+      "note": "BLOCKED: the authenticated matrix needs a seeded non-production Supabase + Stripe test mode with migrations 050-054 applied. The immutable RC workflow REQUIRES this suite; missing seeded secrets or zero discovered tests fail the RC run. Owner-run. Superseded-candidate evidence never carries forward."
+    },
+    {
+      "id": "release-check",
+      "command": "npm run release-check",
+      "required": true,
+      "status": "blocked",
+      "note": "Fails closed without the production env pulled, by design. Owner runs it with the real environment; it prints presence only, never a value. Deep readiness and release-check share the canonical LAUNCH_MODE contract (WS-C)."
+    }
+  ],
+  "ownerEvidence": [
+    {
+      "id": "migrations-050-054-applied",
+      "action": "Confirm production migrations 050-054 are applied and verified via the exact schema/index/RPC probes in scripts/verify-migrations-050-054.sql and /api/health/ready (paid mode).",
+      "status": "not_run",
+      "note": "Owner-reported verified at the v21 line; NOT re-probed by the v22 pack. Claude never applies or directly verifies production migrations. Additive/idempotent. Re-confirm at the v22 candidate SHA once an RC is cut."
+    },
+    {
+      "id": "billing-reconcile-fresh",
+      "action": "Configure the external billing-reconcile pinger and observe a durable success in cron_runs so cron_billing_reconcile_freshness=ok in paid readiness; resolve the owner legacy-price subscription if it blocks a clean reconcile.",
+      "status": "not_run",
+      "note": "Paid readiness reports cron_billing_reconcile_freshness=unavailable when no fresh successful billing-reconcile run is recorded (or cron_job_health errors). Not suppressed or special-cased. Owner/ops action; readiness stays non-green until a fresh success row exists."
+    },
+    {
+      "id": "authenticated-e2e-matrix",
+      "action": "Run the full authenticated E2E matrix once, unattended, against a throwaway non-production Supabase with 050-054 applied, pinned at the frozen v22 candidate SHA.",
+      "status": "not_run",
+      "note": "Not observed at any v22 SHA. Prior-release runs do not carry forward across product/schema drift."
+    },
+    {
+      "id": "secret-rotation",
+      "action": "Rotate the previously-reported-exposed credentials (database credentials, disposable keys, CRON_SECRET, ADMIN_STATS_SECRET) and redeploy dependent services, per docs/runbooks/key-rotation-and-backup.md. Record rotation metadata only.",
+      "status": "not_run",
+      "note": "NOT VERIFIED. Claude never prints, retrieves or commits secret values and cannot verify rotation. Owner records rotation metadata (date/keyId) only."
+    },
+    {
+      "id": "live-transaction",
+      "action": "One real low-value transaction end to end on live Stripe: charge, cancel, reactivate, payment recovery, refund, per docs/runbooks/live-transaction-rehearsal.md.",
+      "status": "not_run",
+      "note": "Carried forward as an accepted risk for public paid from v16 (P0-LIVE-TRANSACTION). Claude never executes live money."
+    }
+  ],
+  "blockers": [
+    {
+      "id": "P0-V22-RC-NOT-CUT",
+      "level": "P0",
+      "title": "No immutable release candidate has been cut at a v22 SHA; ordinary CI or local success cannot promote the manifest.",
+      "owner": "Eng (CI) / Owner",
+      "blocks": ["capped_beta", "public_paid"],
+      "acceptance": "The release-candidate workflow freezes an artifact at a full v22 SHA (npm ci, manifest validation, lint, typecheck, unit/contract/safety, eval, build, public E2E, authenticated seeded matrix) with exact counts and evidence hashes, then promote-candidate attaches it."
+    },
+    {
+      "id": "P0-V22-PAID-READINESS",
+      "level": "P0",
+      "title": "Paid readiness is not 200 on a deployed v22 SHA: cron_billing_reconcile_freshness is unavailable until a fresh reconcile success is recorded.",
+      "owner": "Owner",
+      "blocks": ["public_paid"],
+      "acceptance": "Authenticated /api/health/ready with LAUNCH_MODE=paid returns 200 on the deployed v22 SHA, with cron_billing_reconcile_freshness=ok backed by a durable cron_runs success row."
+    },
+    {
+      "id": "P0-V22-MIGRATIONS-APPLIED",
+      "level": "P0",
+      "title": "Migrations 050-054 are required by current product code and are not re-proven applied at the v22 candidate SHA by this pack.",
+      "owner": "Owner",
+      "blocks": ["public_paid"],
+      "acceptance": "Recorded owner evidence that 050-054 are applied and verified in production (exact schema/index/RPC probes), and paid readiness (052 exact-schema probe) reports ok, at the v22 candidate SHA."
+    },
+    {
+      "id": "P1-V22-AUTH-E2E-AT-HEAD",
+      "level": "P1",
+      "title": "The authenticated E2E matrix has not been observed at a v22 candidate SHA with 050-054 applied.",
+      "owner": "Eng (CI) / Owner (env)",
+      "blocks": ["capped_beta", "public_paid"],
+      "acceptance": "The authenticated matrix observed at the v22 candidate SHA (Stripe TEST mode, seeded non-production Supabase, 050-054 applied), or a recorded owner-accepted risk for capped beta."
+    },
+    {
+      "id": "P0-LIVE-TRANSACTION",
+      "level": "P0",
+      "title": "The full live payment failure-to-recovery/refund ordering has not been witnessed over a live wire; carried forward from v16 as an owner-accepted risk for public paid.",
+      "owner": "Owner",
+      "blocks": ["public_paid"],
+      "acceptance": "Recorded owner evidence for the full charge to cancel to reactivate to recovery to refund sequence on the live plan, per docs/runbooks/live-transaction-rehearsal.md."
+    }
+  ],
+  "acceptedRisks": [
+    {
+      "blockerId": "P0-LIVE-TRANSACTION",
+      "acceptedBy": "Primoz Cerar",
+      "acceptedOnUtc": "2026-08-09T00:00:00Z",
+      "tiers": ["public_paid"],
+      "rationale": "Carried forward from v16: the full live payment failure-to-recovery/refund ordering is covered by order-resilient billing + customer-ownership contract tests (green) and owner-accepted for a bounded public-paid launch, to be re-verified with one completed current-code live charge before scaling volume. v22 does not change Stripe code (billing frozen at v16); it only closes the free-sample claim/refund correctness gap in regenerate-section and reconciles release truth."
+    }
+  ],
+  "verdicts": {
+    "automated_code_gate": "UNASSESSED",
+    "capped_beta": "UNASSESSED",
+    "public_paid": "UNASSESSED"
+  },
+  "rollback": "The only v22 product-code change is src/app/api/ai/regenerate-section/route.ts (free-sample claim/refund correctness), reverted by restoring the previous route file; it adds no migration and changes no Stripe code (frozen at v16). All v21 migrations (050-054) are additive and reversible with a data-safe rollback recorded in each file. Code rollback target for the shipped product line remains the last promoted RC; v22 is not promoted.",
+  "documents": [
+    "docs/release/v22/MELLOWA-FINAL-CLOSURE-CERTIFICATION.md",
+    "docs/release/v21/MELLOWA-CLOSURE-CERTIFICATION.md",
+    "docs/runbooks/key-rotation-and-backup.md",
+    "docs/runbooks/live-transaction-rehearsal.md"
+  ]
+}

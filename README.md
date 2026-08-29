@@ -21,6 +21,11 @@ carries no verdicts, counts or SHAs that could drift:
   [`docs/release/v16/STATUS.md`](docs/release/v16/STATUS.md)
 - Candidate lifecycle & freeze/promote sequence:
   [`docs/release/v17/RC-LIFECYCLE.md`](docs/release/v17/RC-LIFECYCLE.md)
+- Latest record (current line): [`docs/release/manifest.v22.json`](docs/release/manifest.v22.json)
+  and its certification
+  [`docs/release/v22/MELLOWA-FINAL-CLOSURE-CERTIFICATION.md`](docs/release/v22/MELLOWA-FINAL-CLOSURE-CERTIFICATION.md)
+  — a **draft** (no RC frozen), verdicts **UNASSESSED**. The rendered status
+  above stays pinned to the last promoted line (v16) until an RC is cut.
 
 At the current HEAD the candidate is a **draft**: no SHA is frozen, so all three
 verdicts are **UNASSESSED** until a candidate is cut via the immutable
