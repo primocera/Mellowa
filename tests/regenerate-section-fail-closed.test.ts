@@ -137,14 +137,18 @@ describe("regenerate-section fails closed on required-read errors (WS-A)", () =>
     expect(h.releaseCalls).toContain("evt-1");
   });
 
-  it("profile error AFTER a sample claim → 503 and the sample allowance is refunded", async () => {
+  it("sample tier: profile error → 503 BEFORE the claim, allowance never consumed", async () => {
+    // v22: the one-lifetime claim now happens after every fail-closed read, so a
+    // profile outage returns 503 before any claim exists — the allowance is
+    // untouched (nothing to refund) rather than claimed-then-refunded.
     h.isPremium = false; // sample tier
     h.profileError = { message: "db down" };
     const res = await POST(req({ plan_id: PLAN_ID, section_name: "movement_moment", reason: "make_easier" }));
     expect(res.status).toBe(503);
+    expect((await res.json()).error).toBe("data_unavailable");
     expect(h.providerCalls).toBe(0);
     expect(h.releaseCalls).toContain("evt-1");
-    expect(h.refundCalls).toBeGreaterThan(0); // sample_adjustment_used_at set back to null
+    expect(h.refundCalls).toBe(0); // no claim was made, so nothing is refunded
   });
 
   it("verified-absent profile → 400 onboarding_required, no provider", async () => {

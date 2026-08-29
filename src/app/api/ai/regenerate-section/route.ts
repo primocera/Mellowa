@@ -119,6 +119,11 @@ export async function POST(request: Request) {
 
   const sub = await getUserSubscriptionStatus(user.id);
   let sampleAdjustment = false;
+  // Meal regeneration is a provider call and stays Premium-only. The sample tier
+  // (one lifetime curated swap) only ever reaches the non-AI sections below. The
+  // actual one-lifetime claim is made LATER — after every fail-closed read and
+  // validation, immediately before the only mutation — so a failed read never has
+  // to be compensated (see the claim block after the profile read).
   if (!sub.isPremium) {
     if (section_name === "meal_card") {
       await releaseReservation(eventId);
@@ -127,23 +132,6 @@ export async function POST(request: Request) {
         { status: 402 }
       );
     }
-    // Atomic one-lifetime claim: the conditional update only succeeds while
-    // sample_adjustment_used_at is null. Server-enforced; disclosed in copy.
-    const { data: claimed } = await supabase
-      .from("wellbeing_profiles")
-      .update({ sample_adjustment_used_at: new Date().toISOString() })
-      .eq("user_id", user.id)
-      .is("sample_adjustment_used_at", null)
-      .select("user_id")
-      .maybeSingle();
-    if (!claimed) {
-      await releaseReservation(eventId);
-      return NextResponse.json(
-        { error: "sample_adjustment_used", scope: "ai" },
-        { status: 402 }
-      );
-    }
-    sampleAdjustment = true;
   }
 
   // Plan must belong to the user (RLS also enforces this). A query ERROR is an
@@ -156,18 +144,8 @@ export async function POST(request: Request) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  // Failed/blocked requests never consume the sample allowance.
-  const refundSampleAdjustment = async () => {
-    if (!sampleAdjustment) return;
-    await supabase
-      .from("wellbeing_profiles")
-      .update({ sample_adjustment_used_at: null })
-      .eq("user_id", user.id);
-  };
-
   if (planError) {
     await releaseReservation(eventId);
-    await refundSampleAdjustment();
     return NextResponse.json(
       {
         error: "data_unavailable",
@@ -179,18 +157,17 @@ export async function POST(request: Request) {
   }
   if (!plan) {
     await releaseReservation(eventId);
-    await refundSampleAdjustment();
     return NextResponse.json({ error: "Plan not found" }, { status: 404 });
   }
 
   // MW-02: only today's canonical plan can be regenerated. A tab open across
   // local midnight, a wrong clock or a forged past/future target is refused
-  // (and any sample-adjustment claim is refunded) rather than mutating history.
+  // rather than mutating history (this is before the sample claim, so there is
+  // nothing to refund).
   const dayState = await checkPlanIsToday(supabase, user.id, plan.plan_date as string);
   if (dayState === "unavailable") {
-    // MW-03: timezone read outage — fail closed and refund any sample claim.
+    // MW-03: timezone read outage — fail closed (no claim has been made yet).
     await releaseReservation(eventId);
-    await refundSampleAdjustment();
     return NextResponse.json(
       {
         error: "data_unavailable",
@@ -202,7 +179,6 @@ export async function POST(request: Request) {
   }
   if (dayState !== "ok") {
     await releaseReservation(eventId);
-    await refundSampleAdjustment();
     return NextResponse.json(
       {
         error: "stale_day",
@@ -218,7 +194,6 @@ export async function POST(request: Request) {
     const safety = await checkInputSafety(user.id, "regenerate-section", user_note);
     if (safety.should_block_generation) {
       await finalizeAiUsage(eventId, { status: "safety_blocked", promptVersion: PROMPT_VERSION });
-      await refundSampleAdjustment();
       return NextResponse.json(
         { blocked: true, user_message: safety.user_message },
         { status: 200 }
@@ -241,7 +216,6 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (profileError) {
     await releaseReservation(eventId);
-    await refundSampleAdjustment();
     return NextResponse.json(
       {
         error: "data_unavailable",
@@ -253,7 +227,6 @@ export async function POST(request: Request) {
   }
   if (!profile) {
     await releaseReservation(eventId);
-    await refundSampleAdjustment();
     return NextResponse.json(
       {
         error: "onboarding_required",
@@ -263,6 +236,65 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  // Sample tier: claim the one-lifetime curated adjustment NOW — after every
+  // fail-closed read and validation above, and immediately before the only
+  // mutation. The claim is an atomic conditional update (succeeds only while
+  // sample_adjustment_used_at is null; server-enforced, disclosed in copy).
+  // A claim RPC ERROR is an outage, NEVER "already used": fail closed (503),
+  // call no provider and consume no entitlement. A verified no-row means the
+  // single lifetime allowance is genuinely already spent (402).
+  if (!sub.isPremium) {
+    const { data: claimed, error: claimError } = await supabase
+      .from("wellbeing_profiles")
+      .update({ sample_adjustment_used_at: new Date().toISOString() })
+      .eq("user_id", user.id)
+      .is("sample_adjustment_used_at", null)
+      .select("user_id")
+      .maybeSingle();
+    if (claimError) {
+      await releaseReservation(eventId);
+      return NextResponse.json(
+        {
+          error: "data_unavailable",
+          user_message:
+            "We couldn't confirm your free sample just now — nothing was changed. Please try again in a moment.",
+        },
+        { status: 503 }
+      );
+    }
+    if (!claimed) {
+      await releaseReservation(eventId);
+      return NextResponse.json(
+        { error: "sample_adjustment_used", scope: "ai" },
+        { status: 402 }
+      );
+    }
+    sampleAdjustment = true;
+  }
+
+  // Compensate a committed sample claim when the single mutation that follows it
+  // fails. Idempotent (re-clearing an already-null timestamp is a no-op, so a
+  // retry never grants extra allowance) and VERIFIED: if the compensation write
+  // itself errors we do NOT report "nothing changed" — we log an operational
+  // breadcrumb (ids only, no plan content) and the caller surfaces an explicit
+  // repairable state so the allowance can be restored.
+  const refundSampleAdjustment = async (): Promise<boolean> => {
+    if (!sampleAdjustment) return true;
+    const { error: refundError } = await supabase
+      .from("wellbeing_profiles")
+      .update({ sample_adjustment_used_at: null })
+      .eq("user_id", user.id);
+    if (refundError) {
+      console.error("[sample-claim] refund unverified — allowance may be stuck", {
+        userId: user.id,
+        eventId,
+        section: section_name,
+      });
+      return false;
+    }
+    return true;
+  };
 
   // Prompts 7/8/9: curated sections are served from the reviewed library —
   // no provider call, instant, and always safe wording. A time-based seed
@@ -295,7 +327,21 @@ export async function POST(request: Request) {
     // Curated content = no provider call; release the reservation.
     await releaseReservation(eventId);
     if (curatedError) {
-      await refundSampleAdjustment();
+      // The claim was committed just above but the swap did not save. Refund the
+      // one-lifetime allowance. If the refund cannot be VERIFIED, do not claim
+      // "nothing changed" — expose a repairable state so support can restore it.
+      const refunded = await refundSampleAdjustment();
+      if (!refunded) {
+        return NextResponse.json(
+          {
+            error: "sample_claim_unresolved",
+            repairable: true,
+            user_message:
+              "Something went wrong saving your change, and we couldn't confirm your free sample was returned. Please contact support and we'll restore it — you haven't lost it.",
+          },
+          { status: 500 }
+        );
+      }
       return NextResponse.json({ error: "Failed to save section" }, { status: 500 });
     }
     if (sampleAdjustment) {
