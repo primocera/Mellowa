@@ -44,11 +44,32 @@ invalidated by the app SHA moving. It closes `P0-V22-MIGRATIONS-APPLIED`.
 
 ---
 
+## 2. Immutable release candidate + authenticated E2E matrix
+
+- **Status:** FROZEN + GREEN ✅
+- **Workflow:** `Release Candidate (immutable gate)` run **#17**
+- **Run:** https://github.com/primocera/Mellowa/actions/runs/33284292315 — **conclusion: success** (7m 53s)
+- **Frozen RC SHA:** `974e534ea956e19acbb672701b97fe8d27f6944b`
+- **Artifact:** `rc-evidence-974e534…` · **sha256** `2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed`
+- **Jobs certified (all required, all passed):** manifest validation, status-page
+  sync, lint, typecheck, unit/contract/safety, eval gate, production build, public
+  browser journeys, and the **authenticated E2E matrix**. This workflow **fails
+  closed** if the authenticated matrix is skipped or discovers zero tests — so a
+  green conclusion proves the matrix ran and passed against the seeded
+  non-production Supabase (Stripe TEST mode). Exact passed/failed/skipped counts
+  live inside the `rc-evidence` artifact.
+- Closes `P0-V22-RC-NOT-CUT` and `P1-V22-AUTH-E2E-AT-HEAD`.
+
+**Note:** this also confirms the 2 test failures seen locally on Windows are pure
+LF/CRLF render-drift on the historical v16 STATUS page — the same suite is green in
+CI (Linux/LF) in this run.
+
+---
+
 ## Still NOT RUN (owner)
 
 Recorded here only when direct evidence exists:
 
-- RC cut at a v22 SHA (`release-candidate.yml`) + authenticated E2E matrix.
 - `cron_billing_reconcile_freshness=ok` (durable `cron_runs` success).
 - Secret rotation (date + creds, no values).
 - Deploy + authenticated `/api/health/ready` (paid) = 200 on the deployed SHA.

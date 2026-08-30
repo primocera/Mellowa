@@ -24,8 +24,9 @@ carries no verdicts, counts or SHAs that could drift:
 - Latest record (current line): [`docs/release/manifest.v22.json`](docs/release/manifest.v22.json)
   and its certification
   [`docs/release/v22/MELLOWA-FINAL-CLOSURE-CERTIFICATION.md`](docs/release/v22/MELLOWA-FINAL-CLOSURE-CERTIFICATION.md)
-  — a **draft** (no RC frozen), verdicts **UNASSESSED**. The rendered status
-  above stays pinned to the last promoted line (v16) until an RC is cut.
+  (with [`EVIDENCE.md`](docs/release/v22/EVIDENCE.md)) — the current RC, verdicts and
+  owner-evidence state live there, not restated here. The rendered status above
+  stays pinned to the last promoted line (v16).
 
 At the current HEAD the candidate is a **draft**: no SHA is frozen, so all three
 verdicts are **UNASSESSED** until a candidate is cut via the immutable

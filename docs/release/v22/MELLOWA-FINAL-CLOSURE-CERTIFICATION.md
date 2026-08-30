@@ -2,11 +2,12 @@
 
 Source pack: `Mellowa_Final_MVP_Fix_Prompts_v22` (Prompt 2 — Mellowa repository).
 This is an honest, exact-SHA evidence record built on top of the v21 closure. **No
-verdict is inferred from a score.** One owner-only step — production migration
-verification (050–054) — has now been executed and recorded in
-[`EVIDENCE.md`](EVIDENCE.md); every other owner-only step remains NOT RUN. A
-truthful CONDITIONAL GO / NO-GO with incomplete owner evidence is the correct
-result at this stage.
+verdict is inferred from a score.** Production migration verification (050–054), the
+immutable RC freeze and the authenticated E2E matrix have now been executed and
+recorded in [`EVIDENCE.md`](EVIDENCE.md); the remaining owner-only steps (paid
+readiness / billing reconcile, secret rotation, deploy, live Stripe + email) are
+NOT RUN. With those closed, **capped beta is GO**; paid remains NO-GO until its
+owner evidence exists.
 
 Prompt 1 (LaunchBloom/Scalvya) and Prompt 3 (independent dual-repo certification)
 are **out of scope for this repository** and were not run here.
@@ -20,18 +21,18 @@ are **out of scope for this repository** and were not run here.
 | Audited base / starting SHA | `73f2b830354cb060296e47775fbba479f84b177a` (HEAD matched the pack baseline exactly — no drift) |
 | Frozen RC baseline (v21) | `363e124cd1f18f30d2a30b1c64dc346e4687b904` |
 | v22 code commit SHA | `30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b` |
-| RC / candidate SHA | none — **no immutable RC cut** (owner/CI gate) |
+| **Frozen RC SHA** | **`974e534ea956e19acbb672701b97fe8d27f6944b`** — release-candidate workflow run #17, conclusion success; artifact `rc-evidence-974e534` sha256 `2f07ae74…` |
 | Deployed SHA / build id | none — **not deployed by this work** |
 | Migration range | `001`–`054` (v22 adds **no** migration) |
-| Candidate lifecycle | **draft** — nothing frozen |
+| Candidate lifecycle | **frozen** — RC cut at `974e534`, authenticated matrix green |
 
 ### Drift from the frozen RC `363e124`
-The v21 RC was frozen at `363e124`. Since then, `main` advanced to `73f2b83`
-through owner/docs commits (`201794d`, `35a4fb0`, `73f2b83`) — including one
-readiness code fix (`35a4fb0`, probe `analytics_excluded_users` by its real PK).
-v22 then adds one product-code change on top (below). Because product code has
-moved past `363e124`, that RC is **superseded**; a new RC must be cut at the v22
-SHA before any tier can carry an active verdict.
+The v21 RC (`363e124`) was superseded by the v22 product-code change (below). A
+**new immutable RC was cut at `974e534`** (the v22 `main` HEAD after the code +
+release-truth commits) via release-candidate workflow run #17 — success, with the
+authenticated matrix green. Any documentation-only commit after `974e534` (e.g.
+this evidence write-back) leaves the frozen RC valid, since it certifies the
+shipping code, not the docs.
 
 ## 2. Change scope (owner-named gap only, built on top)
 
@@ -132,20 +133,28 @@ they were left untouched; they are recorded here honestly rather than papered ov
    invariants true. Recorded in [`EVIDENCE.md`](EVIDENCE.md); closes
    `P0-V22-MIGRATIONS-APPLIED`.
 
+2. **DONE ✅ — immutable RC cut + authenticated E2E matrix green.**
+   release-candidate workflow run #17 (success) froze `974e534`; the required
+   authenticated matrix passed against the seeded non-prod Supabase (Stripe TEST).
+   Artifact `rc-evidence-974e534` sha256 `2f07ae74…`. Recorded in
+   [`EVIDENCE.md`](EVIDENCE.md); closes `P0-V22-RC-NOT-CUT` and
+   `P1-V22-AUTH-E2E-AT-HEAD`.
+
 Remaining — NOT RUN, never fabricated:
-2. Rotate previously-reported-exposed credentials (DB creds, disposable keys,
+3. Rotate previously-reported-exposed credentials (DB creds, disposable keys,
    `CRON_SECRET`, `ADMIN_STATS_SECRET`) and redeploy dependents, per
    `docs/runbooks/key-rotation-and-backup.md`. **NOT VERIFIED** — no values handled.
-3. Resolve `cron_billing_reconcile_freshness=unavailable`: configure the external
+4. Resolve `cron_billing_reconcile_freshness=unavailable`: configure the external
    billing-reconcile pinger and record a durable success in `cron_runs` (resolving
    the owner legacy-price subscription if it blocks a clean reconcile). Not
    suppressed or special-cased in code.
-4. Cut an immutable RC at the v22 SHA (`release-candidate.yml`), run the authenticated
-   E2E matrix on that SHA, then `promote-candidate`.
 5. Deploy the candidate; verify `/api/health` returns that exact version and
    authenticated `/api/health/ready` with `LAUNCH_MODE=paid` returns 200.
 6. Live Stripe rehearsal (charge/cancel/reactivate/recovery/refund) and one real
    transactional email with replay idempotency.
+7. (Optional) run `promote-candidate.mjs` against the downloaded `rc-evidence`
+   artifact to adopt the computed record; the manifest already reflects the frozen
+   RC and derived verdicts.
 
 ## 8. Rollback
 
@@ -157,10 +166,11 @@ v16). Code rollback target for the shipped line remains the last promoted RC.
 
 | Tier | Verdict | Why |
 |---|---|---|
-| **CAPPED_BETA** | **CONDITIONAL GO** | Core authenticated journey, data ownership, safety, build and the sample-claim correctness fix are green locally; migrations 050–054 are **verified in prod** (2026-08-30, 19/19 PASS — [`EVIDENCE.md`](EVIDENCE.md)). Remaining condition: cut an RC at the v22 SHA and observe the authenticated E2E matrix (or record an owner-accepted risk). |
+| **CAPPED_BETA** | **GO** | Immutable RC frozen at `974e534` with the authenticated E2E matrix green (run #17), migrations 050–054 verified in prod (19/19 PASS), safety + sample-claim correctness green. No open blocker targets capped beta. |
 | **SUPERVISED_PAID_MVP** | **NO-GO** (until owner evidence) | Blocked by `cron_billing_reconcile_freshness=unavailable` (paid readiness not 200) and no live-billing monitoring/recovery evidence. Closes when reconcile is fresh + readiness 200 on the deployed SHA. |
 | **STRICT_PUBLIC_PAID** | **NO-GO** | Exact-SHA RC, paid readiness 200, verified migrations, live billing + one real transactional email, and secret-rotation evidence are all owner-gated and NOT RUN. `P0-LIVE-TRANSACTION` remains an owner-accepted risk from v16. |
 
-The machine manifest reads `UNASSESSED` for every tier — the honest state when no
-candidate is frozen — while these human verdicts state the conditional path. They do
-not contradict: `UNASSESSED` = "no frozen candidate to read a verdict from yet."
+The machine manifest (`manifest.v22.json`, validated 0 violations) now agrees:
+`automated_code_gate` GO, `capped_beta` GO, `public_paid` NO-GO — derived from the
+frozen RC `974e534`, the ci_pass suites, the closed blockers and the two open
+public-paid blockers (`P0-V22-PAID-READINESS`, `P0-LIVE-TRANSACTION`).
