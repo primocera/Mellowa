@@ -4,7 +4,7 @@
   "baselineSha": "30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b",
   "rcSha": null,
   "candidateLifecycle": "draft",
-  "reconciledAtUtc": "2026-08-29T00:00:00Z",
+  "reconciledAtUtc": "2026-08-30T00:00:00Z",
   "buildId": null,
   "migrations": [
     "001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
@@ -83,8 +83,9 @@
     {
       "id": "migrations-050-054-applied",
       "action": "Confirm production migrations 050-054 are applied and verified via the exact schema/index/RPC probes in scripts/verify-migrations-050-054.sql and /api/health/ready (paid mode).",
-      "status": "not_run",
-      "note": "Owner-reported verified at the v21 line; NOT re-probed by the v22 pack. Claude never applies or directly verifies production migrations. Additive/idempotent. Re-confirm at the v22 candidate SHA once an RC is cut."
+      "status": "live_rehearsed",
+      "evidence": "docs/release/v22/EVIDENCE.md",
+      "note": "Owner ran scripts/verify-migrations-050-054.sql in the production Supabase SQL editor on 2026-08-30: 19/19 checks PASS, 0 FAIL, including readiness_schema_probe reporting all invariants true. v22 adds no migration, so this schema state is exactly what the v22 code expects and is not invalidated by the app SHA moving."
     },
     {
       "id": "billing-reconcile-fresh",
@@ -129,14 +130,6 @@
       "acceptance": "Authenticated /api/health/ready with LAUNCH_MODE=paid returns 200 on the deployed v22 SHA, with cron_billing_reconcile_freshness=ok backed by a durable cron_runs success row."
     },
     {
-      "id": "P0-V22-MIGRATIONS-APPLIED",
-      "level": "P0",
-      "title": "Migrations 050-054 are required by current product code and are not re-proven applied at the v22 candidate SHA by this pack.",
-      "owner": "Owner",
-      "blocks": ["public_paid"],
-      "acceptance": "Recorded owner evidence that 050-054 are applied and verified in production (exact schema/index/RPC probes), and paid readiness (052 exact-schema probe) reports ok, at the v22 candidate SHA."
-    },
-    {
       "id": "P1-V22-AUTH-E2E-AT-HEAD",
       "level": "P1",
       "title": "The authenticated E2E matrix has not been observed at a v22 candidate SHA with 050-054 applied.",
@@ -151,6 +144,18 @@
       "owner": "Owner",
       "blocks": ["public_paid"],
       "acceptance": "Recorded owner evidence for the full charge to cancel to reactivate to recovery to refund sequence on the live plan, per docs/runbooks/live-transaction-rehearsal.md."
+    }
+  ],
+  "closedBlockers": [
+    {
+      "id": "P0-V22-MIGRATIONS-APPLIED",
+      "level": "P0",
+      "title": "Migrations 050-054 are required by current product code and must be proven applied in production.",
+      "owner": "Owner",
+      "blocks": ["public_paid"],
+      "acceptance": "Recorded owner evidence that 050-054 are applied and verified in production (exact schema/index/RPC probes), and the 052 readiness schema probe reports ok.",
+      "closedBy": "owner production probe 2026-08-30",
+      "evidence": "docs/release/v22/EVIDENCE.md"
     }
   ],
   "acceptedRisks": [

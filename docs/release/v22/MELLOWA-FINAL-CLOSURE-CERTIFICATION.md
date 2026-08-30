@@ -2,9 +2,11 @@
 
 Source pack: `Mellowa_Final_MVP_Fix_Prompts_v22` (Prompt 2 — Mellowa repository).
 This is an honest, exact-SHA evidence record built on top of the v21 closure. **No
-owner-only step was executed and no verdict is inferred from a score.** A truthful
-CONDITIONAL GO / NO-GO with incomplete owner evidence is the correct result at this
-stage.
+verdict is inferred from a score.** One owner-only step — production migration
+verification (050–054) — has now been executed and recorded in
+[`EVIDENCE.md`](EVIDENCE.md); every other owner-only step remains NOT RUN. A
+truthful CONDITIONAL GO / NO-GO with incomplete owner evidence is the correct
+result at this stage.
 
 Prompt 1 (LaunchBloom/Scalvya) and Prompt 3 (independent dual-repo certification)
 are **out of scope for this repository** and were not run here.
@@ -122,10 +124,15 @@ they were left untouched; they are recorded here honestly rather than papered ov
   breaking that deferral.
 - Historical manifests (v11/v13/v16/v20) are unchanged and clearly historical.
 
-## 7. Owner-only steps — NOT RUN, never fabricated
+## 7. Owner-only steps
 
-1. Confirm production migrations `050–054` via exact schema/index/RPC probes
-   (`scripts/verify-migrations-050-054.sql`, `/api/health/ready` paid mode).
+1. **DONE ✅ — production migrations `050–054` verified.** Owner ran
+   `scripts/verify-migrations-050-054.sql` in the prod Supabase SQL editor on
+   2026-08-30: **19/19 PASS, 0 FAIL**, including `readiness_schema_probe` = all
+   invariants true. Recorded in [`EVIDENCE.md`](EVIDENCE.md); closes
+   `P0-V22-MIGRATIONS-APPLIED`.
+
+Remaining — NOT RUN, never fabricated:
 2. Rotate previously-reported-exposed credentials (DB creds, disposable keys,
    `CRON_SECRET`, `ADMIN_STATS_SECRET`) and redeploy dependents, per
    `docs/runbooks/key-rotation-and-backup.md`. **NOT VERIFIED** — no values handled.
@@ -150,7 +157,7 @@ v16). Code rollback target for the shipped line remains the last promoted RC.
 
 | Tier | Verdict | Why |
 |---|---|---|
-| **CAPPED_BETA** | **CONDITIONAL GO** | Core authenticated journey, data ownership, safety, build and the sample-claim correctness fix are green locally. Conditions: cut an RC at the v22 SHA and observe the authenticated E2E matrix (or record an owner-accepted risk); migrations 050–054 owner-reported at v21, re-confirm at the v22 SHA. |
+| **CAPPED_BETA** | **CONDITIONAL GO** | Core authenticated journey, data ownership, safety, build and the sample-claim correctness fix are green locally; migrations 050–054 are **verified in prod** (2026-08-30, 19/19 PASS — [`EVIDENCE.md`](EVIDENCE.md)). Remaining condition: cut an RC at the v22 SHA and observe the authenticated E2E matrix (or record an owner-accepted risk). |
 | **SUPERVISED_PAID_MVP** | **NO-GO** (until owner evidence) | Blocked by `cron_billing_reconcile_freshness=unavailable` (paid readiness not 200) and no live-billing monitoring/recovery evidence. Closes when reconcile is fresh + readiness 200 on the deployed SHA. |
 | **STRICT_PUBLIC_PAID** | **NO-GO** | Exact-SHA RC, paid readiness 200, verified migrations, live billing + one real transactional email, and secret-rotation evidence are all owner-gated and NOT RUN. `P0-LIVE-TRANSACTION` remains an owner-accepted risk from v16. |
 
