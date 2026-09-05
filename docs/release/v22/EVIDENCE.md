@@ -46,11 +46,17 @@ invalidated by the app SHA moving. It closes `P0-V22-MIGRATIONS-APPLIED`.
 
 ## 2. Immutable release candidate + authenticated E2E matrix
 
-- **Status:** FROZEN + GREEN ✅
-- **Workflow:** `Release Candidate (immutable gate)` run **#17**
-- **Run:** https://github.com/primocera/Mellowa/actions/runs/33284292315 — **conclusion: success** (7m 53s)
-- **Frozen RC SHA:** `974e534ea956e19acbb672701b97fe8d27f6944b`
-- **Artifact:** `rc-evidence-974e534…` · **sha256** `2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed`
+- **Status:** FROZEN + GREEN ✅ — **current frozen RC is `faf5d16`** (a re-cut, below).
+- **Current RC (re-cut):** release-candidate workflow "Certify release candidate",
+  conclusion **success** (8m 40s), frozen SHA **`faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1`**
+  (`faf5d16`). The earlier `974e534` (run #17) was superseded when the owner-authorized
+  reconcile fix (`bc71ff9`) landed as product code after that freeze; the RC was re-cut
+  at `faf5d16` so the frozen candidate includes it. `faf5d16` is docs-only over the
+  deployed `bc71ff9`, so the frozen RC certifies exactly the shipping code.
+- **Earlier RC (superseded, historical):** run **#17**,
+  https://github.com/primocera/Mellowa/actions/runs/33284292315 — success (7m 53s),
+  SHA `974e534ea956e19acbb672701b97fe8d27f6944b`, artifact `rc-evidence-974e534…`
+  sha256 `2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed`.
 - **Jobs certified (all required, all passed):** manifest validation, status-page
   sync, lint, typecheck, unit/contract/safety, eval gate, production build, public
   browser journeys, and the **authenticated E2E matrix**. This workflow **fails
@@ -113,9 +119,8 @@ CI (Linux/LF) in this run.
     `config_cron_secret`, `config_admin_stats_secret`).
   - **Closes `P0-V22-PAID-READINESS`** — both halves now proven: reconcile
     `report.ok:true` (above) + authenticated paid `/api/health/ready` = 200.
-  - Note: the `ADMIN_STATS_SECRET` used for this probe was the disposable value
-    `Mellowamails`; it MUST be rotated to a random value (`openssl rand -hex 32`)
-    before public paid launch (same hygiene as the cron secret in §5).
+  - Note: the `ADMIN_STATS_SECRET` used for this probe was a disposable value; it
+    has since been rotated to a random value (see §5), so the probe token is retired.
 
 ---
 
@@ -124,11 +129,10 @@ CI (Linux/LF) in this run.
 - **Status:** DEPLOYED ✅ (public health probe)
 - **Deployed SHA:** `bc71ff96…` (`bc71ff9`) — the billing-reconcile fix
   (`isUnknownActivePrice`).
-- **Evidence:** public `/api/health` returns `{"ok":true,"version":"bc71ff9"}` — the
-  current `main` HEAD. This is a **documentation-only + one owner-authorized bug-fix
-  superset** of the frozen RC `974e534` (release-truth commits plus the reconcile
-  scoping fix, which changes no entitlement/money logic), so the frozen RC still
-  certifies the shipping product line. Recorded as `buildId` in `manifest.v22.json`.
+- **Evidence:** public `/api/health` returns `{"ok":true,"version":"bc71ff9"}`. The
+  frozen RC `faf5d16` is **docs-only on top of `bc71ff9`**, so the RC code == the
+  deployed code and the frozen RC certifies exactly the shipping product line.
+  Recorded as `buildId` in `manifest.v22.json`.
 - **Note:** the frozen RC was re-cut at `faf5d16` (release-candidate workflow
   success) so the immutable candidate includes this reconcile fix and is no longer
   superseded. `faf5d16` is docs-only on top of `bc71ff9`, so the RC code == the
@@ -153,7 +157,7 @@ CI (Linux/LF) in this run.
 
 ---
 
-## Status — public-paid GO reached (one operational item open)
+## Status — public-paid GO reached (all gates met)
 
 All verdict gates are satisfied; verdicts are `GO / GO / GO` (see certification §9–10):
 

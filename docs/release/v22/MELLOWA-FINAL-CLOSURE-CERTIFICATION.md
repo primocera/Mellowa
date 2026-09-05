@@ -6,9 +6,8 @@ verdict is inferred from a score.** Production migration verification (050–054
 immutable RC (re-cut at `faf5d16`), the authenticated E2E matrix, the live A–H
 Stripe rehearsal and paid readiness have all been executed and recorded in
 [`EVIDENCE.md`](EVIDENCE.md) + [`LIVE-TRANSACTION-EVIDENCE.md`](LIVE-TRANSACTION-EVIDENCE.md).
-**Verdicts are `GO / GO / GO`** (§9). The one remaining action is operational, not a
-verdict gate: the final rotation of the disposable `ADMIN_STATS_SECRET`/`CRON_SECRET`
-before public traffic (§9).
+**Verdicts are `GO / GO / GO`** (§9). Secret rotation of
+`ADMIN_STATS_SECRET`/`CRON_SECRET` is done (owner-attested, §9 / EVIDENCE.md §5).
 
 Prompt 1 (LaunchBloom/Scalvya) and Prompt 3 (independent dual-repo certification)
 are **out of scope for this repository** and were not run here.
@@ -114,23 +113,19 @@ they were left untouched; they are recorded here honestly rather than papered ov
 ## 6. Release-truth reconciliation
 
 - `docs/release/manifest.v22.json` is the authoritative **current** machine record
-  (validated by `validateReleaseManifest`, 0 violations): `rcSha:
-  974e534…`, lifecycle **`frozen`**, verdicts **`automated_code_gate: GO`,
-  `capped_beta: GO`, `public_paid: NO-GO`** — and these stored verdicts now
-  **equal `deriveVerdicts(manifest)`** (previously they disagreed: the stored
-  `GO/GO` sat over a machine-derived `NO-GO/NO-GO` because `dependency-audit` was
-  marked `required: true` while the immutable RC workflow never runs it, forcing
-  `codeGreen=false`). `dependency-audit` is now `required: false` (a driftable,
-  point-in-time check the RC does not freeze; production dependency posture is
-  still gated for public paid via the `openDependencyAdvisories` owner gate in
-  `deriveVerdicts`). `buildId: c6e6f09` records the confirmed production deploy.
-  Migration set `001–054` complete.
-- README continues to link the last **generated/promoted** status
-  (`docs/release/v16/STATUS.md` + `manifest.v16.json`) — an intentional, tested
-  invariant (`active-doc-truth`, `release-truth-consistency`): README defers to the
-  last rendered status and cannot present a hard-coded GO. A v22 pointer line was
-  added to the Release status section so the current record is discoverable without
-  breaking that deferral.
+  (validated by `validateReleaseManifest`, 0 violations): `rcSha: faf5d16…`,
+  lifecycle **`promoted`**, verdicts **`automated_code_gate: GO`, `capped_beta: GO`,
+  `public_paid: GO`**, all required suites passing, no open blockers, no accepted
+  risks. `dependency-audit` is `required: false` / `local_pass` (a driftable,
+  point-in-time check the RC does not freeze; production dependency posture is gated
+  for public paid via the `openDependencyAdvisories` owner gate = 0). `buildId:
+  bc71ff9` records the confirmed production deploy (`faf5d16` is docs-only over it).
+  Migration set `001–054` complete. `docs/release/v22/STATUS.md` is rendered from
+  this manifest by `scripts/render-release-status.mjs`.
+- README pins the **v22 promoted line** — links `docs/release/v22/STATUS.md` +
+  `manifest.v22.json` and reads verdicts from the generated status, never a
+  hand-typed table (the `active-doc-truth` / `release-truth-consistency` invariants).
+  The earlier v16 line stays linked as archived history.
 - Historical manifests (v11/v13/v16/v20) are unchanged and clearly historical.
 
 ## 7. Owner-only steps
@@ -171,8 +166,10 @@ Remaining — NOT RUN / in progress, never fabricated:
 
 ## 8. Rollback
 
-The only v22 product-code change is `regenerate-section/route.ts`; revert it to the
-previous file to roll back. No migration added; no Stripe code changed (frozen at
+The v22 product-code changes are `src/app/api/ai/regenerate-section/route.ts`
+(free-sample claim/refund correctness) and `src/lib/stripe/reconcile.ts`
+(`isUnknownActivePrice` scoping — no entitlement/money logic changed); revert either
+file to roll it back. No migration added; no other Stripe code changed (frozen at
 v16). Code rollback target for the shipped line remains the last promoted RC.
 
 ## 9. Verdicts — `GO / GO / GO`
