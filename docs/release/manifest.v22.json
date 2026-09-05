@@ -105,7 +105,7 @@
       "id": "billing-reconcile-fresh",
       "action": "Let the single owner legacy-price subscription lapse (cancel_at_period_end, ends 2026-09-01) or cancel it now, then fire billing-reconcile once so cron_billing_reconcile_freshness=ok in paid readiness.",
       "status": "blocked",
-      "note": "ROOT CAUSE IDENTIFIED (2026-08-30, prod cron_runs + subscriptions probe): billing-reconcile last ran 2026-08-23 and FAILED with error_category=reconcile_exception, lease acquired, last_success_at=null (hence readiness=unavailable). The only subscription is the owner's own (user 688ba16f, plan_name pro_monthly, active, cancel_at_period_end=true, current_period_end 2026-09-01) sitting on a Stripe price id the current catalog no longer maps (planNameForPrice=null -> report.unknownPrices non-empty -> report.ok=false). SELF-RESOLVING: once that subscription ends on 2026-09-01 there is no unknown-price sub, so a subsequent billing-reconcile run returns ok and records the durable success. The 2026-09-01 end date has now PASSED (today 2026-09-05): the only remaining action is for the owner to fire one billing-reconcile run and record the durable cron_runs success + cron_billing_reconcile_freshness=ok. Not suppressed or special-cased in code. Only gates live paid; capped beta is unaffected."
+      "note": "ROOT CAUSE (revised 2026-09-05 after a real reconcile run): the only subscription is the owner's own (user 688ba16f, sub_1TzahD...) on a legacy Stripe price (price_1TxjJI...) the current catalog no longer maps. A live billing-reconcile POST on 2026-09-05 fixed the status drift (active->canceled to match Stripe) but STILL returned ok:false with unknownPrices=[price_1TxjJI...]. The earlier 'self-resolves once the sub ends 2026-09-01' assumption was WRONG: reconcile counted the canceled sub's historical price into unknownPrices because the check ran against every subscription row regardless of status, so it would false-fail on every future run and permanently pin cron_billing_reconcile_freshness=unavailable. FIX (owner-authorized real bug fix): src/lib/stripe/reconcile.ts now scopes the unknownPrices check to LIVE_STATUSES via isUnknownActivePrice() (trialing/active/past_due/unpaid) so a terminal sub's dead price no longer fails reconcile; an unmapped price on a live sub is still flagged. Remaining owner action: REDEPLOY the fix, then fire one billing-reconcile run -> expect ok:true and a durable cron_runs success -> cron_billing_reconcile_freshness=ok. Only gates live paid; capped beta is unaffected."
     },
     {
       "id": "authenticated-e2e-matrix",
@@ -133,10 +133,10 @@
     {
       "id": "P0-V22-PAID-READINESS",
       "level": "P0",
-      "title": "Paid readiness not 200: cron_billing_reconcile_freshness=unavailable because the only subscription is the owner's legacy-price pro_monthly sub, which makes reconcile report unknownPrices (ok=false). It is set to cancel 2026-09-01 and then self-resolves.",
+      "title": "Paid readiness not 200: cron_billing_reconcile_freshness=unavailable because reconcile counted the owner's canceled legacy-price sub into unknownPrices (ok=false). Cancelling did NOT self-resolve it (proven by a live run 2026-09-05); fixed in code by scoping the unknownPrices check to LIVE_STATUSES (isUnknownActivePrice), pending owner redeploy + one clean reconcile run.",
       "owner": "Owner",
       "blocks": ["public_paid"],
-      "acceptance": "After the owner legacy sub ends (2026-09-01) or is cancelled, one billing-reconcile run returns ok and records a durable cron_runs success, and authenticated /api/health/ready with LAUNCH_MODE=paid returns 200 on the deployed v22 SHA."
+      "acceptance": "With the reconcile fix deployed, one billing-reconcile run returns report.ok:true and records a durable cron_runs success, and authenticated /api/health/ready with LAUNCH_MODE=paid returns 200 on the deployed SHA."
     },
     {
       "id": "P0-LIVE-TRANSACTION",

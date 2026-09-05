@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   diffSubscription,
   findDuplicateCustomers,
+  isUnknownActivePrice,
   type LocalSubRow,
 } from "@/lib/stripe/reconcile";
 import { propertiesSchema } from "@/lib/analytics/taxonomy";
@@ -77,6 +78,24 @@ describe("reconciliation drift detection", () => {
   it("does not flag plan_name when the price is unknown (webhook owns that failure)", () => {
     const drift = diffSubscription(local, stripeSub({ price: "price_nonsense" }));
     expect(drift.find((d) => d.field === "plan_name")).toBeUndefined();
+  });
+
+  it("flags an unmapped price only on a live subscription, never a terminal one", () => {
+    const unmapped = "price_legacy_unmapped";
+    // An active/trialing/past_due/unpaid sub on an unmapped price is a real
+    // signal: someone is (or should be) paying on a price we can't map.
+    for (const status of ["active", "trialing", "past_due", "unpaid"]) {
+      expect(isUnknownActivePrice(status, unmapped)).toBe(true);
+    }
+    // A terminal sub keeps its historical unmapped price forever; flagging it
+    // would false-fail reconcile on every run (the real v22 paid-readiness bug).
+    for (const status of ["canceled", "incomplete_expired", "incomplete", "paused"]) {
+      expect(isUnknownActivePrice(status, unmapped)).toBe(false);
+    }
+    // A mapped price is never flagged, live or not.
+    expect(isUnknownActivePrice("active", "price_monthly_test")).toBe(false);
+    // No price id → nothing to flag.
+    expect(isUnknownActivePrice("active", undefined)).toBe(false);
   });
 
   it("finds duplicate Stripe customers across users", () => {

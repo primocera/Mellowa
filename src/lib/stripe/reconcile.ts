@@ -70,6 +70,19 @@ export function planNameForPrice(priceId: string | undefined): string | null {
 }
 
 /**
+ * Whether an unmapped price should fail reconcile. An unmapped price only
+ * matters on a subscription that still grants entitlement (a LIVE status): that
+ * is a real "someone is paying on a price we can't map" signal. A terminal
+ * (canceled/expired) subscription keeps its historical row and price forever, so
+ * flagging it would make reconcile false-fail on every run and permanently pin
+ * cron_billing_reconcile_freshness=unavailable. Pure, so it is unit-tested
+ * directly.
+ */
+export function isUnknownActivePrice(status: string, priceId: string | undefined): boolean {
+  return LIVE_STATUSES.has(status) && priceId != null && planNameForPrice(priceId) === null;
+}
+
+/**
  * Pure comparison of a local row against the live Stripe subscription.
  * Returns the field-level differences (empty array = in sync).
  */
@@ -284,7 +297,7 @@ export async function reconcileBilling(
     }
 
     const priceId = remote.items.data[0]?.price.id;
-    if (priceId && planNameForPrice(priceId) === null && !report.unknownPrices.includes(priceId)) {
+    if (priceId && isUnknownActivePrice(remote.status, priceId) && !report.unknownPrices.includes(priceId)) {
       report.unknownPrices.push(priceId);
     }
 
