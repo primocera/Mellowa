@@ -66,11 +66,53 @@ CI (Linux/LF) in this run.
 
 ---
 
-## Still NOT RUN (owner)
+## 3. Paid-readiness / billing reconcile — root cause (diagnosed, self-resolving)
 
-Recorded here only when direct evidence exists:
+- **Status:** BLOCKED, root cause known, self-resolves 2026-09-01
+- **Diagnosed:** 2026-08-30 from prod `cron_runs` + `subscriptions`
+- **Finding:** `cron_job_health()` shows `billing-reconcile` last ran **2026-08-23**,
+  `status=failure`, `error_category=reconcile_exception`, `lease_outcome=acquired`,
+  `last_success_at=null` → readiness component `cron_billing_reconcile_freshness=unavailable`.
+- **Why:** the ONLY subscription is the owner's own — user `688ba16f…`,
+  `plan_name=pro_monthly`, `active`, `cancel_at_period_end=true`,
+  `current_period_end=2026-09-01`. It is on a Stripe price id the current catalog
+  no longer maps (`planNameForPrice()=null`), so `reconcileBilling` records it in
+  `unknownPrices`, sets `report.ok=false`, and the job is marked failed.
+- **Resolution (owner, no code change):** the sub is already scheduled to cancel
+  **2026-09-01**. Once it ends (or is cancelled sooner in Stripe), a single
+  billing-reconcile run returns `ok` and writes the durable success row →
+  `cron_billing_reconcile_freshness=ok` → paid readiness can reach 200. Not
+  suppressed or special-cased in code.
+- This was first surfaced in v21; recorded here so it is not re-diagnosed again.
 
-- `cron_billing_reconcile_freshness=ok` (durable `cron_runs` success).
-- Secret rotation (date + creds, no values).
-- Deploy + authenticated `/api/health/ready` (paid) = 200 on the deployed SHA.
-- Live Stripe rehearsal + one real transactional email with replay idempotency.
+---
+
+## 4. Production deploy confirmed
+
+- **Status:** DEPLOYED ✅ (public health probe)
+- **Deployed SHA:** `c6e6f091b2d038b3de1e7d74da7d900391d6591e` (`c6e6f09`)
+- **Evidence:** public `/api/health` returns `version: c6e6f09` — the current
+  `main` HEAD. This is a **documentation-only superset** of the frozen RC
+  `974e534` (only release-truth commits after the freeze), so the frozen RC still
+  certifies the shipping code. Recorded as `buildId` in `manifest.v22.json`.
+- **Note:** this confirms the *code is live*. It does **not** by itself close paid
+  readiness — authenticated `/api/health/ready` with `LAUNCH_MODE=paid` = 200 (which
+  needs `cron_billing_reconcile_freshness=ok`) is still owner-run (see §3 and the
+  certification's "Path to full public-paid GO").
+
+---
+
+## Still NOT RUN (owner) — the path to full public-paid GO
+
+Recorded here only when direct evidence exists. See certification §10 for how each
+flips the derived verdict:
+
+- billing-reconcile durable `success` after the legacy sub ends — the 2026-09-01
+  end date has now **passed** (today 2026-09-05); only one reconcile run +
+  recording remains (see §3). Closes `P0-V22-PAID-READINESS`.
+- Live Stripe rehearsal (A–H: charge/cancel/reactivate/failure/recovery/late-drop/
+  refund) + one real transactional email with replay idempotency. Closes
+  `P0-LIVE-TRANSACTION`.
+- Secret rotation (date + keyId, no values).
+- Authenticated `/api/health/ready` (paid) = 200 + `npm run release-check` ready on
+  the deployed SHA → record the `release-check` suite `ci_pass`.

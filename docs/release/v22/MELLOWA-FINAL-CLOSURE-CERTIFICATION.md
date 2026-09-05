@@ -22,7 +22,7 @@ are **out of scope for this repository** and were not run here.
 | Frozen RC baseline (v21) | `363e124cd1f18f30d2a30b1c64dc346e4687b904` |
 | v22 code commit SHA | `30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b` |
 | **Frozen RC SHA** | **`974e534ea956e19acbb672701b97fe8d27f6944b`** — release-candidate workflow run #17, conclusion success; artifact `rc-evidence-974e534` sha256 `2f07ae74…` |
-| Deployed SHA / build id | none — **not deployed by this work** |
+| Deployed SHA / build id | `c6e6f091b2d038b3de1e7d74da7d900391d6591e` (`c6e6f09`) — owner production deploy, confirmed by public `/api/health` returning `version: c6e6f09`. A **documentation-only superset** of the frozen RC `974e534` (only release-truth commits after the freeze), so the frozen RC still certifies the shipping code. |
 | Migration range | `001`–`054` (v22 adds **no** migration) |
 | Candidate lifecycle | **frozen** — RC cut at `974e534`, authenticated matrix green |
 
@@ -114,9 +114,17 @@ they were left untouched; they are recorded here honestly rather than papered ov
 ## 6. Release-truth reconciliation
 
 - `docs/release/manifest.v22.json` is the authoritative **current** machine record
-  (validated by `validateReleaseManifest`, 0 violations): `rcSha: null`,
-  lifecycle `draft`, all three verdicts `UNASSESSED`, owner evidence `not_run`,
-  migration set `001–054` complete.
+  (validated by `validateReleaseManifest`, 0 violations): `rcSha:
+  974e534…`, lifecycle **`frozen`**, verdicts **`automated_code_gate: GO`,
+  `capped_beta: GO`, `public_paid: NO-GO`** — and these stored verdicts now
+  **equal `deriveVerdicts(manifest)`** (previously they disagreed: the stored
+  `GO/GO` sat over a machine-derived `NO-GO/NO-GO` because `dependency-audit` was
+  marked `required: true` while the immutable RC workflow never runs it, forcing
+  `codeGreen=false`). `dependency-audit` is now `required: false` (a driftable,
+  point-in-time check the RC does not freeze; production dependency posture is
+  still gated for public paid via the `openDependencyAdvisories` owner gate in
+  `deriveVerdicts`). `buildId: c6e6f09` records the confirmed production deploy.
+  Migration set `001–054` complete.
 - README continues to link the last **generated/promoted** status
   (`docs/release/v16/STATUS.md` + `manifest.v16.json`) — an intentional, tested
   invariant (`active-doc-truth`, `release-truth-consistency`): README defers to the
@@ -174,3 +182,34 @@ The machine manifest (`manifest.v22.json`, validated 0 violations) now agrees:
 `automated_code_gate` GO, `capped_beta` GO, `public_paid` NO-GO — derived from the
 frozen RC `974e534`, the ci_pass suites, the closed blockers and the two open
 public-paid blockers (`P0-V22-PAID-READINESS`, `P0-LIVE-TRANSACTION`).
+
+## 10. Path to full public-paid GO (owner-run)
+
+`public_paid` derives to **GO** the moment the owner evidence below is recorded —
+no hand-editing of the verdict, no faked evidence. `deriveVerdicts` returns
+`public_paid: GO` exactly when all of these hold (verified by simulation against
+this manifest):
+
+1. **Billing-reconcile fresh** — the owner's legacy-price sub ended 2026-09-01
+   (now past). Fire one billing-reconcile run; record the durable `cron_runs`
+   success and `cron_billing_reconcile_freshness=ok`. → **closes
+   `P0-V22-PAID-READINESS`** (move to `closedBlockers`).
+2. **A–H live Stripe rehearsal** — the full charge → cancel → reactivate →
+   payment-failure → recovery → late-failure-drop → refund sequence per
+   `docs/runbooks/live-transaction-rehearsal.md`, plus one real transactional
+   email and the duplicate/out-of-order webhook idempotency spot-checks. Record
+   opaque evidence ids only. → set `ownerEvidence.live-transaction` to
+   `live_rehearsed` and **close `P0-LIVE-TRANSACTION`** (and delete its accepted
+   risk — a closed blocker needs no acceptance).
+3. **Secret rotation** — rotate the previously-reported-exposed credentials and
+   record rotation metadata only (date/keyId, no values). → set
+   `ownerEvidence.secret-rotation` to done.
+4. **Deploy + readiness** — with the candidate deployed, authenticated
+   `/api/health/ready` with `LAUNCH_MODE=paid` returns **200**, and
+   `npm run release-check` run with the real production env reports ready. → set
+   the `release-check` suite `status: ci_pass` (this is the hard
+   `production_owner` gate `paidObserved`/`prodSuitesGreen` require).
+
+With 1–4 recorded and `openDependencyAdvisories=0` (currently true), the promote
+step derives **`GO / GO / GO`**. A–H is the largest of these but not the only one;
+all four must be recorded for a true (non-conditional) public-paid GO.

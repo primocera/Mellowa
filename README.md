@@ -28,13 +28,15 @@ carries no verdicts, counts or SHAs that could drift:
   owner-evidence state live there, not restated here. The rendered status above
   stays pinned to the last promoted line (v16).
 
-At the current HEAD the candidate is a **draft**: no SHA is frozen, so all three
-verdicts are **UNASSESSED** until a candidate is cut via the immutable
-release-candidate workflow. **The release loop is not closed — do not read a GO
-here.** `P0-LIVE-TRANSACTION` is an owner-accepted risk for public paid
-(carry-forward); billing code is frozen at v16 apart from fail-closed
-failure-path fixes. See
-[`docs/release/manifest.v16.json`](docs/release/manifest.v16.json).
+The **rendered status above stays pinned to the last promoted line (v16)**, whose
+candidate is still a **draft** — no SHA was promoted there, so its three verdicts
+read **UNASSESSED**; do not read a promoted GO from that pinned page. The
+**current v22 line is separate and frozen** (RC `974e534`): its verdicts and
+owner-evidence state live in the v22 manifest and certification linked above, not
+restated here, so nothing in this section can drift into a hard-coded GO. For
+public paid, `P0-LIVE-TRANSACTION` stays open until the live rehearsal is
+recorded; billing code is frozen at v16 apart from fail-closed failure-path fixes.
+See [`docs/release/manifest.v16.json`](docs/release/manifest.v16.json).
 
 Dependency posture: `npm audit --omit=dev` reports **0** high/critical — see
 [`docs/release/evidence/v17/dependency-audit.md`](docs/release/evidence/v17/dependency-audit.md),

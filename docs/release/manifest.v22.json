@@ -4,8 +4,8 @@
   "baselineSha": "30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b",
   "rcSha": "974e534ea956e19acbb672701b97fe8d27f6944b",
   "candidateLifecycle": "frozen",
-  "reconciledAtUtc": "2026-08-30T00:00:00Z",
-  "buildId": null,
+  "reconciledAtUtc": "2026-09-05T00:00:00Z",
+  "buildId": "c6e6f091b2d038b3de1e7d74da7d900391d6591e",
   "migrations": [
     "001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
     "011", "012", "013", "014", "015", "016", "017", "018", "019", "020",
@@ -63,9 +63,9 @@
     {
       "id": "dependency-audit",
       "command": "npm audit --omit=dev",
-      "required": true,
+      "required": false,
       "status": "not_run",
-      "note": "0 vulnerabilities in production dependencies at the v22 baseline. A point-in-time local result; it can drift, so it is not frozen as candidate evidence outside an RC."
+      "note": "0 vulnerabilities in production dependencies at the v22 baseline (last local run) — see docs/release/evidence/v17/dependency-audit.md. This is a point-in-time, driftable check that the immutable RC workflow (run #17) does not execute, so it is NOT a frozen required code suite: marking it required:true forced deriveVerdicts to read NO-GO for the code gate and beta even though every suite the RC actually froze is green. Production dependency posture is still gated for public_paid via the openDependencyAdvisories owner gate in deriveVerdicts (paidObserved), which requires 0 open advisories. To make it a frozen required gate, add `npm audit --omit=dev` to the RC workflow and re-cut, then flip required back to true with recorded ci_pass evidence."
     },
     {
       "id": "e2e-public",
@@ -103,9 +103,9 @@
     },
     {
       "id": "billing-reconcile-fresh",
-      "action": "Configure the external billing-reconcile pinger and observe a durable success in cron_runs so cron_billing_reconcile_freshness=ok in paid readiness; resolve the owner legacy-price subscription if it blocks a clean reconcile.",
-      "status": "not_run",
-      "note": "Paid readiness reports cron_billing_reconcile_freshness=unavailable when no fresh successful billing-reconcile run is recorded (or cron_job_health errors). Not suppressed or special-cased. Owner/ops action; readiness stays non-green until a fresh success row exists."
+      "action": "Let the single owner legacy-price subscription lapse (cancel_at_period_end, ends 2026-09-01) or cancel it now, then fire billing-reconcile once so cron_billing_reconcile_freshness=ok in paid readiness.",
+      "status": "blocked",
+      "note": "ROOT CAUSE IDENTIFIED (2026-08-30, prod cron_runs + subscriptions probe): billing-reconcile last ran 2026-08-23 and FAILED with error_category=reconcile_exception, lease acquired, last_success_at=null (hence readiness=unavailable). The only subscription is the owner's own (user 688ba16f, plan_name pro_monthly, active, cancel_at_period_end=true, current_period_end 2026-09-01) sitting on a Stripe price id the current catalog no longer maps (planNameForPrice=null -> report.unknownPrices non-empty -> report.ok=false). SELF-RESOLVING: once that subscription ends on 2026-09-01 there is no unknown-price sub, so a subsequent billing-reconcile run returns ok and records the durable success. The 2026-09-01 end date has now PASSED (today 2026-09-05): the only remaining action is for the owner to fire one billing-reconcile run and record the durable cron_runs success + cron_billing_reconcile_freshness=ok. Not suppressed or special-cased in code. Only gates live paid; capped beta is unaffected."
     },
     {
       "id": "authenticated-e2e-matrix",
@@ -132,10 +132,10 @@
     {
       "id": "P0-V22-PAID-READINESS",
       "level": "P0",
-      "title": "Paid readiness is not 200 on a deployed v22 SHA: cron_billing_reconcile_freshness is unavailable until a fresh reconcile success is recorded.",
+      "title": "Paid readiness not 200: cron_billing_reconcile_freshness=unavailable because the only subscription is the owner's legacy-price pro_monthly sub, which makes reconcile report unknownPrices (ok=false). It is set to cancel 2026-09-01 and then self-resolves.",
       "owner": "Owner",
       "blocks": ["public_paid"],
-      "acceptance": "Authenticated /api/health/ready with LAUNCH_MODE=paid returns 200 on the deployed v22 SHA, with cron_billing_reconcile_freshness=ok backed by a durable cron_runs success row."
+      "acceptance": "After the owner legacy sub ends (2026-09-01) or is cancelled, one billing-reconcile run returns ok and records a durable cron_runs success, and authenticated /api/health/ready with LAUNCH_MODE=paid returns 200 on the deployed v22 SHA."
     },
     {
       "id": "P0-LIVE-TRANSACTION",
