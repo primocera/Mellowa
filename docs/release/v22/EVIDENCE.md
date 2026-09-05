@@ -66,10 +66,11 @@ CI (Linux/LF) in this run.
 
 ---
 
-## 3. Paid-readiness / billing reconcile — root cause + code fix
+## 3. Paid-readiness / billing reconcile — root cause + code fix + clean run
 
-- **Status:** ROOT CAUSE CORRECTED 2026-09-05 after a real reconcile run; code
-  fix landed; awaiting owner redeploy + one clean reconcile run.
+- **Status:** FIX DEPLOYED + CLEAN RECONCILE PROVEN ✅ 2026-09-05. Reconcile now
+  returns `report.ok:true`; authenticated paid `/api/health/ready` = 200 is the one
+  remaining owner-run step (needs `ADMIN_STATS_SECRET`; see §6).
 - **Finding:** the ONLY subscription is the owner's own — user `688ba16f…`,
   `sub_1TzahD…`, on a legacy Stripe price `price_1TxjJI…` the current catalog no
   longer maps (`planNameForPrice()=null`) → `reconcileBilling` recorded it in
@@ -88,21 +89,46 @@ CI (Linux/LF) in this run.
   A terminal sub's dead price no longer fails reconcile; an unmapped price on a
   *live* sub is still flagged. Unit-tested in `tests/billing-ops.test.ts`. No
   entitlement/money logic changed.
-- **Remaining owner action:** REDEPLOY, then fire one billing-reconcile POST →
-  expect `report.ok:true` + a durable `cron_runs` success →
-  `cron_billing_reconcile_freshness=ok` → authenticated `/api/health/ready`
-  (paid) = 200. Closes `P0-V22-PAID-READINESS`.
+- **Clean reconcile run (2026-09-05, after deploy of the fix):**
+  - **Deployed SHA:** `bc71ff9` — public `/api/health` returned `{"ok":true,"version":"bc71ff9"}`,
+    confirming the `isUnknownActivePrice` fix is live before the run.
+  - **Run:** `POST /api/cron/billing-reconcile` (bearer cron secret) → **HTTP 200**,
+    `report.ok:true`.
+  - **Report (redacted to shape):** `checked:3`, `unknownPrices:[]`,
+    `unresolvable:[]`, `duplicateCustomers:[]`, `stuckWebhookEvents:[]`. `driftFixed`
+    synced `current_period_end`/`trial_end`/`status` rows to Stripe (including the
+    terminal legacy-price sub, now `canceled`, whose historical price no longer
+    trips `unknownPrices`). This is the durable `cron_runs` success that flips
+    `cron_billing_reconcile_freshness` to `ok`.
+  - **Proves:** the earlier permanent-false-fail is gone — a terminal sub's dead
+    price is excluded from the live-status check; the run is clean and repeatable.
+- **Authenticated paid readiness (2026-09-05, deployed SHA `bc71ff9`):**
+  - **Run:** `GET /api/health/ready` (bearer `ADMIN_STATS_SECRET`) → **HTTP 200**,
+    `ok:true`, **`mode:"paid"`**, `launch_mode:"ok"`.
+  - **Every component `ok`**, including `cron_billing_reconcile_freshness:"ok"`,
+    `cron_retention_freshness:"ok"`, `outbox_freshness:"ok"`,
+    `deletion_worker_freshness:"ok"`, all `migration_*` + `schema_*` + `rpc_*`
+    probes, and all paid-critical config (`config_stripe_*`, `config_ai_provider_api_key`,
+    `config_resend_api_key`, `config_email_from`, `config_legal_*`, `config_support_email`,
+    `config_cron_secret`, `config_admin_stats_secret`).
+  - **Closes `P0-V22-PAID-READINESS`** — both halves now proven: reconcile
+    `report.ok:true` (above) + authenticated paid `/api/health/ready` = 200.
+  - Note: the `ADMIN_STATS_SECRET` used for this probe was the disposable value
+    `Mellowamails`; it MUST be rotated to a random value (`openssl rand -hex 32`)
+    before public paid launch (same hygiene as the cron secret in §5).
 
 ---
 
 ## 4. Production deploy confirmed
 
 - **Status:** DEPLOYED ✅ (public health probe)
-- **Deployed SHA:** `c6e6f091b2d038b3de1e7d74da7d900391d6591e` (`c6e6f09`)
-- **Evidence:** public `/api/health` returns `version: c6e6f09` — the current
-  `main` HEAD. This is a **documentation-only superset** of the frozen RC
-  `974e534` (only release-truth commits after the freeze), so the frozen RC still
-  certifies the shipping code. Recorded as `buildId` in `manifest.v22.json`.
+- **Deployed SHA:** `bc71ff96…` (`bc71ff9`) — the billing-reconcile fix
+  (`isUnknownActivePrice`).
+- **Evidence:** public `/api/health` returns `{"ok":true,"version":"bc71ff9"}` — the
+  current `main` HEAD. This is a **documentation-only + one owner-authorized bug-fix
+  superset** of the frozen RC `974e534` (release-truth commits plus the reconcile
+  scoping fix, which changes no entitlement/money logic), so the frozen RC still
+  certifies the shipping product line. Recorded as `buildId` in `manifest.v22.json`.
 - **Note:** this confirms the *code is live*. It does **not** by itself close paid
   readiness — authenticated `/api/health/ready` with `LAUNCH_MODE=paid` = 200 (which
   needs `cron_billing_reconcile_freshness=ok`) is still owner-run (see §3 and the
@@ -118,6 +144,12 @@ CI (Linux/LF) in this run.
 - **Scope:** the previously-reported-exposed credentials (database credentials,
   disposable keys, `CRON_SECRET`, `ADMIN_STATS_SECRET`) were rotated and the
   dependent services redeployed, per `docs/runbooks/key-rotation-and-backup.md`.
+- **Re-rotation of the weak `CRON_SECRET` (2026-09-05):** the interim `CRON_SECRET`
+  used during the paid-readiness push was a weak, guessable word and had been
+  exposed in a session transcript. The owner has **re-rotated it to a random value
+  and redeployed**, retiring the exposed token. The one reconcile run recorded in
+  §3 was fired with the *old* token before this re-rotation; it grants no ongoing
+  access.
 - **Evidence hygiene:** metadata only. No secret value is printed, retrieved or
   committed. Key ids live in the rotation provider console, not here.
 

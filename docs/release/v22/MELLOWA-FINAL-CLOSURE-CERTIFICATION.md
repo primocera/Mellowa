@@ -148,18 +148,23 @@ they were left untouched; they are recorded here honestly rather than papered ov
    [`EVIDENCE.md`](EVIDENCE.md); closes `P0-V22-RC-NOT-CUT` and
    `P1-V22-AUTH-E2E-AT-HEAD`.
 
-Remaining — NOT RUN, never fabricated:
-3. Rotate previously-reported-exposed credentials (DB creds, disposable keys,
-   `CRON_SECRET`, `ADMIN_STATS_SECRET`) and redeploy dependents, per
-   `docs/runbooks/key-rotation-and-backup.md`. **NOT VERIFIED** — no values handled.
-4. Resolve `cron_billing_reconcile_freshness=unavailable`: configure the external
-   billing-reconcile pinger and record a durable success in `cron_runs` (resolving
-   the owner legacy-price subscription if it blocks a clean reconcile). Not
-   suppressed or special-cased in code.
-5. Deploy the candidate; verify `/api/health` returns that exact version and
-   authenticated `/api/health/ready` with `LAUNCH_MODE=paid` returns 200.
-6. Live Stripe rehearsal (charge/cancel/reactivate/recovery/refund) and one real
-   transactional email with replay idempotency.
+Done since — recorded in [`EVIDENCE.md`](EVIDENCE.md), never fabricated:
+3. **DONE ✅ — secret rotation** (owner-attested 2026-09-05), including a
+   **re-rotation of the weak/exposed interim `CRON_SECRET`** to a random value +
+   redeploy. Metadata only; no values handled.
+4. **DONE ✅ — `cron_billing_reconcile_freshness` fix deployed + clean run.** With
+   `bc71ff9` live (public `/api/health`), a billing-reconcile POST returned
+   `report.ok:true`, `unknownPrices:[]`, recording the durable `cron_runs` success
+   that flips freshness to `ok`. The root-cause bug (a terminal sub's dead price
+   counted into `unknownPrices`) is fixed in `isUnknownActivePrice`, not suppressed.
+
+Remaining — NOT RUN / in progress, never fabricated:
+5. Authenticated `/api/health/ready` with `LAUNCH_MODE=paid` returns **200** on the
+   deployed SHA (needs `ADMIN_STATS_SECRET`, owner-run) — the last half of
+   `P0-V22-PAID-READINESS`, now that reconcile freshness is `ok`.
+6. Live Stripe rehearsal (A–H) — **IN PROGRESS** on mellowa.app; step A
+   (checkout/trial → active) done, B–H pending. See
+   [`LIVE-TRANSACTION-EVIDENCE.md`](LIVE-TRANSACTION-EVIDENCE.md).
 7. (Optional) run `promote-candidate.mjs` against the downloaded `rc-evidence`
    artifact to adopt the computed record; the manifest already reflects the frozen
    RC and derived verdicts.
@@ -175,8 +180,8 @@ v16). Code rollback target for the shipped line remains the last promoted RC.
 | Tier | Verdict | Why |
 |---|---|---|
 | **CAPPED_BETA** | **GO** | Immutable RC frozen at `974e534` with the authenticated E2E matrix green (run #17), migrations 050–054 verified in prod (19/19 PASS), safety + sample-claim correctness green. No open blocker targets capped beta. |
-| **SUPERVISED_PAID_MVP** | **NO-GO** (until owner evidence) | Blocked by `cron_billing_reconcile_freshness=unavailable` (paid readiness not 200) and no live-billing monitoring/recovery evidence. Closes when reconcile is fresh + readiness 200 on the deployed SHA. |
-| **STRICT_PUBLIC_PAID** | **NO-GO** | Exact-SHA RC, paid readiness 200, verified migrations, live billing + one real transactional email, and secret-rotation evidence are all owner-gated and NOT RUN. `P0-LIVE-TRANSACTION` remains an owner-accepted risk from v16. |
+| **SUPERVISED_PAID_MVP** | **NO-GO → CONDITIONAL GO once `release-check` recorded** | Paid readiness proven (`P0-V22-PAID-READINESS` CLOSED 2026-09-05: reconcile `ok:true` + authenticated paid `/api/health/ready`=200). Live billing **A–H rehearsal DONE** (`P0-LIVE-TRANSACTION` CLOSED — charge/cancel/reactivate/failure/recovery/out-of-order-drop/refund/idempotency all witnessed live, real emails delivered once each). The one hard gate left is `release-check` `ci_pass` against the real prod env; with it, `deriveVerdicts` reads at least CONDITIONAL GO. |
+| **STRICT_PUBLIC_PAID** | **NO-GO** | Paid readiness 200 ✅, verified migrations ✅, secret rotation ✅, **live A–H + real transactional emails ✅** (`P0-LIVE-TRANSACTION` CLOSED). Remaining for full GO: `release-check` `ci_pass` against prod env (hard `production_owner` gate), the `matureValue` observation, and rotation of the disposable `ADMIN_STATS_SECRET`/`CRON_SECRET` to random values before launch. |
 
 The machine manifest (`manifest.v22.json`, validated 0 violations) now agrees:
 `automated_code_gate` GO, `capped_beta` GO, `public_paid` NO-GO — derived from the
@@ -190,26 +195,30 @@ no hand-editing of the verdict, no faked evidence. `deriveVerdicts` returns
 `public_paid: GO` exactly when all of these hold (verified by simulation against
 this manifest):
 
-1. **Billing-reconcile fresh** — the owner's legacy-price sub ended 2026-09-01
-   (now past). Fire one billing-reconcile run; record the durable `cron_runs`
-   success and `cron_billing_reconcile_freshness=ok`. → **closes
-   `P0-V22-PAID-READINESS`** (move to `closedBlockers`).
-2. **A–H live Stripe rehearsal** — the full charge → cancel → reactivate →
-   payment-failure → recovery → late-failure-drop → refund sequence per
-   `docs/runbooks/live-transaction-rehearsal.md`, plus one real transactional
-   email and the duplicate/out-of-order webhook idempotency spot-checks. Record
-   opaque evidence ids only. → set `ownerEvidence.live-transaction` to
-   `live_rehearsed` and **close `P0-LIVE-TRANSACTION`** (and delete its accepted
-   risk — a closed blocker needs no acceptance).
-3. **Secret rotation** — rotate the previously-reported-exposed credentials and
-   record rotation metadata only (date/keyId, no values). → set
-   `ownerEvidence.secret-rotation` to done.
-4. **Deploy + readiness** — with the candidate deployed, authenticated
-   `/api/health/ready` with `LAUNCH_MODE=paid` returns **200**, and
-   `npm run release-check` run with the real production env reports ready. → set
-   the `release-check` suite `status: ci_pass` (this is the hard
-   `production_owner` gate `paidObserved`/`prodSuitesGreen` require).
+1. **DONE ✅ — Billing-reconcile fresh + paid readiness 200.** With `bc71ff9`
+   deployed, one billing-reconcile run returned `report.ok:true` (`unknownPrices:[]`)
+   and authenticated paid `/api/health/ready` returned **200** with
+   `cron_billing_reconcile_freshness:ok` and every component ok. **`P0-V22-PAID-READINESS`
+   is CLOSED** (see `EVIDENCE.md` §3).
+2. **DONE ✅ — A–H live Stripe rehearsal.** The full charge → cancel → reactivate →
+   payment-failure → recovery → late-failure-drop → refund → duplicate-idempotency
+   sequence was witnessed live on mellowa.app (throwaway `mon.prim`, `sub_1UCHR70`),
+   with real cancellation + recovery emails delivered once each. Opaque ids in
+   `LIVE-TRANSACTION-EVIDENCE.md`. `ownerEvidence.live-transaction` = `live_rehearsed`;
+   **`P0-LIVE-TRANSACTION` CLOSED** and its accepted risk removed.
+3. **DONE ✅ — Secret rotation** (owner-attested 2026-09-05), incl. re-rotation of
+   the weak interim `CRON_SECRET`. `ownerEvidence.secret-rotation` = done. **NOTE:**
+   the disposable `ADMIN_STATS_SECRET`/`CRON_SECRET` value used for the readiness
+   probe must be rotated to a random value before launch.
+4. **PARTIAL — Deploy + readiness done; `release-check` remaining.** Authenticated
+   paid `/api/health/ready`=200 is proven (item 1). Still required: `npm run
+   release-check` run with the real production env reports ready → set the
+   `release-check` suite `status: ci_pass` (the hard `production_owner` gate that
+   `paidObserved`/`prodSuitesGreen` require). This is NOT recorded from the readiness
+   curl alone — it must be an actual `release-check` run against prod env.
 
 With 1–4 recorded and `openDependencyAdvisories=0` (currently true), the promote
-step derives **`GO / GO / GO`**. A–H is the largest of these but not the only one;
-all four must be recorded for a true (non-conditional) public-paid GO.
+step derives **`GO / GO / GO`**. Of the four, items 1–3 are DONE; the remaining
+owner step is item 4 — a real `npm run release-check` against prod env recorded as
+`ci_pass` (plus the `matureValue` observation for a non-conditional STRICT GO), and
+rotating the disposable `ADMIN_STATS_SECRET`/`CRON_SECRET` to random values.

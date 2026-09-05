@@ -5,7 +5,7 @@
   "rcSha": "974e534ea956e19acbb672701b97fe8d27f6944b",
   "candidateLifecycle": "frozen",
   "reconciledAtUtc": "2026-09-05T00:00:00Z",
-  "buildId": "c6e6f091b2d038b3de1e7d74da7d900391d6591e",
+  "buildId": "bc71ff9f4b0a170e23fcc1e9e18d0ad000b7156f",
   "migrations": [
     "001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
     "011", "012", "013", "014", "015", "016", "017", "018", "019", "020",
@@ -103,9 +103,10 @@
     },
     {
       "id": "billing-reconcile-fresh",
-      "action": "Let the single owner legacy-price subscription lapse (cancel_at_period_end, ends 2026-09-01) or cancel it now, then fire billing-reconcile once so cron_billing_reconcile_freshness=ok in paid readiness.",
-      "status": "blocked",
-      "note": "ROOT CAUSE (revised 2026-09-05 after a real reconcile run): the only subscription is the owner's own (user 688ba16f, sub_1TzahD...) on a legacy Stripe price (price_1TxjJI...) the current catalog no longer maps. A live billing-reconcile POST on 2026-09-05 fixed the status drift (active->canceled to match Stripe) but STILL returned ok:false with unknownPrices=[price_1TxjJI...]. The earlier 'self-resolves once the sub ends 2026-09-01' assumption was WRONG: reconcile counted the canceled sub's historical price into unknownPrices because the check ran against every subscription row regardless of status, so it would false-fail on every future run and permanently pin cron_billing_reconcile_freshness=unavailable. FIX (owner-authorized real bug fix): src/lib/stripe/reconcile.ts now scopes the unknownPrices check to LIVE_STATUSES via isUnknownActivePrice() (trialing/active/past_due/unpaid) so a terminal sub's dead price no longer fails reconcile; an unmapped price on a live sub is still flagged. Remaining owner action: REDEPLOY the fix, then fire one billing-reconcile run -> expect ok:true and a durable cron_runs success -> cron_billing_reconcile_freshness=ok. Only gates live paid; capped beta is unaffected."
+      "action": "Fire billing-reconcile once with the isUnknownActivePrice fix deployed so cron_billing_reconcile_freshness=ok in paid readiness.",
+      "status": "live_rehearsed",
+      "evidence": "docs/release/v22/EVIDENCE.md",
+      "note": "DONE 2026-09-05 with the fix deployed (buildId bc71ff9, confirmed by public /api/health). ROOT CAUSE was: reconcile counted a terminal legacy-price sub's historical unmapped price into unknownPrices (checked every row regardless of status), so ok:false was permanent and pinned cron_billing_reconcile_freshness=unavailable forever. FIX (owner-authorized real bug fix): src/lib/stripe/reconcile.ts scopes the unknownPrices check to LIVE_STATUSES via isUnknownActivePrice() (trialing/active/past_due/unpaid). CLEAN RUN: POST /api/cron/billing-reconcile -> HTTP 200, report.ok:true, unknownPrices:[], unresolvable:[] (see EVIDENCE.md section 3), recording the durable cron_runs success that flips cron_billing_reconcile_freshness to ok. CONFIRMED by authenticated GET /api/health/ready -> HTTP 200, mode:paid, ok:true, cron_billing_reconcile_freshness:ok, every component ok (EVIDENCE.md section 3). P0-V22-PAID-READINESS CLOSED."
     },
     {
       "id": "authenticated-e2e-matrix",
@@ -125,29 +126,33 @@
     {
       "id": "live-transaction",
       "action": "One real low-value transaction end to end on live Stripe: charge, cancel, reactivate, payment recovery, refund, per docs/runbooks/live-transaction-rehearsal.md.",
-      "status": "not_run",
-      "note": "Carried forward as an accepted risk for public paid from v16 (P0-LIVE-TRANSACTION). Claude never executes live money."
+      "status": "live_rehearsed",
+      "evidence": "docs/release/v22/LIVE-TRANSACTION-EVIDENCE.md",
+      "note": "DONE 2026-09-05 (owner-run on mellowa.app, LIVE Stripe, throwaway identity mon.prim, sub_1UCHR70). Full A-H witnessed live: A checkout/trial->active EUR11.99; B cancel_at_period_end (access-until-Oct-5); C optional-email opt-out suppression; D reactivate (no second charge, no duplicate sub); E payment failure (frozen card card_declined -> invoice.payment_failed -> local past_due, paid actions withheld, read access retained) -> recovery (re-paid -> active + recovery email); F late/out-of-order payment_failed resend DROPPED by shouldApplyStripeEvent (stayed active, no repeat email); G refund re_3UCKgK (entitlement unchanged, app stayed active); H duplicate-webhook resend deduped (no double effect) + real cancellation+recovery emails delivered once each. Opaque ids in LIVE-TRANSACTION-EVIDENCE.md. Closes P0-LIVE-TRANSACTION. Claude never executed live money; owner ran all Stripe/card steps."
     }
   ],
-  "blockers": [
-    {
-      "id": "P0-V22-PAID-READINESS",
-      "level": "P0",
-      "title": "Paid readiness not 200: cron_billing_reconcile_freshness=unavailable because reconcile counted the owner's canceled legacy-price sub into unknownPrices (ok=false). Cancelling did NOT self-resolve it (proven by a live run 2026-09-05); fixed in code by scoping the unknownPrices check to LIVE_STATUSES (isUnknownActivePrice), pending owner redeploy + one clean reconcile run.",
-      "owner": "Owner",
-      "blocks": ["public_paid"],
-      "acceptance": "With the reconcile fix deployed, one billing-reconcile run returns report.ok:true and records a durable cron_runs success, and authenticated /api/health/ready with LAUNCH_MODE=paid returns 200 on the deployed SHA."
-    },
+  "blockers": [],
+  "closedBlockers": [
     {
       "id": "P0-LIVE-TRANSACTION",
       "level": "P0",
       "title": "The full live payment failure-to-recovery/refund ordering has not been witnessed over a live wire; carried forward from v16 as an owner-accepted risk for public paid.",
       "owner": "Owner",
       "blocks": ["public_paid"],
-      "acceptance": "Recorded owner evidence for the full charge to cancel to reactivate to recovery to refund sequence on the live plan, per docs/runbooks/live-transaction-rehearsal.md."
-    }
-  ],
-  "closedBlockers": [
+      "acceptance": "Recorded owner evidence for the full charge to cancel to reactivate to recovery to refund sequence on the live plan, per docs/runbooks/live-transaction-rehearsal.md.",
+      "closedBy": "owner-run live A-H rehearsal 2026-09-05 (sub_1UCHR70, refund re_3UCKgK)",
+      "evidence": "docs/release/v22/LIVE-TRANSACTION-EVIDENCE.md"
+    },
+    {
+      "id": "P0-V22-PAID-READINESS",
+      "level": "P0",
+      "title": "Paid readiness must reach authenticated /api/health/ready=200 with cron_billing_reconcile_freshness=ok.",
+      "owner": "Owner",
+      "blocks": ["public_paid"],
+      "acceptance": "With the reconcile fix deployed, one billing-reconcile run returns report.ok:true and records a durable cron_runs success, and authenticated /api/health/ready with LAUNCH_MODE=paid returns 200 on the deployed SHA.",
+      "closedBy": "owner-run reconcile + paid readiness probe 2026-09-05 (deployed SHA bc71ff9)",
+      "evidence": "docs/release/v22/EVIDENCE.md"
+    },
     {
       "id": "P0-V22-MIGRATIONS-APPLIED",
       "level": "P0",
@@ -179,15 +184,7 @@
       "evidence": "https://github.com/primocera/Mellowa/actions/runs/33284292315 (rc-evidence-974e534, sha256 2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed)"
     }
   ],
-  "acceptedRisks": [
-    {
-      "blockerId": "P0-LIVE-TRANSACTION",
-      "acceptedBy": "Primoz Cerar",
-      "acceptedOnUtc": "2026-08-09T00:00:00Z",
-      "tiers": ["public_paid"],
-      "rationale": "Carried forward from v16: the full live payment failure-to-recovery/refund ordering is covered by order-resilient billing + customer-ownership contract tests (green) and owner-accepted for a bounded public-paid launch, to be re-verified with one completed current-code live charge before scaling volume. v22 does not change Stripe code (billing frozen at v16); it only closes the free-sample claim/refund correctness gap in regenerate-section and reconciles release truth."
-    }
-  ],
+  "acceptedRisks": [],
   "verdicts": {
     "automated_code_gate": "GO",
     "capped_beta": "GO",
@@ -196,6 +193,8 @@
   "rollback": "The only v22 product-code change is src/app/api/ai/regenerate-section/route.ts (free-sample claim/refund correctness), reverted by restoring the previous route file; it adds no migration and changes no Stripe code (frozen at v16). All v21 migrations (050-054) are additive and reversible with a data-safe rollback recorded in each file. Code rollback target for the shipped product line remains the last promoted RC; v22 is not promoted.",
   "documents": [
     "docs/release/v22/MELLOWA-FINAL-CLOSURE-CERTIFICATION.md",
+    "docs/release/v22/EVIDENCE.md",
+    "docs/release/v22/LIVE-TRANSACTION-EVIDENCE.md",
     "docs/release/v21/MELLOWA-CLOSURE-CERTIFICATION.md",
     "docs/runbooks/key-rotation-and-backup.md",
     "docs/runbooks/live-transaction-rehearsal.md"
