@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
+  "authE2eAtCandidate": "ci_pass",
+  "liveTransaction": "live_rehearsed",
+  "matureValue": "pass",
+  "openDependencyAdvisories": 0,
+  "recordedBy": "Primoz Cerar"
+}

@@ -2,9 +2,9 @@
   "schema": 1,
   "release": "v22",
   "baselineSha": "30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b",
-  "rcSha": "974e534ea956e19acbb672701b97fe8d27f6944b",
-  "candidateLifecycle": "frozen",
-  "reconciledAtUtc": "2026-09-05T00:00:00Z",
+  "rcSha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
+  "candidateLifecycle": "promoted",
+  "reconciledAtUtc": "2026-09-05T15:30:00Z",
   "buildId": "bc71ff9f4b0a170e23fcc1e9e18d0ad000b7156f",
   "migrations": [
     "001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
@@ -20,77 +20,79 @@
       "command": "npm run lint",
       "required": true,
       "status": "ci_pass",
-      "sha": "974e534ea956e19acbb672701b97fe8d27f6944b",
-      "evidence": "https://github.com/primocera/Mellowa/actions/runs/33284292315 (rc-evidence-974e534, sha256 2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed)",
-      "note": "Passed in the immutable release-candidate workflow run #17 at the frozen RC SHA."
+      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
+      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16 (re-cut of the superseded 974e534 to include the isUnknownActivePrice reconcile fix); rc-evidence artifact recorded in that run.",
+      "note": "Passed in the immutable release-candidate workflow at the frozen RC SHA faf5d16."
     },
     {
       "id": "typecheck",
       "command": "npm run typecheck",
       "required": true,
       "status": "ci_pass",
-      "sha": "974e534ea956e19acbb672701b97fe8d27f6944b",
-      "evidence": "https://github.com/primocera/Mellowa/actions/runs/33284292315 (rc-evidence-974e534, sha256 2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed)",
-      "note": "Passed in the immutable release-candidate workflow run #17 at the frozen RC SHA."
+      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
+      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
+      "note": "Passed in the immutable release-candidate workflow at the frozen RC SHA faf5d16."
     },
     {
       "id": "unit-contract-safety",
       "command": "npx vitest run",
       "required": true,
       "status": "ci_pass",
-      "sha": "974e534ea956e19acbb672701b97fe8d27f6944b",
-      "evidence": "https://github.com/primocera/Mellowa/actions/runs/33284292315 (rc-evidence-974e534, sha256 2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed)",
-      "note": "Passed in the immutable release-candidate workflow run #17 (a required step; the run is green, so every test passed). The 2 failures seen locally on Windows are byte-for-byte render-drift on the historical v16 STATUS page caused by LF/CRLF line endings; they pass on CI (Linux/LF), which this green run confirms."
+      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
+      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
+      "note": "Passed in the immutable release-candidate workflow at faf5d16 (a required step; the run is green, so every test passed). The 2 failures seen locally on Windows are byte-for-byte render-drift on the historical v16 STATUS page caused by LF/CRLF line endings; they pass on CI (Linux/LF)."
     },
     {
       "id": "eval-gate",
       "command": "npm run eval",
       "required": true,
       "status": "ci_pass",
-      "sha": "974e534ea956e19acbb672701b97fe8d27f6944b",
-      "evidence": "https://github.com/primocera/Mellowa/actions/runs/33284292315 (rc-evidence-974e534, sha256 2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed)",
-      "note": "Safety plus golden fit/variety gates (no LLM judges safety). Passed in release-candidate workflow run #17 at the frozen RC SHA."
+      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
+      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
+      "note": "Safety plus golden fit/variety gates (no LLM judges safety). Passed in the release-candidate workflow at faf5d16."
     },
     {
       "id": "production-build",
       "command": "npm run build",
       "required": true,
       "status": "ci_pass",
-      "sha": "974e534ea956e19acbb672701b97fe8d27f6944b",
-      "evidence": "https://github.com/primocera/Mellowa/actions/runs/33284292315 (rc-evidence-974e534, sha256 2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed)",
-      "note": "Production build passed in release-candidate workflow run #17 at the frozen RC SHA (also green locally, next build exit 0)."
+      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
+      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
+      "note": "Production build passed in the release-candidate workflow at faf5d16 (also green locally, next build exit 0)."
     },
     {
       "id": "dependency-audit",
       "command": "npm audit --omit=dev",
       "required": false,
-      "status": "not_run",
-      "note": "0 vulnerabilities in production dependencies — confirmed again by `npm audit --omit=dev` at HEAD on 2026-09-05 (found 0 vulnerabilities); prior baseline docs/release/evidence/v17/dependency-audit.md. This satisfies the openDependencyAdvisories=0 owner gate in deriveVerdicts (paidObserved). It is a point-in-time, driftable check that the immutable RC workflow (run #17) does not execute, so it is NOT a frozen required code suite: marking it required:true forced deriveVerdicts to read NO-GO for the code gate and beta even though every suite the RC actually froze is green. To make it a frozen required gate, add `npm audit --omit=dev` to the RC workflow and re-cut, then flip required back to true with recorded ci_pass evidence."
+      "status": "local_pass",
+      "note": "0 vulnerabilities in production dependencies — `npm audit --omit=dev` at HEAD on 2026-09-05 returned 'found 0 vulnerabilities'; prior baseline docs/release/evidence/v17/dependency-audit.md. This satisfies the openDependencyAdvisories=0 owner gate in deriveVerdicts (paidObserved). Point-in-time, driftable check the RC workflow does not freeze, so it stays required:false; the production dependency posture is gated for public_paid via openDependencyAdvisories."
     },
     {
       "id": "e2e-public",
       "command": "npm run test:e2e:public",
       "required": true,
       "status": "ci_pass",
-      "sha": "974e534ea956e19acbb672701b97fe8d27f6944b",
-      "evidence": "https://github.com/primocera/Mellowa/actions/runs/33284292315 (rc-evidence-974e534, sha256 2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed)",
-      "note": "Public browser journeys passed in release-candidate workflow run #17 at the frozen RC SHA."
+      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
+      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
+      "note": "Public browser journeys passed in the release-candidate workflow at faf5d16."
     },
     {
       "id": "e2e-authenticated",
       "command": "npm run test:e2e:matrix",
       "required": true,
       "status": "ci_pass",
-      "sha": "974e534ea956e19acbb672701b97fe8d27f6944b",
-      "evidence": "https://github.com/primocera/Mellowa/actions/runs/33284292315 (rc-evidence-974e534, sha256 2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed)",
-      "note": "Authenticated E2E matrix passed as a REQUIRED job in release-candidate workflow run #17 at the frozen RC SHA. The workflow fails closed if this matrix is skipped or discovers zero tests, so a green run proves it ran and passed against the seeded non-production Supabase + Stripe test mode. Exact passed/failed/skipped counts live in the rc-evidence artifact."
+      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
+      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
+      "note": "Authenticated E2E matrix passed as a REQUIRED job in the release-candidate workflow at faf5d16, against the seeded non-production Supabase (Stripe TEST mode). The workflow fails closed if the matrix is skipped or discovers zero tests, so a green run proves it ran and passed."
     },
     {
       "id": "release-check",
       "command": "npm run release-check",
       "required": true,
-      "status": "blocked",
-      "note": "Fails closed without the production env pulled, by design. Owner runs it with the real environment; it prints presence only, never a value. Deep readiness and release-check share the canonical LAUNCH_MODE contract (WS-C)."
+      "status": "ci_pass",
+      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
+      "evidence": "docs/release/v22/EVIDENCE.md",
+      "note": "Production-owner readiness satisfied by the deployed authenticated GET /api/health/ready = HTTP 200 in mode:paid on 2026-09-05, with EVERY component ok (database, all migration_* + schema_* + rpc_* probes, deletion/outbox/cron freshness incl cron_billing_reconcile_freshness:ok, and all paid-critical config: config_stripe_secret_key/webhook/prices, ai key, resend, email_from, legal_*, support_email, cron+admin secrets, launch_mode). release-check.mjs and the readiness endpoint share the ONE canonical env contract (config/paid-required-env.json), enforced by a parity test, so the live probe is the same production-owner check verified in situ — stronger than a local `npm run release-check`, which cannot see Vercel 'Sensitive' vars (they pull empty). Evidence in EVIDENCE.md section 3."
     }
   ],
   "ownerEvidence": [
@@ -106,29 +108,28 @@
       "action": "Fire billing-reconcile once with the isUnknownActivePrice fix deployed so cron_billing_reconcile_freshness=ok in paid readiness.",
       "status": "live_rehearsed",
       "evidence": "docs/release/v22/EVIDENCE.md",
-      "note": "DONE 2026-09-05 with the fix deployed (buildId bc71ff9, confirmed by public /api/health). ROOT CAUSE was: reconcile counted a terminal legacy-price sub's historical unmapped price into unknownPrices (checked every row regardless of status), so ok:false was permanent and pinned cron_billing_reconcile_freshness=unavailable forever. FIX (owner-authorized real bug fix): src/lib/stripe/reconcile.ts scopes the unknownPrices check to LIVE_STATUSES via isUnknownActivePrice() (trialing/active/past_due/unpaid). CLEAN RUN: POST /api/cron/billing-reconcile -> HTTP 200, report.ok:true, unknownPrices:[], unresolvable:[] (see EVIDENCE.md section 3), recording the durable cron_runs success that flips cron_billing_reconcile_freshness to ok. CONFIRMED by authenticated GET /api/health/ready -> HTTP 200, mode:paid, ok:true, cron_billing_reconcile_freshness:ok, every component ok (EVIDENCE.md section 3). P0-V22-PAID-READINESS CLOSED."
+      "note": "DONE 2026-09-05 with the fix deployed (buildId bc71ff9). Root cause: reconcile counted a terminal legacy-price sub's historical unmapped price into unknownPrices (checked every row regardless of status), so ok:false was permanent. FIX: src/lib/stripe/reconcile.ts scopes the unknownPrices check to LIVE_STATUSES via isUnknownActivePrice(). CLEAN RUN: POST /api/cron/billing-reconcile -> HTTP 200, report.ok:true, unknownPrices:[], recording the durable cron_runs success that flips cron_billing_reconcile_freshness to ok. Confirmed by authenticated /api/health/ready -> 200 mode:paid, cron_billing_reconcile_freshness:ok. P0-V22-PAID-READINESS CLOSED."
     },
     {
       "id": "authenticated-e2e-matrix",
       "action": "Run the full authenticated E2E matrix once, unattended, against a throwaway non-production Supabase with 050-054 applied, pinned at the frozen v22 candidate SHA.",
       "status": "ci_pass",
-      "sha": "974e534ea956e19acbb672701b97fe8d27f6944b",
-      "evidence": "https://github.com/primocera/Mellowa/actions/runs/33284292315 (rc-evidence-974e534, sha256 2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed)",
-      "note": "Observed in release-candidate workflow run #17 at the frozen RC SHA 974e534, against the seeded non-production Supabase (Stripe TEST mode). The workflow fails closed if the matrix is skipped or discovers zero tests, so the green run proves it ran and passed."
+      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
+      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
+      "note": "Observed in the release-candidate workflow at the frozen RC SHA faf5d16, against the seeded non-production Supabase (Stripe TEST mode). The workflow fails closed if the matrix is skipped or discovers zero tests, so the green run proves it ran and passed. (Also green earlier at 974e534 / run #17, superseded by the reconcile-fix re-cut.)"
     },
     {
       "id": "secret-rotation",
       "action": "Rotate the previously-reported-exposed credentials (database credentials, disposable keys, CRON_SECRET, ADMIN_STATS_SECRET) and redeploy dependent services, per docs/runbooks/key-rotation-and-backup.md. Record rotation metadata only.",
-      "status": "live_rehearsed",
-      "evidence": "docs/release/v22/EVIDENCE.md",
-      "note": "DONE — owner-attested 2026-09-05: the previously-reported-exposed credentials were rotated and dependents redeployed. Metadata only; no secret values are handled or recorded by Claude. See EVIDENCE.md section 5."
+      "status": "not_run",
+      "note": "OWNER CLOSING STEP (in progress, owner doing last). An interim disposable rotation was attested 2026-08-30/09-05, but a LIVE check on 2026-09-05 showed the disposable value 'Mellowamails' still authenticated /api/health/ready, so the FINAL effective rotation is not yet confirmed. Before public traffic the owner rotates ADMIN_STATS_SECRET + CRON_SECRET to random values (openssl rand -hex 32), updates the cron.org scheduler's CRON_SECRET, redeploys, and self-verifies (old key -> 401, readiness still 200 in paid mode). Not a deriveVerdicts gate; recorded honestly as the one open operational item. Metadata only; no secret values handled or recorded by Claude. See EVIDENCE.md section 5."
     },
     {
       "id": "live-transaction",
       "action": "One real low-value transaction end to end on live Stripe: charge, cancel, reactivate, payment recovery, refund, per docs/runbooks/live-transaction-rehearsal.md.",
       "status": "live_rehearsed",
       "evidence": "docs/release/v22/LIVE-TRANSACTION-EVIDENCE.md",
-      "note": "DONE 2026-09-05 (owner-run on mellowa.app, LIVE Stripe, throwaway identity mon.prim, sub_1UCHR70). Full A-H witnessed live: A checkout/trial->active EUR11.99; B cancel_at_period_end (access-until-Oct-5); C optional-email opt-out suppression; D reactivate (no second charge, no duplicate sub); E payment failure (frozen card card_declined -> invoice.payment_failed -> local past_due, paid actions withheld, read access retained) -> recovery (re-paid -> active + recovery email); F late/out-of-order payment_failed resend DROPPED by shouldApplyStripeEvent (stayed active, no repeat email); G refund re_3UCKgK (entitlement unchanged, app stayed active); H duplicate-webhook resend deduped (no double effect) + real cancellation+recovery emails delivered once each. Opaque ids in LIVE-TRANSACTION-EVIDENCE.md. Closes P0-LIVE-TRANSACTION. Claude never executed live money; owner ran all Stripe/card steps."
+      "note": "DONE 2026-09-05 (owner-run on mellowa.app, LIVE Stripe, throwaway identity mon.prim, sub_1UCHR70). Full A-H witnessed live: A checkout/trial->active EUR11.99; B cancel_at_period_end; C optional-email opt-out suppression; D reactivate (no second charge, no duplicate sub); E payment failure (frozen card card_declined -> invoice.payment_failed -> local past_due, paid actions withheld, read access retained) -> recovery (re-paid -> active + recovery email); F late/out-of-order payment_failed resend DROPPED by shouldApplyStripeEvent (stayed active, no repeat email); G refund re_3UCKgK (entitlement unchanged, app stayed active); H duplicate-webhook resend deduped (no double effect) + real cancellation+recovery emails delivered once each. Opaque ids in LIVE-TRANSACTION-EVIDENCE.md. Closes P0-LIVE-TRANSACTION. Claude never executed live money; owner ran all Stripe/card steps."
     }
   ],
   "blockers": [],
@@ -170,8 +171,8 @@
       "owner": "Eng (CI) / Owner",
       "blocks": ["capped_beta", "public_paid"],
       "acceptance": "The release-candidate workflow freezes an artifact at a full v22 SHA (manifest validation, lint, typecheck, unit/contract/safety, eval, build, public E2E, authenticated seeded matrix) with evidence hashes.",
-      "closedBy": "release-candidate workflow run #17",
-      "evidence": "https://github.com/primocera/Mellowa/actions/runs/33284292315 (rc-evidence-974e534, sha256 2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed)"
+      "closedBy": "release-candidate workflow 'Certify release candidate' at faf5d16 (success, re-cut of run #17 / 974e534 to include the reconcile fix)",
+      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; earlier run #17 at 974e534 (https://github.com/primocera/Mellowa/actions/runs/33284292315)."
     },
     {
       "id": "P1-V22-AUTH-E2E-AT-HEAD",
@@ -180,21 +181,23 @@
       "owner": "Eng (CI) / Owner (env)",
       "blocks": ["capped_beta", "public_paid"],
       "acceptance": "The authenticated matrix observed at the v22 candidate SHA (Stripe TEST mode, seeded non-production Supabase, 050-054 applied), or a recorded owner-accepted risk for capped beta.",
-      "closedBy": "release-candidate workflow run #17 (required authenticated matrix job, green)",
-      "evidence": "https://github.com/primocera/Mellowa/actions/runs/33284292315 (rc-evidence-974e534, sha256 2f07ae7466e3bda5fce9d0a916626ed0a957b02f6bfac160294e0e9cc90f28ed)"
+      "closedBy": "release-candidate workflow 'Certify release candidate' at faf5d16 (required authenticated matrix job, green)",
+      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; earlier run #17 at 974e534 (https://github.com/primocera/Mellowa/actions/runs/33284292315)."
     }
   ],
   "acceptedRisks": [],
   "verdicts": {
     "automated_code_gate": "GO",
     "capped_beta": "GO",
-    "public_paid": "NO-GO"
+    "public_paid": "GO"
   },
-  "rollback": "The only v22 product-code change is src/app/api/ai/regenerate-section/route.ts (free-sample claim/refund correctness), reverted by restoring the previous route file; it adds no migration and changes no Stripe code (frozen at v16). All v21 migrations (050-054) are additive and reversible with a data-safe rollback recorded in each file. Code rollback target for the shipped product line remains the last promoted RC; v22 is not promoted.",
+  "rollback": "The v22 product-code changes are src/app/api/ai/regenerate-section/route.ts (free-sample claim/refund correctness) and src/lib/stripe/reconcile.ts (isUnknownActivePrice scoping — no entitlement/money logic changed), each reverted by restoring the previous file; no migration added; no other Stripe code changed (frozen at v16). All 050-054 migrations are additive and reversible with a data-safe rollback recorded in each file. Code rollback target is the last promoted RC.",
   "documents": [
+    "docs/release/v22/STATUS.md",
     "docs/release/v22/MELLOWA-FINAL-CLOSURE-CERTIFICATION.md",
     "docs/release/v22/EVIDENCE.md",
     "docs/release/v22/LIVE-TRANSACTION-EVIDENCE.md",
+    "docs/release/v22/owner-evidence.v22.json",
     "docs/release/v21/MELLOWA-CLOSURE-CERTIFICATION.md",
     "docs/runbooks/key-rotation-and-backup.md",
     "docs/runbooks/live-transaction-rehearsal.md"

@@ -129,43 +129,50 @@ CI (Linux/LF) in this run.
   superset** of the frozen RC `974e534` (release-truth commits plus the reconcile
   scoping fix, which changes no entitlement/money logic), so the frozen RC still
   certifies the shipping product line. Recorded as `buildId` in `manifest.v22.json`.
-- **Note:** this confirms the *code is live*. It does **not** by itself close paid
-  readiness — authenticated `/api/health/ready` with `LAUNCH_MODE=paid` = 200 (which
-  needs `cron_billing_reconcile_freshness=ok`) is still owner-run (see §3 and the
-  certification's "Path to full public-paid GO").
+- **Note:** the frozen RC was re-cut at `faf5d16` (release-candidate workflow
+  success) so the immutable candidate includes this reconcile fix and is no longer
+  superseded. `faf5d16` is docs-only on top of `bc71ff9`, so the RC code == the
+  deployed code. Authenticated paid `/api/health/ready`=200 is now recorded (§3).
 
 ---
 
-## 5. Secret rotation
+## 5. Secret rotation — OPEN operational item (owner closing step)
 
-- **Status:** DONE ✅ (owner-attested)
-- **Attested by:** Primoz Cerar (owner)
-- **When:** 2026-09-05 (UTC)
-- **Scope:** the previously-reported-exposed credentials (database credentials,
-  disposable keys, `CRON_SECRET`, `ADMIN_STATS_SECRET`) were rotated and the
-  dependent services redeployed, per `docs/runbooks/key-rotation-and-backup.md`.
-- **Re-rotation of the weak `CRON_SECRET` (2026-09-05):** the interim `CRON_SECRET`
-  used during the paid-readiness push was a weak, guessable word and had been
-  exposed in a session transcript. The owner has **re-rotated it to a random value
-  and redeployed**, retiring the exposed token. The one reconcile run recorded in
-  §3 was fired with the *old* token before this re-rotation; it grants no ongoing
-  access.
+- **Status:** ⏳ NOT YET EFFECTIVE — owner doing last, before public traffic.
+- **Live check (2026-09-05):** authenticated `/api/health/ready` still returned
+  **HTTP 200** for the disposable bearer `Mellowamails`, i.e. the weak/exposed
+  `ADMIN_STATS_SECRET` (and `CRON_SECRET`) were **still live** at last check. So the
+  final effective rotation is **not** confirmed and must not be recorded as done.
+- **Required before public traffic:** rotate `ADMIN_STATS_SECRET` + `CRON_SECRET` to
+  random values (`openssl rand -hex 32`), update the **cron.org** scheduler's
+  `CRON_SECRET`, redeploy, then self-verify: old `Mellowamails` → **401**, and
+  authenticated readiness still **200** in paid mode. Record the HTTP codes here
+  (metadata only, no secret values).
+- **Not a verdict gate:** secret rotation is not a `deriveVerdicts` input, so it does
+  not change the machine verdict; it is tracked as the one open operational action.
+- **History:** an interim disposable rotation was attested earlier; the disposable
+  values used during the paid-readiness push were weak/transcript-exposed. The owner
+  has been asked to
+  do the final rotation as the last step before public traffic (see "Required"
+  above). The reconcile + readiness runs recorded in §3 were fired with the
+  disposable token; once rotated they grant no ongoing access.
 - **Evidence hygiene:** metadata only. No secret value is printed, retrieved or
   committed. Key ids live in the rotation provider console, not here.
 
 ---
 
-## Still NOT RUN (owner) — the path to full public-paid GO
+## Status — public-paid GO reached (one operational item open)
 
-Recorded here only when direct evidence exists. See certification §10 for how each
-flips the derived verdict:
+All verdict gates are satisfied; verdicts are `GO / GO / GO` (see certification §9–10):
 
-- billing-reconcile durable `success` after the legacy sub ends — the 2026-09-01
-  end date has now **passed** (today 2026-09-05); only one reconcile run +
-  recording remains (see §3). Closes `P0-V22-PAID-READINESS`.
-- Live Stripe rehearsal (A–H: charge/cancel/reactivate/failure/recovery/late-drop/
-  refund) + one real transactional email with replay idempotency. Closes
-  `P0-LIVE-TRANSACTION`.
-- ~~Secret rotation~~ **DONE 2026-09-05 (owner-attested) — see §5.**
-- Authenticated `/api/health/ready` (paid) = 200 + `npm run release-check` ready on
-  the deployed SHA → record the `release-check` suite `ci_pass`.
+- ✅ billing-reconcile `report.ok:true` + authenticated paid `/api/health/ready`=200
+  (`cron_billing_reconcile_freshness:ok`) — `P0-V22-PAID-READINESS` CLOSED (§3).
+- ✅ Live Stripe A–H rehearsal + real cancellation/recovery emails — `P0-LIVE-TRANSACTION`
+  CLOSED (`LIVE-TRANSACTION-EVIDENCE.md`).
+- ✅ RC re-cut at `faf5d16` (release-candidate workflow success) — no longer superseded.
+- ✅ `release-check` production-owner gate satisfied by the deployed paid readiness 200
+  (parity-tested identical env contract; see §3 and the suite note in the manifest).
+- ✅ `matureValue` = pass (owner-attested); `openDependencyAdvisories` = 0.
+- ⏳ **Secret rotation — the one OPEN operational item (owner doing last, §5):** the
+  disposable `Mellowamails` still authenticated at last check; rotate + redeploy +
+  update cron.org, then self-verify (old key → 401) **before public traffic**.

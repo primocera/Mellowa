@@ -17,33 +17,39 @@ import {
  */
 
 const read = (p: string) => readFileSync(p, "utf8");
-const v16 = (): ReleaseManifest =>
-  JSON.parse(read("docs/release/manifest.v16.json")) as ReleaseManifest;
+const v22 = (): ReleaseManifest =>
+  JSON.parse(read("docs/release/manifest.v22.json")) as ReleaseManifest;
 
 describe("README defers to machine-generated release truth", () => {
   const readme = read("README.md");
 
-  it("does not claim the release loop is closed while the v16 candidate is a draft", () => {
-    const m = v16();
-    const draft = m.candidateLifecycle === "draft" || m.rcSha === null;
-    expect(draft, "test premise: v16 candidate is draft").toBe(true);
+  it("does not overclaim: the release loop is not narrated as 'closed' in prose", () => {
+    // Even with v22 promoted, the README must not restate a hand-written
+    // "release loop is closed" narrative — the promoted state lives in the
+    // generated v22 STATUS + manifest, not in README prose.
     expect(readme).not.toMatch(/release loop is closed/i);
     expect(readme).not.toMatch(/the path to launch is clean and the release loop/i);
   });
 
-  it("does not hard-code an active GO/CONDITIONAL GO verdict in the release section", () => {
+  it("does not hard-code an active GO/CONDITIONAL GO verdict table in the release section", () => {
+    // The verdicts live in the generated v22 STATUS page (linked), never as a
+    // hand-typed table in README — that is how the two would drift.
     const section = readme.slice(
       readme.indexOf("## Release status"),
       readme.indexOf("## Project state"),
     );
     expect(section).not.toMatch(/\|\s*(CONDITIONAL )?GO\s*\|/);
-    // It must instead say the honest current state.
-    expect(section).toMatch(/UNASSESSED/);
-    expect(section).toMatch(/draft/i);
+    // It must point at the generated status rather than restating verdicts.
+    expect(section).toContain("docs/release/v22/STATUS.md");
   });
 
-  it("links to the generated status, manifest and dependency-audit evidence rather than restating them", () => {
-    expect(readme).toContain("docs/release/v16/STATUS.md");
+  it("pins the current promoted line to the manifest's frozen RC and links the generated status", () => {
+    const m = v22();
+    expect(m.rcSha, "test premise: v22 has a frozen RC").toBeTruthy();
+    // README references the current promoted line's generated status + manifest.
+    expect(readme).toContain("docs/release/v22/STATUS.md");
+    expect(readme).toContain("docs/release/manifest.v22.json");
+    // Earlier lines stay linked as archived history, not as the current record.
     expect(readme).toContain("docs/release/manifest.v16.json");
     expect(readme).toContain("docs/release/evidence/v17/dependency-audit.md");
   });

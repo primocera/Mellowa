@@ -14,29 +14,33 @@ service.
 ## Release status
 
 Release truth is **machine-generated**, not hand-written here — so this section
-carries no verdicts, counts or SHAs that could drift:
+carries no verdicts, counts or SHAs that could drift. Read the verdicts on the
+generated status page, not in this prose.
 
-- Machine manifest: [`docs/release/manifest.v16.json`](docs/release/manifest.v16.json)
+**Current line — v22 (promoted):**
+
+- Machine manifest: [`docs/release/manifest.v22.json`](docs/release/manifest.v22.json)
 - Rendered status (generated from the manifest; a contract test fails on drift):
-  [`docs/release/v16/STATUS.md`](docs/release/v16/STATUS.md)
+  [`docs/release/v22/STATUS.md`](docs/release/v22/STATUS.md)
+- Certification + evidence:
+  [`MELLOWA-FINAL-CLOSURE-CERTIFICATION.md`](docs/release/v22/MELLOWA-FINAL-CLOSURE-CERTIFICATION.md),
+  [`EVIDENCE.md`](docs/release/v22/EVIDENCE.md),
+  [`LIVE-TRANSACTION-EVIDENCE.md`](docs/release/v22/LIVE-TRANSACTION-EVIDENCE.md)
 - Candidate lifecycle & freeze/promote sequence:
   [`docs/release/v17/RC-LIFECYCLE.md`](docs/release/v17/RC-LIFECYCLE.md)
-- Latest record (current line): [`docs/release/manifest.v22.json`](docs/release/manifest.v22.json)
-  and its certification
-  [`docs/release/v22/MELLOWA-FINAL-CLOSURE-CERTIFICATION.md`](docs/release/v22/MELLOWA-FINAL-CLOSURE-CERTIFICATION.md)
-  (with [`EVIDENCE.md`](docs/release/v22/EVIDENCE.md)) — the current RC, verdicts and
-  owner-evidence state live there, not restated here. The rendered status above
-  stays pinned to the last promoted line (v16).
 
-The **rendered status above stays pinned to the last promoted line (v16)**, whose
-candidate is still a **draft** — no SHA was promoted there, so its three verdicts
-read **UNASSESSED**; do not read a promoted GO from that pinned page. The
-**current v22 line is separate and frozen** (RC `974e534`): its verdicts and
-owner-evidence state live in the v22 manifest and certification linked above, not
-restated here, so nothing in this section can drift into a hard-coded GO. For
-public paid, `P0-LIVE-TRANSACTION` stays open until the live rehearsal is
-recorded; billing code is frozen at v16 apart from fail-closed failure-path fixes.
-See [`docs/release/manifest.v16.json`](docs/release/manifest.v16.json).
+**Archived (superseded by v22):** the last-generated snapshot before v22 —
+[`docs/release/manifest.v16.json`](docs/release/manifest.v16.json) and its rendered
+[`docs/release/v16/STATUS.md`](docs/release/v16/STATUS.md).
+
+The current promoted line is **v22** (RC `faf5d16`, a re-cut of `974e534` that folds
+in the reconcile fix): its verdicts and owner-evidence live in the generated v22
+status + manifest linked above, not restated here, so nothing in this section can
+drift into a hard-coded GO. The live A–H billing rehearsal and paid readiness are
+recorded and both v22 public-paid P0s are closed; the one remaining operational
+action — the final secret rotation before public traffic — is tracked in the v22
+manifest's owner-evidence. Billing code is frozen at v16 apart from fail-closed
+failure-path fixes.
 
 Dependency posture: `npm audit --omit=dev` reports **0** high/critical — see
 [`docs/release/evidence/v17/dependency-audit.md`](docs/release/evidence/v17/dependency-audit.md),
