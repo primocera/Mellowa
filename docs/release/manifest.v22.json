@@ -115,7 +115,7 @@
       "action": "Run the full authenticated E2E matrix once, unattended, against a throwaway non-production Supabase with 050-054 applied, pinned at the frozen v22 candidate SHA.",
       "status": "ci_pass",
       "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
-      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
+      "evidence": "https://github.com/primocera/Mellowa/actions/runs/33974380517 — release-candidate workflow 'Certify release candidate', success (8m 40s) at faf5d16; authenticated-matrix job confirmed RUN (not skipped), tests > 0.",
       "note": "Observed in the release-candidate workflow at the frozen RC SHA faf5d16, against the seeded non-production Supabase (Stripe TEST mode). The workflow fails closed if the matrix is skipped or discovers zero tests, so the green run proves it ran and passed. (Also green earlier at 974e534 / run #17, superseded by the reconcile-fix re-cut.)"
     },
     {

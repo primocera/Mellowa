@@ -49,7 +49,9 @@ invalidated by the app SHA moving. It closes `P0-V22-MIGRATIONS-APPLIED`.
 - **Status:** FROZEN + GREEN ✅ — **current frozen RC is `faf5d16`** (a re-cut, below).
 - **Current RC (re-cut):** release-candidate workflow "Certify release candidate",
   conclusion **success** (8m 40s), frozen SHA **`faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1`**
-  (`faf5d16`). The earlier `974e534` (run #17) was superseded when the owner-authorized
+  (`faf5d16`). Run: https://github.com/primocera/Mellowa/actions/runs/33974380517 —
+  authenticated-matrix job confirmed **run** (not skipped), tests > 0.
+  The earlier `974e534` (run #17) was superseded when the owner-authorized
   reconcile fix (`bc71ff9`) landed as product code after that freeze; the RC was re-cut
   at `faf5d16` so the frozen candidate includes it. `faf5d16` is docs-only over the
   deployed `bc71ff9`, so the frozen RC certifies exactly the shipping code.
