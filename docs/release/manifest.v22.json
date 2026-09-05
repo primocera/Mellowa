@@ -118,8 +118,9 @@
     {
       "id": "secret-rotation",
       "action": "Rotate the previously-reported-exposed credentials (database credentials, disposable keys, CRON_SECRET, ADMIN_STATS_SECRET) and redeploy dependent services, per docs/runbooks/key-rotation-and-backup.md. Record rotation metadata only.",
-      "status": "not_run",
-      "note": "NOT VERIFIED. Claude never prints, retrieves or commits secret values and cannot verify rotation. Owner records rotation metadata (date/keyId) only."
+      "status": "live_rehearsed",
+      "evidence": "docs/release/v22/EVIDENCE.md",
+      "note": "DONE — owner-attested 2026-09-05: the previously-reported-exposed credentials were rotated and dependents redeployed. Metadata only; no secret values are handled or recorded by Claude. See EVIDENCE.md section 5."
     },
     {
       "id": "live-transaction",

@@ -102,6 +102,19 @@ CI (Linux/LF) in this run.
 
 ---
 
+## 5. Secret rotation
+
+- **Status:** DONE ✅ (owner-attested)
+- **Attested by:** Primoz Cerar (owner)
+- **When:** 2026-09-05 (UTC)
+- **Scope:** the previously-reported-exposed credentials (database credentials,
+  disposable keys, `CRON_SECRET`, `ADMIN_STATS_SECRET`) were rotated and the
+  dependent services redeployed, per `docs/runbooks/key-rotation-and-backup.md`.
+- **Evidence hygiene:** metadata only. No secret value is printed, retrieved or
+  committed. Key ids live in the rotation provider console, not here.
+
+---
+
 ## Still NOT RUN (owner) — the path to full public-paid GO
 
 Recorded here only when direct evidence exists. See certification §10 for how each
@@ -113,6 +126,6 @@ flips the derived verdict:
 - Live Stripe rehearsal (A–H: charge/cancel/reactivate/failure/recovery/late-drop/
   refund) + one real transactional email with replay idempotency. Closes
   `P0-LIVE-TRANSACTION`.
-- Secret rotation (date + keyId, no values).
+- ~~Secret rotation~~ **DONE 2026-09-05 (owner-attested) — see §5.**
 - Authenticated `/api/health/ready` (paid) = 200 + `npm run release-check` ready on
   the deployed SHA → record the `release-check` suite `ci_pass`.
