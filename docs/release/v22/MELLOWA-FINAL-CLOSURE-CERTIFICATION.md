@@ -187,12 +187,10 @@ the immutable candidate now includes the `isUnknownActivePrice` reconcile fix.
 | **SUPERVISED_PAID_MVP** | **GO** | Paid readiness proven (`P0-V22-PAID-READINESS` CLOSED: reconcile `report.ok:true` + authenticated paid `/api/health/ready`=200, every component ok). Live billing **A–H rehearsal DONE** (`P0-LIVE-TRANSACTION` CLOSED — charge/cancel/reactivate/failure/recovery/out-of-order-drop/refund/idempotency all witnessed live, real emails delivered once each). |
 | **STRICT_PUBLIC_PAID** | **GO** | All of the above + `release-check` production-owner gate satisfied by the deployed paid `/api/health/ready`=200 (the parity-tested live form of the same canonical env contract), `matureValue` = pass (owner-attested), `openDependencyAdvisories` = 0 (`npm audit --omit=dev`). |
 
-**One open operational item (not a verdict gate):** the disposable
-`ADMIN_STATS_SECRET`/`CRON_SECRET` (`Mellowamails`) were still live at the last
-check — the owner rotates them to random values (`openssl rand -hex 32`), updates
-the cron.org scheduler secret, redeploys, and self-verifies (old key → 401,
-readiness still 200) **before opening public traffic**. Tracked in
-`ownerEvidence.secret-rotation` (status `not_run`).
+**Secret rotation — done (owner-attested 2026-09-05):** `ADMIN_STATS_SECRET` +
+`CRON_SECRET` rotated to random values, the cron.org scheduler secret updated, and
+dependents redeployed; the disposable rehearsal values are retired. Tracked in
+`ownerEvidence.secret-rotation` (status `live_rehearsed`, §5 of EVIDENCE.md).
 
 The machine manifest (`manifest.v22.json`, `release-manifest` tests 86/86 green)
 records `automated_code_gate` GO, `capped_beta` GO, `public_paid` GO — frozen RC
@@ -221,7 +219,8 @@ hand-invented verdict, no faked suite:
    Vercel Sensitive vars (they pull empty).
 5. **DONE ✅ — `matureValue` = pass** (owner-attested) and **`openDependencyAdvisories`
    = 0** (`npm audit --omit=dev` → 0 vulns at HEAD).
+6. **DONE ✅ — Secret rotation** (owner-attested 2026-09-05): `ADMIN_STATS_SECRET` +
+   `CRON_SECRET` rotated, cron.org updated, redeployed (§9, EVIDENCE.md §5).
 
-**Before public traffic:** complete the final secret rotation (§9). That is the only
-outstanding operational action; it is not a `deriveVerdicts` input, so it does not
-change the machine verdict, but it must be effective before real users arrive.
+All gates recorded — the machine verdict is **`GO / GO / GO`**, and the secret
+rotation that hardens the production surface is done.

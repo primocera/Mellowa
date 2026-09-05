@@ -37,10 +37,9 @@ The current promoted line is **v22** (RC `faf5d16`, a re-cut of `974e534` that f
 in the reconcile fix): its verdicts and owner-evidence live in the generated v22
 status + manifest linked above, not restated here, so nothing in this section can
 drift into a hard-coded GO. The live A–H billing rehearsal and paid readiness are
-recorded and both v22 public-paid P0s are closed; the one remaining operational
-action — the final secret rotation before public traffic — is tracked in the v22
-manifest's owner-evidence. Billing code is frozen at v16 apart from fail-closed
-failure-path fixes.
+recorded, both v22 public-paid P0s are closed, and the production secrets have been
+rotated (owner-attested) — all tracked in the v22 manifest's owner-evidence. Billing
+code is frozen at v16 apart from fail-closed failure-path fixes.
 
 Dependency posture: `npm audit --omit=dev` reports **0** high/critical — see
 [`docs/release/evidence/v17/dependency-audit.md`](docs/release/evidence/v17/dependency-audit.md),

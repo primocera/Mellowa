@@ -39,7 +39,7 @@ _None open._
 | migrations-050-054-applied | live_rehearsed | Confirm production migrations 050-054 are applied and verified via the exact schema/index/RPC probes in scripts/verify-migrations-050-054.sql and /api/health/ready (paid mode). |
 | billing-reconcile-fresh | live_rehearsed | Fire billing-reconcile once with the isUnknownActivePrice fix deployed so cron_billing_reconcile_freshness=ok in paid readiness. |
 | authenticated-e2e-matrix | ci_pass | Run the full authenticated E2E matrix once, unattended, against a throwaway non-production Supabase with 050-054 applied, pinned at the frozen v22 candidate SHA. |
-| secret-rotation | not_run | Rotate the previously-reported-exposed credentials (database credentials, disposable keys, CRON_SECRET, ADMIN_STATS_SECRET) and redeploy dependent services, per docs/runbooks/key-rotation-and-backup.md. Record rotation metadata only. |
+| secret-rotation | live_rehearsed | Rotate the previously-reported-exposed credentials (database credentials, disposable keys, CRON_SECRET, ADMIN_STATS_SECRET) and redeploy dependent services, per docs/runbooks/key-rotation-and-backup.md. Record rotation metadata only. |
 | live-transaction | live_rehearsed | One real low-value transaction end to end on live Stripe: charge, cancel, reactivate, payment recovery, refund, per docs/runbooks/live-transaction-rehearsal.md. |
 
 ## Rollback

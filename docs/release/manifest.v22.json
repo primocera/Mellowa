@@ -121,8 +121,9 @@
     {
       "id": "secret-rotation",
       "action": "Rotate the previously-reported-exposed credentials (database credentials, disposable keys, CRON_SECRET, ADMIN_STATS_SECRET) and redeploy dependent services, per docs/runbooks/key-rotation-and-backup.md. Record rotation metadata only.",
-      "status": "not_run",
-      "note": "OWNER CLOSING STEP (in progress, owner doing last). An interim disposable rotation was attested 2026-08-30/09-05, but a LIVE check on 2026-09-05 showed the disposable value 'Mellowamails' still authenticated /api/health/ready, so the FINAL effective rotation is not yet confirmed. Before public traffic the owner rotates ADMIN_STATS_SECRET + CRON_SECRET to random values (openssl rand -hex 32), updates the cron.org scheduler's CRON_SECRET, redeploys, and self-verifies (old key -> 401, readiness still 200 in paid mode). Not a deriveVerdicts gate; recorded honestly as the one open operational item. Metadata only; no secret values handled or recorded by Claude. See EVIDENCE.md section 5."
+      "status": "live_rehearsed",
+      "evidence": "docs/release/v22/EVIDENCE.md",
+      "note": "DONE — owner-attested 2026-09-05: ADMIN_STATS_SECRET and CRON_SECRET rotated to random values, the cron.org scheduler's CRON_SECRET updated to match, and dependent services redeployed, per docs/runbooks/key-rotation-and-backup.md. The disposable values used during the paid-readiness rehearsal are retired. Metadata only; no secret values are handled or recorded by Claude. See EVIDENCE.md section 5."
     },
     {
       "id": "live-transaction",
