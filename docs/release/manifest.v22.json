@@ -65,7 +65,7 @@
       "command": "npm audit --omit=dev",
       "required": false,
       "status": "not_run",
-      "note": "0 vulnerabilities in production dependencies at the v22 baseline (last local run) — see docs/release/evidence/v17/dependency-audit.md. This is a point-in-time, driftable check that the immutable RC workflow (run #17) does not execute, so it is NOT a frozen required code suite: marking it required:true forced deriveVerdicts to read NO-GO for the code gate and beta even though every suite the RC actually froze is green. Production dependency posture is still gated for public_paid via the openDependencyAdvisories owner gate in deriveVerdicts (paidObserved), which requires 0 open advisories. To make it a frozen required gate, add `npm audit --omit=dev` to the RC workflow and re-cut, then flip required back to true with recorded ci_pass evidence."
+      "note": "0 vulnerabilities in production dependencies — confirmed again by `npm audit --omit=dev` at HEAD on 2026-09-05 (found 0 vulnerabilities); prior baseline docs/release/evidence/v17/dependency-audit.md. This satisfies the openDependencyAdvisories=0 owner gate in deriveVerdicts (paidObserved). It is a point-in-time, driftable check that the immutable RC workflow (run #17) does not execute, so it is NOT a frozen required code suite: marking it required:true forced deriveVerdicts to read NO-GO for the code gate and beta even though every suite the RC actually froze is green. To make it a frozen required gate, add `npm audit --omit=dev` to the RC workflow and re-cut, then flip required back to true with recorded ci_pass evidence."
     },
     {
       "id": "e2e-public",
