@@ -17,7 +17,7 @@ Release truth is **machine-generated**, not hand-written here — so this sectio
 carries no verdicts, counts or SHAs that could drift. Read the verdicts on the
 generated status page, not in this prose.
 
-**Current line — v22 (promoted):**
+**Current line — v22 (RC `faf5d16` SUPERSEDED; awaiting a new candidate):**
 
 - Machine manifest: [`docs/release/manifest.v22.json`](docs/release/manifest.v22.json)
 - Rendered status (generated from the manifest; a contract test fails on drift):
@@ -33,17 +33,24 @@ generated status page, not in this prose.
 [`docs/release/manifest.v16.json`](docs/release/manifest.v16.json) and its rendered
 [`docs/release/v16/STATUS.md`](docs/release/v16/STATUS.md).
 
-The current promoted line is **v22** (RC `faf5d16`, a re-cut of `974e534` that folds
-in the reconcile fix): its verdicts and owner-evidence live in the generated v22
-status + manifest linked above, not restated here, so nothing in this section can
-drift into a hard-coded GO. The live A–H billing rehearsal and paid readiness are
-recorded, both v22 public-paid P0s are closed, and the production secrets have been
-rotated (owner-attested) — all tracked in the v22 manifest's owner-evidence. Billing
+The v22 candidate (RC `faf5d16`) reached its verdicts with the live A–H billing
+rehearsal, paid readiness and owner-attested secret rotation all recorded — those
+remain true at that SHA and are tracked in the v22 manifest's owner-evidence. The
+**v23 production dependency security patch** (Next.js / Sharp / baseline-browser-mapping)
+is product code landing after that freeze, so it **supersedes** the RC: the generated
+v22 status now reads **UNASSESSED** for every tier, and a **new candidate must be
+re-cut** via the immutable release-candidate workflow before any verdict can be read
+again. Verdicts live only in the generated status + manifest linked above, never
+restated here, so nothing in this section can drift into a hard-coded verdict. Billing
 code is frozen at v16 apart from fail-closed failure-path fixes.
 
-Dependency posture: `npm audit --omit=dev` reports **0** high/critical — see
-[`docs/release/evidence/v17/dependency-audit.md`](docs/release/evidence/v17/dependency-audit.md),
-which also tracks one dev-only advisory in the open.
+Dependency posture is a **hard release gate** (v23): the release-candidate workflow
+runs `npm audit --omit=dev` via
+[`scripts/audit-dependencies.mjs`](scripts/audit-dependencies.mjs), fails closed on any
+production finding or an unavailable audit, and writes a fresh, SHA-pinned audit
+artifact under `docs/release/evidence/v23/dependency-audit/` that the paid tier's
+dependency posture is read from — never a hand-typed count. Historical baseline:
+[`docs/release/evidence/v17/dependency-audit.md`](docs/release/evidence/v17/dependency-audit.md).
 
 Pricing is USD-first dual-currency (USD everywhere, an EUR region price for
 EU/EEA on the same price ids via `currency_options`, gated by

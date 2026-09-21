@@ -3,8 +3,9 @@
   "release": "v22",
   "baselineSha": "30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b",
   "rcSha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
-  "candidateLifecycle": "promoted",
-  "reconciledAtUtc": "2026-09-05T15:30:00Z",
+  "candidateLifecycle": "superseded",
+  "supersededNote": "SUPERSEDED by the v23 production dependency security patch (next 16.2.12→16.3.5, eslint-config-next matched, sharp override →0.35.4, baseline-browser-mapping →2.11.x), which resolves the GHSA-p293-qw3h-jr36 / GHSA-2xp9-vwfh-vxw4 (Next.js critical), GHSA-rgj7-g3m4-5g8c (Sharp high) and GHSA-w5vr-8v7q-w6rv (baseline-browser-mapping moderate) advisories. package.json + package-lock.json are product code, so this change lands AFTER the frozen RC faf5d16 and invalidates its evidence: a dependency diff requires a new candidate SHA. No verdict can be read until the owner re-cuts the immutable RC via the release-candidate workflow, which now runs the hard `npm audit --omit=dev` gate and writes a SHA-pinned audit artifact. The faf5d16 GO/GO/GO record and its owner evidence remain true as historical facts at that SHA; they simply no longer certify HEAD.",
+  "reconciledAtUtc": "2026-09-21T00:00:00Z",
   "buildId": "bc71ff9f4b0a170e23fcc1e9e18d0ad000b7156f",
   "migrations": [
     "001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
@@ -63,9 +64,9 @@
     {
       "id": "dependency-audit",
       "command": "npm audit --omit=dev",
-      "required": false,
-      "status": "local_pass",
-      "note": "0 vulnerabilities in production dependencies — `npm audit --omit=dev` at HEAD on 2026-09-05 returned 'found 0 vulnerabilities'; prior baseline docs/release/evidence/v17/dependency-audit.md. This satisfies the openDependencyAdvisories=0 owner gate in deriveVerdicts (paidObserved). Point-in-time, driftable check the RC workflow does not freeze, so it stays required:false; the production dependency posture is gated for public_paid via openDependencyAdvisories."
+      "required": true,
+      "status": "blocked",
+      "note": "v23: the production dependency audit is now a REQUIRED, hard release gate, not a hand-typed openDependencyAdvisories=0. `scripts/audit-dependencies.mjs` runs `npm audit --omit=dev`, exits non-zero on any production finding or an unavailable audit, and writes a fresh SHA-pinned artifact (docs/release/evidence/v23/dependency-audit/<sha>.json) validated at the candidate SHA. Blocked here because the frozen RC faf5d16 predates both the audit gate and the security patch; a fresh audit artifact is produced by the release-candidate workflow at the new RC the owner re-cuts. The working tree passes `npm audit --omit=dev` = 0 production advisories after the v23 patch, but that is proven at the new candidate SHA, never carried forward."
     },
     {
       "id": "e2e-public",
@@ -188,10 +189,11 @@
   ],
   "acceptedRisks": [],
   "verdicts": {
-    "automated_code_gate": "GO",
-    "capped_beta": "GO",
-    "public_paid": "GO"
+    "automated_code_gate": "UNASSESSED",
+    "capped_beta": "UNASSESSED",
+    "public_paid": "UNASSESSED"
   },
+  "scaleExpansion": "UNASSESSED",
   "rollback": "The v22 product-code changes are src/app/api/ai/regenerate-section/route.ts (free-sample claim/refund correctness) and src/lib/stripe/reconcile.ts (isUnknownActivePrice scoping — no entitlement/money logic changed), each reverted by restoring the previous file; no migration added; no other Stripe code changed (frozen at v16). All 050-054 migrations are additive and reversible with a data-safe rollback recorded in each file. Code rollback target is the last promoted RC.",
   "documents": [
     "docs/release/v22/STATUS.md",

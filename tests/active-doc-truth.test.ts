@@ -70,6 +70,39 @@ describe("README defers to machine-generated release truth", () => {
   });
 });
 
+describe("the active certification never claims one owner gate both DONE and unfinished (v23)", () => {
+  const cert = read("docs/release/v22/MELLOWA-FINAL-CLOSURE-CERTIFICATION.md");
+  const m = v22();
+
+  // Lines that TALK ABOUT the contradiction (the correction note) rather than
+  // asserting a status are not themselves a status claim.
+  const isMetaCommentary = (line: string) =>
+    /previously read|contradiction this release line|corrected here/i.test(line);
+
+  it("no status line marks a gate both DONE/✅ and IN PROGRESS/NOT RUN", () => {
+    // The exact v22 defect: §7 called paid readiness "NOT RUN" and the live A–H
+    // rehearsal "IN PROGRESS" while §9/§10 and the manifest said DONE.
+    for (const line of cert.split("\n")) {
+      if (isMetaCommentary(line)) continue;
+      const done = /\bDONE\b|✅/.test(line);
+      const unfinished = /\bIN PROGRESS\b|\bNOT RUN\b/i.test(line);
+      expect(done && unfinished, `contradictory status on one line: ${line.trim()}`).toBe(false);
+    }
+  });
+
+  it("a gate the manifest records as completed is never still described as IN PROGRESS", () => {
+    // Every owner-evidence gate the manifest marks passing must read as done in the
+    // active certification — never carried as an unfinished ("IN PROGRESS") claim.
+    const passing = new Set(["local_pass", "ci_pass", "preview_pass", "live_rehearsed", "observed"]);
+    const live = m.ownerEvidence.find((o) => o.id === "live-transaction");
+    expect(live, "test premise: v22 records a live-transaction owner gate").toBeTruthy();
+    expect(passing.has(live!.status), "test premise: live transaction is recorded done").toBe(true);
+    // The live A–H rehearsal must not appear as IN PROGRESS anywhere in the cert.
+    expect(cert).not.toMatch(/A[–-]H[^\n]*\bIN PROGRESS\b/i);
+    expect(cert).not.toMatch(/\bIN PROGRESS\b[^\n]*A[–-]H/i);
+  });
+});
+
 describe("support timing is consistent and not a hollow guarantee", () => {
   const help = read("src/app/(app)/help/page.tsx");
   const settings = read("src/app/(app)/settings/page.tsx");

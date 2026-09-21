@@ -77,6 +77,28 @@ export const ACTIVE_VERDICTS: readonly Verdict[] = ["GO", "CONDITIONAL GO"];
 export const isActiveVerdict = (v: Verdict): boolean => ACTIVE_VERDICTS.includes(v);
 
 /**
+ * The scale-expansion verdict (v23). Kept SEPARATE from the three launch tiers:
+ * scale expansion is the decision to widen paid acquisition / lift fair-use
+ * ceilings, and it is gated on mature customer-value proof, not launch safety.
+ *
+ * `GATHERING DATA` is the honest "the paid tier can ship, but the predeclared
+ * value cohort has not matured yet" state — never a defect, never a silent GO.
+ * A bounded/supervised paid MVP must be approvable WITHOUT it (matureValue no
+ * longer gates public paid); scale expansion, by contrast, cannot be GO until a
+ * real redacted cohort report exists.
+ */
+export type ScaleVerdict = Verdict | "GATHERING DATA";
+export const SCALE_VERDICTS: readonly ScaleVerdict[] = [
+  "GO",
+  "CONDITIONAL GO",
+  "GATHERING DATA",
+  "NO-GO",
+  "UNASSESSED",
+];
+export const isScaleVerdict = (v: string): v is ScaleVerdict =>
+  (SCALE_VERDICTS as readonly string[]).includes(v);
+
+/**
  * Where a release candidate sits in its life:
  *   draft  — HEAD is moving; nothing is frozen; no verdict can be active.
  *   frozen — a specific SHA is the candidate and gates run against it.
@@ -145,6 +167,13 @@ export interface SuiteResult {
    * not evidence.
    */
   evidence?: string;
+  /**
+   * When this result was observed, ISO 8601 UTC ending in Z. Required for a
+   * PASSING, driftable check (currently `dependency-audit`): a dependency posture
+   * is time-variable, so a green audit with no observation instant could be
+   * carried forward indefinitely past a new advisory. Optional for stable suites.
+   */
+  observedAtUtc?: string;
   note?: string;
 }
 
@@ -290,6 +319,13 @@ export interface ReleaseManifest {
     capped_beta: Verdict;
     public_paid: Verdict;
   };
+  /**
+   * The scale-expansion verdict (v23). Optional so existing manifests keep
+   * working; when present it is validated like the launch verdicts (no active
+   * verdict while superseded/unfrozen) but tracked apart from them, because scale
+   * readiness is gated on mature cohort proof, not launch safety.
+   */
+  scaleExpansion?: ScaleVerdict;
   rollback: string;
   /** Documents generated from or validated against this manifest. */
   documents: string[];
@@ -424,6 +460,31 @@ export function validateReleaseManifest(
         );
       }
     }
+    // Scale expansion is tracked apart from the launch verdicts, but the same
+    // rule binds it: a superseded candidate certifies nothing, so it may not
+    // carry an active (GO / CONDITIONAL GO) scale verdict. GATHERING DATA and
+    // NO-GO/UNASSESSED are fine — none of them is a decision to ship.
+    if (manifest.scaleExpansion && isActiveVerdict(manifest.scaleExpansion as Verdict)) {
+      fail(
+        "superseded_active_verdict",
+        `scale_expansion presents an active "${manifest.scaleExpansion}" verdict while ` +
+          "the candidate is superseded — set it to GATHERING DATA, NO-GO or UNASSESSED",
+      );
+    }
+  }
+
+  // Scale expansion, when present, must be a known value and can never be GO
+  // without a frozen candidate — the same "a GO needs a specific commit" rule the
+  // launch tiers obey.
+  if (manifest.scaleExpansion !== undefined) {
+    if (!isScaleVerdict(manifest.scaleExpansion)) {
+      fail("malformed", `unknown scaleExpansion verdict "${manifest.scaleExpansion}"`);
+    } else if (manifest.scaleExpansion === "GO" && manifest.rcSha === null) {
+      fail(
+        "unfrozen_candidate",
+        "scale_expansion is GO but no release candidate is frozen (rcSha is null)",
+      );
+    }
   }
 
   // Drift between the frozen RC and current product HEAD. If HEAD has moved and
@@ -510,6 +571,21 @@ export function validateReleaseManifest(
           `${at} passed at ${suite.sha.slice(0, 7)} but the candidate is ` +
             `${currentSha.slice(0, 7)} — the result must be re-run or re-scoped`,
         );
+      }
+      // A driftable dependency check that reads green must record WHEN it was
+      // observed. Without an instant, a "0 advisories" pass could be carried
+      // forward indefinitely past a newly disclosed advisory — exactly the stale
+      // hand-typed `openDependencyAdvisories: 0` this release line removes.
+      if (suite.id === "dependency-audit") {
+        if (!suite.observedAtUtc) {
+          fail(
+            "stale_sha",
+            `${at} is a passing dependency audit with no observedAtUtc — a driftable ` +
+              "audit must record when it was observed so its freshness can be checked",
+          );
+        } else if (!UTC_RE.test(suite.observedAtUtc)) {
+          fail("malformed", `${at} observedAtUtc must be ISO 8601 UTC ending in Z: ${suite.observedAtUtc}`);
+        }
       }
     }
 

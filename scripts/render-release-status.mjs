@@ -65,6 +65,13 @@ export function renderStatusPage(manifest) {
   lines.push(`| Automated code gate | ${manifest.verdicts.automated_code_gate} |`);
   lines.push(`| Capped beta | ${manifest.verdicts.capped_beta} |`);
   lines.push(`| Public paid | ${manifest.verdicts.public_paid} |`);
+  // Scale expansion, when tracked, renders as its own row. It is deliberately
+  // separate: it is gated on mature customer-value proof, not launch safety, so a
+  // GATHERING DATA here never blocks a supervised paid MVP. Rendered only when
+  // present so historical manifests without it stay byte-for-byte unchanged.
+  if (manifest.scaleExpansion !== undefined) {
+    lines.push(`| Scale expansion | ${manifest.scaleExpansion} |`);
+  }
   lines.push("");
   if (manifest.verdicts.public_paid === "UNASSESSED") {
     lines.push(

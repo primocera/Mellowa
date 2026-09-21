@@ -36,6 +36,7 @@ import {
   buildCandidate,
   classifySuite,
   isPassing,
+  validateAuditArtifact,
   validateCandidateArtifact,
 } from "./candidate-lib.mjs";
 
@@ -178,6 +179,41 @@ const suites = manifest.suites.map((s) => {
       rec.sha = rcSha;
       rec.counts = { total: t.total, passed: t.passed, failed: t.failed ?? 0, skipped: t.skipped ?? 0 };
       rec.evidence = evPath;
+      hashEvidence(evPath, rec);
+    } else if (s.id === "dependency-audit") {
+      // A green dependency audit must carry a valid, fresh, SHA-pinned artifact —
+      // never a bare pass flag. Re-verify it here (belt and suspenders over the
+      // hard workflow gate) and record when it was observed, so the manifest's
+      // freshness rule holds and a stale "0 advisories" cannot be carried forward.
+      const evPath = summaryEntry.evidence;
+      if (!evPath || !existsSync(evPath)) {
+        die(
+          `dependency-audit is marked pass but its artifact ${evPath ?? "(none)"} is ` +
+            "missing — a dependency posture cannot be certified without a fresh audit.",
+        );
+      }
+      let audit;
+      try {
+        audit = JSON.parse(readFileSync(evPath, "utf8"));
+      } catch (err) {
+        die(`dependency-audit artifact ${evPath} is not valid JSON: ${err.message}`);
+      }
+      const nowUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+      const { problems, openAdvisories } = validateAuditArtifact(audit, { expectSha: rcSha, nowUtc });
+      if (problems.length > 0) {
+        die(
+          `dependency-audit artifact ${evPath} is invalid:\n` +
+            problems.map((p) => `  [${p.rule}] ${p.message}`).join("\n"),
+        );
+      }
+      if (openAdvisories !== 0) {
+        die(`dependency-audit reports ${openAdvisories} production finding(s) — cannot certify a candidate.`);
+      }
+      rec.status = passStatus;
+      rec.sha = rcSha;
+      rec.evidence = evPath;
+      rec.observedAtUtc = audit.observedAtUtc;
+      rec.counts = { total: 0, passed: 0, failed: 0, skipped: 0 };
       hashEvidence(evPath, rec);
     } else {
       // code gate

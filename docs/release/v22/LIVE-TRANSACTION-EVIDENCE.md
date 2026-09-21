@@ -20,13 +20,17 @@ the operational wind-down, tracked separately.
 | E | Payment failure → recovery | ✅ DONE | **Failure:** real €11.99 invoice `in_1UCKgI0YzvSNMCpNmrrt5tHO` attempted on the frozen card `pm_1UCHQQ…9065` → **`card_declined`** → `invoice.payment_failed` → Mellowa webhook (customer-keyed) set local row `past_due`. App as mon.prim: **"last payment didn't go through, new plans and adjustments are paused… everything already created stays readable"** — paid actions withheld, read access retained, non-clinical copy, update-payment path. **Recovery:** card unfrozen, same invoice re-paid → **`status:paid`**, €11.99 charged → `invoice.payment_succeeded` → webhook flipped local row `past_due → active`; app banner gone, new plans/adjustments available again, recovery email received (both owner-confirmed). (Stripe sub object stayed `active` throughout since the invoice is standalone — expected; Mellowa gates on the local row.) |
 | F | Late / out-of-order failure webhook dropped | ✅ DONE | The E `invoice.payment_failed` event was **Resent** from the Stripe dashboard *after* recovery. Its `created` is older than the applied recovery event, so Mellowa's ordering guard (`shouldApplyStripeEvent`, [webhook/route.ts:487](../../../src/app/api/stripe/webhook/route.ts#L487)) **dropped** it: sub stayed `active`, **no** repeat payment-failed email (the email send is inside the guarded block, so no-email ⇒ dropped before any state change). This is the residual-risk case `P0-LIVE-TRANSACTION` exists for, now witnessed live. |
 | G | Refund without wrong entitlement change | ✅ DONE | Recovery charge `ch_3UCKgK…` (invoice `in_1UCKgI…`, Q9AL7CUJ-0014, €11.99) refunded → **`re_3UCKgK0YzvSNMCpN06NbWiWo`** €11.99 EUR (2026-09-05T14:49:06Z) → `charge.refunded`. Mellowa recorded `payment_refunded` and **entitlement unchanged — app stayed active** for mon.prim (refund alone does not revoke access; [webhook/route.ts:579](../../../src/app/api/stripe/webhook/route.ts#L579)). Isolation: recorded only for this customer's user. |
-| H | Duplicate / replayed webhook idempotency + one real transactional email | ✅ DONE | An already-processed event was **Resent** from the Stripe dashboard (duplicate delivery). Mellowa deduped it (`claim_stripe_event`): **no** status change, **no** duplicate charge, **no** duplicate email, no extra grant. Real transactional emails delivered live and each exactly once: **cancellation** (B) and **payment-recovered** (E) — the recovery mail content verified non-clinical, no plan/mood/journal content. |
+| H | Duplicate / replayed webhook idempotency + each transactional email delivered exactly once | ✅ DONE | An already-processed event was **Resent** from the Stripe dashboard (duplicate delivery). Mellowa deduped it (`claim_stripe_event`): **no** status change, **no** duplicate charge, **no** duplicate email, no extra grant. Real transactional emails delivered live and each exactly once: **cancellation** (B) and **payment-recovered** (E) — the recovery mail content verified non-clinical, no plan/mood/journal content. |
 
 ## Invariants to confirm across the run
 - No duplicate customer, subscription or email for the one throwaway identity.
 - Refund (G) must **not** wrongly change entitlement.
 - Out-of-order / duplicate webhooks (F, H) must be idempotent — no double effect.
-- Exactly **one** real transactional email actually delivered (H).
+- Each expected transactional email delivered **exactly once, with no duplicate** (H). The
+  run produced **two** distinct transactional mails — the **cancellation** email (B) and
+  the **payment-recovered** email (E) — and each was delivered once; the replayed webhook
+  produced no duplicate of either. (The earlier "exactly one email" wording was inaccurate:
+  the evidence records two distinct mails, each once — not a single email total.)
 
 ## Notes
 - LIVE mode has no test clocks — trial charge is fired via the Stripe Dashboard

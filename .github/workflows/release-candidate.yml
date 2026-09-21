@@ -112,6 +112,16 @@ jobs:
           cache: npm
       - run: npm ci
 
+      # Production dependency audit is a HARD release gate (v23, WS-B). It runs
+      # `npm audit --omit=dev`, writes a SHA-pinned artifact (command, UTC, counts)
+      # and EXITS NON-ZERO on any production finding OR when the audit is
+      # unavailable (registry unreachable / invalid JSON). No `continue-on-error`,
+      # no swallowed exit code: an unavailable audit is never converted to "0
+      # advisories" — it blocks the candidate. The artifact is uploaded below and
+      # is the ONLY source of the paid tier's dependency posture at promotion.
+      - name: Production dependency audit (hard gate)
+        run: node scripts/audit-dependencies.mjs --sha "${{ steps.ref.outputs.sha }}"
+
       # Release-truth first: the manifest must be internally consistent before
       # any suite result could be recorded against it.
       - name: Validate release manifest
@@ -226,7 +236,8 @@ jobs:
           node scripts/emit-rc-run-summary.mjs \
             --out /tmp/rc-run-summary.json \
             --sha "${{ steps.ref.outputs.sha }}" \
-            --auth-evidence "docs/release/evidence/v13/auth-matrix/${{ steps.ref.outputs.sha }}.json"
+            --auth-evidence "docs/release/evidence/v13/auth-matrix/${{ steps.ref.outputs.sha }}.json" \
+            --audit-artifact "docs/release/evidence/v23/dependency-audit/${{ steps.ref.outputs.sha }}.json"
 
       # MW-V17-02 + MW-V18-02: freeze a COMPUTED, SHA-pinned candidate from the run
       # summary — never the unchanged draft manifest, never a blanket mark-green.
@@ -249,6 +260,7 @@ jobs:
           name: rc-evidence-${{ steps.ref.outputs.sha }}
           path: |
             docs/release/evidence/v17/candidate/${{ steps.ref.outputs.sha }}.json
+            docs/release/evidence/v23/dependency-audit/${{ steps.ref.outputs.sha }}.json
             docs/release/manifest.v16.json
             docs/release/v16/STATUS.md
           if-no-files-found: warn

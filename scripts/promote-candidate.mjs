@@ -29,8 +29,14 @@
  *
  * Usage:
  *   node scripts/promote-candidate.mjs --candidate <path>
- *        [--owner-evidence <path>] [--manifest docs/release/manifest.v16.json]
- *        [--write [--out <path>]]
+ *        [--owner-evidence <path>] [--audit-artifact <path>]
+ *        [--manifest docs/release/manifest.v16.json] [--write [--out <path>]]
+ *
+ * --audit-artifact is the fresh, SHA-pinned production dependency audit (from
+ * scripts/audit-dependencies.mjs). It is the ONLY source of the paid tier's
+ * dependency posture; a hand-typed openDependencyAdvisories in owner evidence is
+ * rejected, and a missing/stale/wrong-SHA/unavailable audit leaves the posture
+ * unknown (paid cannot read GO).
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -38,8 +44,10 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import {
   classifySuite,
   deriveVerdicts,
+  deriveScaleExpansion,
   isActiveVerdict,
   isPassing,
+  validateAuditArtifact,
   validateCandidateArtifact,
 } from "./candidate-lib.mjs";
 
@@ -91,11 +99,22 @@ if (ownerEvidencePath) {
       for (const k of ["authE2eAtCandidate", "liveTransaction"]) {
         if (!statuses.includes(oe[k])) fail(`owner evidence field "${k}" has invalid status "${oe[k]}"`);
       }
-      if (!["pass", "absent", "fail"].includes(oe.matureValue)) {
-        fail(`owner evidence field "matureValue" must be pass|absent|fail (got "${oe.matureValue}")`);
+      // matureValue is a cohort observation, not a launch gate (v23): it may only
+      // be "pass" when a real redacted cohort report exists, and it gates scale
+      // expansion, never the paid MVP. absent/immature/pending all mean "not yet
+      // proven" → scale stays GATHERING DATA.
+      if (!["pass", "absent", "fail", "immature", "pending"].includes(oe.matureValue)) {
+        fail(`owner evidence field "matureValue" must be pass|absent|fail|immature|pending (got "${oe.matureValue}")`);
       }
-      if (!Number.isInteger(oe.openDependencyAdvisories) || oe.openDependencyAdvisories < 0) {
-        fail(`owner evidence "openDependencyAdvisories" must be a non-negative integer`);
+      // The dependency posture is NO LONGER a hand-typed literal. It is read from a
+      // fresh, SHA-pinned audit artifact (--audit-artifact). A bare number in owner
+      // evidence is rejected — that is exactly the stale "openDependencyAdvisories:
+      // 0" this release line removes.
+      if (oe.openDependencyAdvisories !== undefined) {
+        fail(
+          `owner evidence must not hand-type "openDependencyAdvisories" — the dependency ` +
+            "posture is proven by a SHA-pinned audit artifact via --audit-artifact, not a literal",
+        );
       }
       if (!oe.recordedBy || /^(owner|eng|team|tbd|n\/?a)$/i.test(String(oe.recordedBy).trim())) {
         fail(`owner evidence "recordedBy" must name a real person, not a role/placeholder`);
@@ -104,8 +123,37 @@ if (ownerEvidencePath) {
         authE2eAtCandidate: oe.authE2eAtCandidate,
         liveTransaction: oe.liveTransaction,
         matureValue: oe.matureValue,
-        openDependencyAdvisories: oe.openDependencyAdvisories,
+        // Filled from the audit artifact below; null (unknown) until proven.
+        openDependencyAdvisories: null,
       };
+    }
+  }
+}
+
+// ---- dependency audit artifact (the ONLY source of the deps gate) ----------
+// The paid tier's dependency posture is proven here, freshly and at the exact
+// candidate SHA — never carried forward from a typed zero. A missing, stale,
+// wrong-SHA, corrupt or UNAVAILABLE audit leaves openDependencyAdvisories null
+// (unknown), which deriveVerdicts treats as "not clean" — never as 0.
+const auditPath = opt("--audit-artifact");
+if (auditPath) {
+  if (!existsSync(auditPath)) {
+    fail(`--audit-artifact ${auditPath} does not exist`);
+  } else {
+    let audit = null;
+    try {
+      audit = JSON.parse(readFileSync(auditPath, "utf8"));
+    } catch (err) {
+      fail(`--audit-artifact ${auditPath} is not valid JSON: ${err.message}`);
+    }
+    if (audit) {
+      const nowUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+      const { problems: auditProblems, openAdvisories } = validateAuditArtifact(audit, {
+        expectSha: candidate.rcSha,
+        nowUtc,
+      });
+      for (const p of auditProblems) fail(`dependency audit [${p.rule}]: ${p.message}`);
+      if (gates) gates.openDependencyAdvisories = openAdvisories;
     }
   }
 }
@@ -184,11 +232,9 @@ if (problems.length > 0) {
 // evidence — never authored. Production-owner suites (release-check) keep their
 // frozen status unless owner evidence has been recorded; the historical suite
 // results are never rewritten.
-const promotedVerdicts = deriveVerdicts(
-  { ...manifest, suites: candidate.suites, rcSha: candidate.rcSha, candidateLifecycle: "promoted" },
-  gates,
-  { manifestValid: true },
-);
+const promotedBase = { ...manifest, suites: candidate.suites, rcSha: candidate.rcSha, candidateLifecycle: "promoted" };
+const promotedVerdicts = deriveVerdicts(promotedBase, gates, { manifestValid: true });
+const promotedScaleExpansion = deriveScaleExpansion(promotedBase, gates, { manifestValid: true });
 
 // A public-paid active verdict may not be proposed without owner production
 // evidence — a non-production candidate alone can never carry paid.
@@ -202,6 +248,7 @@ if (isActiveVerdict(promotedVerdicts.public_paid) && !gates) {
 
 console.log(`Candidate ${String(candidate.rcSha).slice(0, 7)} is promotable. Derived verdicts:`);
 console.log(`  code=${promotedVerdicts.automated_code_gate}, beta=${promotedVerdicts.capped_beta}, paid=${promotedVerdicts.public_paid}`);
+console.log(`  scale_expansion=${promotedScaleExpansion} (mature cohort proof gates scale, not the paid MVP)`);
 console.log(`  auth journey observed: ${candidate.suites.some((s) => classifySuite(s) === "auth_journey" && isPassing(s.status))}`);
 
 if (!flag("--write")) {
@@ -221,6 +268,7 @@ const proposed = {
     return rest;
   }),
   verdicts: promotedVerdicts,
+  scaleExpansion: promotedScaleExpansion,
 };
 const outPath = opt("--out", `${manifestPath.replace(/\.json$/, "")}.promoted-${String(candidate.rcSha).slice(0, 7)}.json`);
 if (existsSync(outPath) && !flag("--force")) {

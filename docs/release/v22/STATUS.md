@@ -2,18 +2,21 @@
 
 > Generated from `docs/release/manifest.v22.json` by `scripts/render-release-status.mjs`. Do not edit by hand — a contract test regenerates this and fails on any drift.
 
-- **Candidate:** RC faf5d16 (promoted)
+- **Candidate:** RC faf5d16 SUPERSEDED
 - **Baseline:** `30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b`
-- **Reconciled:** 2026-09-05T15:30:00Z
+- **Reconciled:** 2026-09-21T00:00:00Z
 - **Migrations:** 54 (001–054)
 
 ## Verdicts
 
 | Tier | Verdict |
 |---|---|
-| Automated code gate | GO |
-| Capped beta | GO |
-| Public paid | GO |
+| Automated code gate | UNASSESSED |
+| Capped beta | UNASSESSED |
+| Public paid | UNASSESSED |
+| Scale expansion | UNASSESSED |
+
+UNASSESSED is not a weak GO. No candidate is frozen, so no verdict can be read from the gates until one is cut via the immutable release-candidate workflow.
 
 ## Required gates
 
@@ -24,6 +27,7 @@
 | unit-contract-safety | `npx vitest run` | ci_pass |
 | eval-gate | `npm run eval` | ci_pass |
 | production-build | `npm run build` | ci_pass |
+| dependency-audit | `npm audit --omit=dev` | blocked |
 | e2e-public | `npm run test:e2e:public` | ci_pass |
 | e2e-authenticated | `npm run test:e2e:matrix` | ci_pass |
 | release-check | `npm run release-check` | ci_pass |

@@ -29,17 +29,42 @@ export const isPassing = (status) => PASSING_STATUSES.includes(status);
 const ACTIVE_VERDICTS = ["GO", "CONDITIONAL GO"];
 export const isActiveVerdict = (v) => ACTIVE_VERDICTS.includes(v);
 
+/**
+ * The scale-expansion vocabulary (v23). Kept SEPARATE from the launch verdicts:
+ * scale expansion is not a fourth launch tier, it is the readiness to widen paid
+ * acquisition / lift fair-use ceilings, and it is gated on mature cohort proof.
+ *  - GATHERING DATA — the paid tier can ship, but the predeclared customer-value
+ *    cohort has not matured yet (no report / immature). NOT a defect; the honest
+ *    "we are still collecting the data" state the doc requires.
+ *  - NO-GO         — the paid tier itself cannot ship, or the cohort FAILED.
+ *  - GO / CONDITIONAL GO — cohort proof exists (matureValue pass) and the paid
+ *    tier is itself active.
+ *  - UNASSESSED    — no frozen candidate / invalid / superseded.
+ */
+const SCALE_VERDICTS = ["GO", "CONDITIONAL GO", "GATHERING DATA", "NO-GO", "UNASSESSED"];
+export const isScaleVerdict = (v) => SCALE_VERDICTS.includes(v);
+
 export const CANDIDATE_ARTIFACT_SCHEMA = 1;
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 const UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 
-/** The honest default: nothing owner-run has been observed. */
+/**
+ * The honest default: nothing owner-run has been observed. `openDependencyAdvisories`
+ * is `null`, NOT 0 — "no fresh audit artifact has been recorded" is the honest
+ * absence, and a missing/unavailable audit must never read as "0 advisories". The
+ * value becomes a real 0 only when a SHA-pinned audit artifact proves it (see
+ * `validateAuditArtifact` + `openAdvisoriesFromAudit`). `matureValue` defaults to
+ * "absent": a pass is only ever produced by a real redacted cohort report, and it
+ * no longer gates the paid MVP — it gates scale expansion.
+ */
 export const NO_OWNER_EVIDENCE = {
   authE2eAtCandidate: "not_run",
   liveTransaction: "not_run",
   matureValue: "absent",
-  openDependencyAdvisories: 0,
+  // number (from a fresh audit artifact) or null (no audit observed). Widened so
+  // callers may pass a real advisory count without a type error.
+  openDependencyAdvisories: /** @type {number | null} */ (null),
 };
 
 /**
@@ -153,11 +178,16 @@ export function deriveVerdicts(manifest, gates = NO_OWNER_EVIDENCE, { manifestVa
     return conditional ? "CONDITIONAL GO" : "GO";
   };
 
+  // Mature customer-value is NOT part of paid readiness (v23): a bounded/supervised
+  // paid MVP must be approvable without a cohort report. matureValue gates scale
+  // expansion only (see deriveScaleExpansion). Paid still requires the production
+  // release-check (hard), a live transaction, and a CLEAN dependency posture proven
+  // by a fresh SHA-pinned audit — openDependencyAdvisories must be exactly 0; a
+  // null/unknown (no fresh artifact) or a positive count leaves paid short of GO.
   const paidObserved =
     prodSuitesGreen &&
     isPassing(gates.liveTransaction) &&
-    gates.matureValue === "pass" &&
-    (gates.openDependencyAdvisories ?? 0) === 0;
+    gates.openDependencyAdvisories === 0;
 
   return {
     automated_code_gate,
@@ -167,12 +197,35 @@ export function deriveVerdicts(manifest, gates = NO_OWNER_EVIDENCE, { manifestVa
       ownerObserved: true,
     }),
     // Paid additionally requires the production release-check to have passed
-    // (hard), plus the owner live/value observations (soft → CONDITIONAL).
+    // (hard), plus the owner live/deps observations (soft → CONDITIONAL).
     public_paid: tierVerdict("public_paid", {
       hardGreen: codeGreen && authObserved && prodSuitesGreen,
       ownerObserved: paidObserved,
     }),
   };
+}
+
+/**
+ * Derive the scale-expansion verdict (v23) — kept apart from the launch verdicts.
+ *
+ * Scale expansion is the decision to widen paid acquisition / raise fair-use
+ * ceilings. It is honest ONLY when mature customer-value has been observed against
+ * the predeclared hypotheses (a real redacted cohort report → matureValue "pass").
+ * Until then it stays GATHERING DATA — never a silent GO, never a fake pass. It can
+ * never be more ready than the paid tier itself:
+ *  - paid UNASSESSED → UNASSESSED; paid NO-GO → NO-GO (cannot scale what cannot ship);
+ *  - matureValue "fail" → NO-GO (the cohort actively failed);
+ *  - matureValue "pass" → follows the paid verdict (GO / CONDITIONAL GO);
+ *  - otherwise (absent / immature / pending) → GATHERING DATA.
+ */
+export function deriveScaleExpansion(manifest, gates = NO_OWNER_EVIDENCE, { manifestValid = true } = {}) {
+  const { public_paid } = deriveVerdicts(manifest, gates, { manifestValid });
+  if (public_paid === "UNASSESSED") return "UNASSESSED";
+  if (public_paid === "NO-GO") return "NO-GO";
+  const value = gates.matureValue ?? "absent";
+  if (value === "fail") return "NO-GO";
+  if (value === "pass") return public_paid; // GO or CONDITIONAL GO
+  return "GATHERING DATA";
 }
 
 /**
@@ -198,6 +251,12 @@ export function buildCandidate(manifest, opts) {
     // Verdicts derive from the CANDIDATE's own recorded suite results (what the
     // run actually observed at this SHA), not the base manifest's draft statuses.
     verdicts: deriveVerdicts(
+      { ...manifest, suites: opts.suites, rcSha: opts.rcSha, candidateLifecycle: "frozen" },
+      opts.gates,
+      { manifestValid: opts.manifestValid ?? true },
+    ),
+    // Scale expansion is a SEPARATE, derived verdict (never a fourth launch tier).
+    scaleExpansion: deriveScaleExpansion(
       { ...manifest, suites: opts.suites, rcSha: opts.rcSha, candidateLifecycle: "frozen" },
       opts.gates,
       { manifestValid: opts.manifestValid ?? true },
@@ -255,6 +314,27 @@ export function validateCandidateArtifact(candidate, manifest, opts = {}) {
       );
     }
   }
+  // The scale-expansion verdict, when present, is derived too — never hand-typed.
+  if (candidate.scaleExpansion !== undefined) {
+    const derivedScale = deriveScaleExpansion(
+      {
+        ...manifest,
+        suites: candidate.suites,
+        rcSha: candidate.rcSha,
+        candidateLifecycle: candidate.candidateLifecycle,
+      },
+      opts.gates,
+      { manifestValid: opts.manifestValid ?? true },
+    );
+    if (candidate.scaleExpansion !== derivedScale) {
+      fail(
+        "verdict_mismatch",
+        `scale_expansion verdict "${candidate.scaleExpansion}" does not match the ` +
+          `derived "${derivedScale}" — scale expansion is computed from mature cohort ` +
+          "evidence, not authored",
+      );
+    }
+  }
 
   for (const s of candidate.suites) {
     if (!s.required) continue;
@@ -307,4 +387,110 @@ export function validateCandidateArtifact(candidate, manifest, opts = {}) {
   }
 
   return problems;
+}
+
+/* -------------------------------------------------------------------------- *
+ * Dependency-audit artifact (v23, WS-B).
+ *
+ * The old model let `openDependencyAdvisories: 0` be hand-typed into owner
+ * evidence and carried forward forever — so a new advisory landing after a freeze
+ * stayed invisible and the verdict stayed GO. This makes the dependency posture a
+ * FRESH, SHA-PINNED, machine-observed fact: the RC workflow runs `npm audit
+ * --omit=dev`, writes this artifact, and freeze/promote read the advisory count
+ * from it — never from a typed literal. A missing, stale, wrong-SHA, corrupt or
+ * UNAVAILABLE audit yields `openAdvisories: null` (unknown), which the paid gate
+ * treats as "not clean" — never silently as 0.
+ * -------------------------------------------------------------------------- */
+export const AUDIT_ARTIFACT_SCHEMA = 1;
+/** A driftable check must be re-observed; 30 days is the outer freshness bound. */
+export const AUDIT_FRESHNESS_MAX_AGE_HOURS = 720;
+const AUDIT_SEVERITIES = ["info", "low", "moderate", "high", "critical"];
+
+/**
+ * Validate a production dependency-audit artifact. Shape:
+ *   { schema, application?, candidateSha, command, observedAtUtc,
+ *     status: "clean"|"findings"|"unavailable", reason?,
+ *     counts: { info, low, moderate, high, critical, total } }
+ *
+ * Returns `{ problems, openAdvisories }`. `openAdvisories` is the production
+ * advisory total ONLY when the artifact is valid, fresh and pinned to expectSha;
+ * otherwise `null` (unknown — the caller must NOT read it as 0).
+ *
+ * @param {any} artifact
+ * @param {{ expectSha?: string, nowUtc?: string, maxAgeHours?: number }} [opts]
+ * @returns {{ problems: { rule: string, message: string }[], openAdvisories: number | null }}
+ */
+export function validateAuditArtifact(
+  artifact,
+  { expectSha, nowUtc, maxAgeHours = AUDIT_FRESHNESS_MAX_AGE_HOURS } = {},
+) {
+  const problems = [];
+  const fail = (rule, message) => problems.push({ rule, message });
+
+  if (!artifact || typeof artifact !== "object") {
+    fail("corrupt", "audit artifact is missing or not an object");
+    return { problems, openAdvisories: null };
+  }
+  if (artifact.schema !== AUDIT_ARTIFACT_SCHEMA) {
+    fail("corrupt", `unknown audit artifact schema ${String(artifact.schema)}`);
+  }
+  if (!SHA_RE.test(artifact.candidateSha ?? "")) {
+    fail("wrong_sha", `audit artifact candidateSha is not a full 40-char SHA: ${artifact.candidateSha}`);
+  } else if (expectSha && artifact.candidateSha !== expectSha) {
+    fail(
+      "wrong_sha",
+      `audit artifact pins ${String(artifact.candidateSha).slice(0, 7)} but the candidate ` +
+        `is ${String(expectSha).slice(0, 7)} — a dependency proof never carries across SHAs`,
+    );
+  }
+  if (!UTC_RE.test(artifact.observedAtUtc ?? "")) {
+    fail("corrupt", `audit artifact observedAtUtc must be ISO 8601 UTC ending in Z: ${artifact.observedAtUtc}`);
+  } else if (nowUtc) {
+    const ageHours = (Date.parse(nowUtc) - Date.parse(artifact.observedAtUtc)) / 3_600_000;
+    if (!(ageHours >= 0)) {
+      fail("corrupt", `audit observedAtUtc ${artifact.observedAtUtc} is in the future relative to ${nowUtc}`);
+    } else if (ageHours > maxAgeHours) {
+      fail(
+        "stale",
+        `audit artifact observed ~${Math.round(ageHours)}h ago exceeds the ${maxAgeHours}h ` +
+          "freshness window — a driftable dependency check must be re-run at this SHA",
+      );
+    }
+  }
+  if (artifact.status === "unavailable") {
+    fail(
+      "unavailable",
+      `dependency audit was UNAVAILABLE (${artifact.reason ?? "registry unreachable / invalid result"}) — ` +
+        "an unreachable audit blocks certification; it must never be converted to 0 advisories",
+    );
+  } else if (artifact.status !== "clean" && artifact.status !== "findings") {
+    fail("corrupt", `audit artifact status must be clean|findings|unavailable (got "${artifact.status}")`);
+  }
+  const c = artifact.counts;
+  if (!c || typeof c !== "object") {
+    fail("corrupt", "audit artifact has no counts object");
+  } else {
+    for (const k of [...AUDIT_SEVERITIES, "total"]) {
+      if (!Number.isInteger(c[k]) || c[k] < 0) {
+        fail("corrupt", `audit counts.${k} is not a non-negative integer: ${c[k]}`);
+      }
+    }
+    const sum = AUDIT_SEVERITIES.reduce((a, k) => a + (Number.isInteger(c[k]) ? c[k] : NaN), 0);
+    if (Number.isInteger(c.total) && sum !== c.total) {
+      fail("corrupt", `audit severity counts (${sum}) do not add up to total ${c.total}`);
+    }
+    if (artifact.status === "clean" && c.total > 0) {
+      fail("corrupt", `audit status is "clean" but reports ${c.total} finding(s)`);
+    }
+    if (artifact.status === "findings" && c.total === 0) {
+      fail("corrupt", `audit status is "findings" but reports 0 findings`);
+    }
+  }
+
+  return { problems, openAdvisories: problems.length === 0 ? artifact.counts.total : null };
+}
+
+/** Convenience: the openDependencyAdvisories gate value from an audit artifact. */
+export function openAdvisoriesFromAudit(artifact, opts) {
+  return validateAuditArtifact(artifact, opts).openAdvisories;
 }
