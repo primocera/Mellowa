@@ -17,7 +17,7 @@ Release truth is **machine-generated**, not hand-written here — so this sectio
 carries no verdicts, counts or SHAs that could drift. Read the verdicts on the
 generated status page, not in this prose.
 
-**Current line — v22 (RC `faf5d16` SUPERSEDED; awaiting a new candidate):**
+**Current line — v22 launch line, promoted at the v23-patched RC `1b7dfef`:**
 
 - Machine manifest: [`docs/release/manifest.v22.json`](docs/release/manifest.v22.json)
 - Rendered status (generated from the manifest; a contract test fails on drift):
@@ -33,16 +33,18 @@ generated status page, not in this prose.
 [`docs/release/manifest.v16.json`](docs/release/manifest.v16.json) and its rendered
 [`docs/release/v16/STATUS.md`](docs/release/v16/STATUS.md).
 
-The v22 candidate (RC `faf5d16`) reached its verdicts with the live A–H billing
-rehearsal, paid readiness and owner-attested secret rotation all recorded — those
-remain true at that SHA and are tracked in the v22 manifest's owner-evidence. The
-**v23 production dependency security patch** (Next.js / Sharp / baseline-browser-mapping)
-is product code landing after that freeze, so it **supersedes** the RC: the generated
-v22 status now reads **UNASSESSED** for every tier, and a **new candidate must be
-re-cut** via the immutable release-candidate workflow before any verdict can be read
-again. Verdicts live only in the generated status + manifest linked above, never
-restated here, so nothing in this section can drift into a hard-coded verdict. Billing
-code is frozen at v16 apart from fail-closed failure-path fixes.
+The current promoted candidate is the **v23-patched RC `1b7dfef`** (release-candidate
+workflow [run 35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867),
+success; the v23 production dependency security patch — Next.js / Sharp /
+baseline-browser-mapping — folded into the v22 launch line and re-cut through the
+immutable workflow, which now runs a hard dependency-audit gate). Its verdicts and
+owner-evidence live in the generated v22 status + manifest linked above, not restated
+here, so nothing in this section can drift into a hard-coded verdict; the live A–H
+billing rehearsal (carried forward — billing code unchanged), paid readiness re-probed
+at `1b7dfef` and owner-attested secret rotation are tracked in the manifest's
+owner-evidence. Scale expansion is tracked separately and stays GATHERING DATA until a
+mature cohort report exists. Billing code is frozen at v16 apart from fail-closed
+failure-path fixes.
 
 Dependency posture is a **hard release gate** (v23): the release-candidate workflow
 runs `npm audit --omit=dev` via

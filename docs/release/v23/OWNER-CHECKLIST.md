@@ -1,5 +1,13 @@
 # Mellowa v23 — owner-only production checklist (Prompt 3)
 
+> **✅ EXECUTED 2026-09-22 (owners: Primoz Cerar — engineering; Tjasa Kumer — prompt engineering).** All owner steps
+> below were run: deploy at `1b7dfef` (`/api/health`=1b7dfef), RC frozen green
+> ([run 35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867)),
+> paid readiness `/api/health/ready`=200 all-ok, billing-reconcile re-fired
+> (`report.ok:true`), secret re-rotated. The authoritative recorded outcome is in
+> [`CERTIFICATION.md`](CERTIFICATION.md) — verdicts **GO / GO / GO**, scale expansion
+> GATHERING DATA. The template + evidence fields below are retained as the procedure.
+
 > **Claude executes NONE of the steps below.** This file only *prepares and records*
 > owner-run production steps. No live money, production migration, subscription
 > cancellation, account deletion, secret rotation or deploy is performed

@@ -1,10 +1,10 @@
 {
   "schema": 1,
-  "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
+  "sha": "1b7dfef83eec9570774254a8234f057c6e673a7b",
   "authE2eAtCandidate": "ci_pass",
   "liveTransaction": "live_rehearsed",
   "matureValue": "absent",
-  "recordedBy": "Primoz Cerar",
+  "recordedBy": "Primoz Cerar & Tjasa Kumer",
   "_notes": {
     "matureValue": "absent, not pass — no redacted cohort report with a measurement window, denominators and results exists in the repo. matureValue no longer gates the supervised paid MVP (v23); it gates scale_expansion only, which stays GATHERING DATA until a real cohort report exists. Do not hand-type pass.",
     "openDependencyAdvisories": "REMOVED as a hand-typed literal (v23). The production dependency posture is proven by a fresh, SHA-pinned audit artifact from scripts/audit-dependencies.mjs, validated at the candidate SHA via --audit-artifact at promotion — never by a number typed here."

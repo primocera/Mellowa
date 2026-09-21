@@ -2,11 +2,10 @@
   "schema": 1,
   "release": "v22",
   "baselineSha": "30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b",
-  "rcSha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
-  "candidateLifecycle": "superseded",
-  "supersededNote": "SUPERSEDED by the v23 production dependency security patch (next 16.2.12→16.3.5, eslint-config-next matched, sharp override →0.35.4, baseline-browser-mapping →2.11.x), which resolves the GHSA-p293-qw3h-jr36 / GHSA-2xp9-vwfh-vxw4 (Next.js critical), GHSA-rgj7-g3m4-5g8c (Sharp high) and GHSA-w5vr-8v7q-w6rv (baseline-browser-mapping moderate) advisories. package.json + package-lock.json are product code, so this change lands AFTER the frozen RC faf5d16 and invalidates its evidence: a dependency diff requires a new candidate SHA. No verdict can be read until the owner re-cuts the immutable RC via the release-candidate workflow, which now runs the hard `npm audit --omit=dev` gate and writes a SHA-pinned audit artifact. The faf5d16 GO/GO/GO record and its owner evidence remain true as historical facts at that SHA; they simply no longer certify HEAD.",
-  "reconciledAtUtc": "2026-09-21T00:00:00Z",
-  "buildId": "bc71ff9f4b0a170e23fcc1e9e18d0ad000b7156f",
+  "rcSha": "1b7dfef83eec9570774254a8234f057c6e673a7b",
+  "candidateLifecycle": "promoted",
+  "reconciledAtUtc": "2026-09-22T00:00:00Z",
+  "buildId": "1b7dfef83eec9570774254a8234f057c6e673a7b",
   "migrations": [
     "001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
     "011", "012", "013", "014", "015", "016", "017", "018", "019", "020",
@@ -21,79 +20,82 @@
       "command": "npm run lint",
       "required": true,
       "status": "ci_pass",
-      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
-      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16 (re-cut of the superseded 974e534 to include the isUnknownActivePrice reconcile fix); rc-evidence artifact recorded in that run.",
-      "note": "Passed in the immutable release-candidate workflow at the frozen RC SHA faf5d16."
+      "sha": "1b7dfef83eec9570774254a8234f057c6e673a7b",
+      "evidence": "release-candidate workflow run 35657030867 — conclusion success at 1b7dfef (v23 dependency security patch re-cut); rc-evidence-1b7dfef artifact recorded in that run.",
+      "note": "Passed in the immutable release-candidate workflow at the frozen RC SHA 1b7dfef."
     },
     {
       "id": "typecheck",
       "command": "npm run typecheck",
       "required": true,
       "status": "ci_pass",
-      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
-      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
-      "note": "Passed in the immutable release-candidate workflow at the frozen RC SHA faf5d16."
+      "sha": "1b7dfef83eec9570774254a8234f057c6e673a7b",
+      "evidence": "release-candidate workflow run 35657030867 — conclusion success at 1b7dfef; rc-evidence artifact recorded in that run.",
+      "note": "Passed in the immutable release-candidate workflow at the frozen RC SHA 1b7dfef."
     },
     {
       "id": "unit-contract-safety",
       "command": "npx vitest run",
       "required": true,
       "status": "ci_pass",
-      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
-      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
-      "note": "Passed in the immutable release-candidate workflow at faf5d16 (a required step; the run is green, so every test passed). The 2 failures seen locally on Windows are byte-for-byte render-drift on the historical v16 STATUS page caused by LF/CRLF line endings; they pass on CI (Linux/LF)."
+      "sha": "1b7dfef83eec9570774254a8234f057c6e673a7b",
+      "evidence": "release-candidate workflow run 35657030867 — conclusion success at 1b7dfef; rc-evidence artifact recorded in that run.",
+      "note": "Passed in the immutable release-candidate workflow at 1b7dfef (a required step; the run is green, so every test passed). The 2 failures seen locally on Windows are byte-for-byte render-drift on the historical v16/v20 STATUS pages caused by LF/CRLF line endings; they pass on CI (Linux/LF)."
     },
     {
       "id": "eval-gate",
       "command": "npm run eval",
       "required": true,
       "status": "ci_pass",
-      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
-      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
-      "note": "Safety plus golden fit/variety gates (no LLM judges safety). Passed in the release-candidate workflow at faf5d16."
+      "sha": "1b7dfef83eec9570774254a8234f057c6e673a7b",
+      "evidence": "release-candidate workflow run 35657030867 — conclusion success at 1b7dfef; rc-evidence artifact recorded in that run.",
+      "note": "Safety plus golden fit/variety gates (no LLM judges safety). Passed in the release-candidate workflow at 1b7dfef."
     },
     {
       "id": "production-build",
       "command": "npm run build",
       "required": true,
       "status": "ci_pass",
-      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
-      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
-      "note": "Production build passed in the release-candidate workflow at faf5d16 (also green locally, next build exit 0)."
+      "sha": "1b7dfef83eec9570774254a8234f057c6e673a7b",
+      "evidence": "release-candidate workflow run 35657030867 — conclusion success at 1b7dfef; rc-evidence artifact recorded in that run.",
+      "note": "Production build passed in the release-candidate workflow at 1b7dfef (also green locally, next 16.3.5 build exit 0)."
     },
     {
       "id": "dependency-audit",
       "command": "npm audit --omit=dev",
       "required": true,
-      "status": "blocked",
-      "note": "v23: the production dependency audit is now a REQUIRED, hard release gate, not a hand-typed openDependencyAdvisories=0. `scripts/audit-dependencies.mjs` runs `npm audit --omit=dev`, exits non-zero on any production finding or an unavailable audit, and writes a fresh SHA-pinned artifact (docs/release/evidence/v23/dependency-audit/<sha>.json) validated at the candidate SHA. Blocked here because the frozen RC faf5d16 predates both the audit gate and the security patch; a fresh audit artifact is produced by the release-candidate workflow at the new RC the owner re-cuts. The working tree passes `npm audit --omit=dev` = 0 production advisories after the v23 patch, but that is proven at the new candidate SHA, never carried forward."
+      "status": "ci_pass",
+      "sha": "1b7dfef83eec9570774254a8234f057c6e673a7b",
+      "observedAtUtc": "2026-09-21T00:00:00Z",
+      "evidence": "release-candidate workflow run 35657030867 — hard dependency-audit gate (scripts/audit-dependencies.mjs) ran `npm audit --omit=dev` and wrote the SHA-pinned artifact at 1b7dfef; 0 production advisories (a finding or an unavailable audit would have failed the run).",
+      "note": "v23: the production dependency audit is a REQUIRED, hard release gate, proven by a fresh SHA-pinned artifact at the candidate SHA — never a hand-typed openDependencyAdvisories. The v23 patch (next 16.3.5, sharp 0.35.4, baseline-browser-mapping 2.11.x) resolves the Next.js critical / Sharp high / baseline moderate advisories."
     },
     {
       "id": "e2e-public",
       "command": "npm run test:e2e:public",
       "required": true,
       "status": "ci_pass",
-      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
-      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
-      "note": "Public browser journeys passed in the release-candidate workflow at faf5d16."
+      "sha": "1b7dfef83eec9570774254a8234f057c6e673a7b",
+      "evidence": "release-candidate workflow run 35657030867 — conclusion success at 1b7dfef; rc-evidence artifact recorded in that run.",
+      "note": "Public browser journeys passed in the release-candidate workflow at 1b7dfef."
     },
     {
       "id": "e2e-authenticated",
       "command": "npm run test:e2e:matrix",
       "required": true,
       "status": "ci_pass",
-      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
-      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; rc-evidence artifact recorded in that run.",
-      "note": "Authenticated E2E matrix passed as a REQUIRED job in the release-candidate workflow at faf5d16, against the seeded non-production Supabase (Stripe TEST mode). The workflow fails closed if the matrix is skipped or discovers zero tests, so a green run proves it ran and passed."
+      "sha": "1b7dfef83eec9570774254a8234f057c6e673a7b",
+      "evidence": "release-candidate workflow run 35657030867 — conclusion success at 1b7dfef; authenticated-matrix job confirmed RUN (not skipped), tests > 0.",
+      "note": "Authenticated E2E matrix passed as a REQUIRED job in the release-candidate workflow at 1b7dfef, against the seeded non-production Supabase (Stripe TEST mode). The workflow fails closed if the matrix is skipped or discovers zero tests, so a green run proves it ran and passed."
     },
     {
       "id": "release-check",
       "command": "npm run release-check",
       "required": true,
-      "status": "ci_pass",
-      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
-      "evidence": "docs/release/v22/EVIDENCE.md",
-      "note": "Production-owner readiness satisfied by the deployed authenticated GET /api/health/ready = HTTP 200 in mode:paid on 2026-09-05, with EVERY component ok (database, all migration_* + schema_* + rpc_* probes, deletion/outbox/cron freshness incl cron_billing_reconcile_freshness:ok, and all paid-critical config: config_stripe_secret_key/webhook/prices, ai key, resend, email_from, legal_*, support_email, cron+admin secrets, launch_mode). release-check.mjs and the readiness endpoint share the ONE canonical env contract (config/paid-required-env.json), enforced by a parity test, so the live probe is the same production-owner check verified in situ — stronger than a local `npm run release-check`, which cannot see Vercel 'Sensitive' vars (they pull empty). Evidence in EVIDENCE.md section 3."
+      "status": "live_rehearsed",
+      "sha": "1b7dfef83eec9570774254a8234f057c6e673a7b",
+      "evidence": "docs/release/v23/CERTIFICATION.md",
+      "note": "Production-owner readiness satisfied by the deployed authenticated GET /api/health/ready = HTTP 200 in mode:paid on 2026-09-22 at the deployed SHA 1b7dfef (public /api/health version:1b7dfef), with EVERY component ok — database, all migration_*/schema_*/rpc_* probes, deletion/outbox/cron freshness incl cron_billing_reconcile_freshness:ok (billing-reconcile re-fired at 1b7dfef, report.ok:true), and all paid-critical config (stripe secret/webhook/prices, ai key, resend, email_from, legal_*, support_email, cron+admin secrets, launch_mode). The live probe is the same production-owner check the parity-tested release-check enforces, verified in situ."
     }
   ],
   "ownerEvidence": [
@@ -102,36 +104,36 @@
       "action": "Confirm production migrations 050-054 are applied and verified via the exact schema/index/RPC probes in scripts/verify-migrations-050-054.sql and /api/health/ready (paid mode).",
       "status": "live_rehearsed",
       "evidence": "docs/release/v22/EVIDENCE.md",
-      "note": "Owner ran scripts/verify-migrations-050-054.sql in the production Supabase SQL editor on 2026-08-30: 19/19 checks PASS, 0 FAIL, including readiness_schema_probe reporting all invariants true. v22 adds no migration, so this schema state is exactly what the v22 code expects and is not invalidated by the app SHA moving."
+      "note": "Owner ran scripts/verify-migrations-050-054.sql in the production Supabase SQL editor on 2026-08-30: 19/19 checks PASS, 0 FAIL. Re-confirmed live at 1b7dfef on 2026-09-22 — /api/health/ready reports every migration_*/schema_*/rpc_* probe ok. v23 adds no migration, so this schema state is exactly what the code expects."
     },
     {
       "id": "billing-reconcile-fresh",
-      "action": "Fire billing-reconcile once with the isUnknownActivePrice fix deployed so cron_billing_reconcile_freshness=ok in paid readiness.",
+      "action": "Fire billing-reconcile once on the deployed SHA so cron_billing_reconcile_freshness=ok in paid readiness.",
       "status": "live_rehearsed",
-      "evidence": "docs/release/v22/EVIDENCE.md",
-      "note": "DONE 2026-09-05 with the fix deployed (buildId bc71ff9). Root cause: reconcile counted a terminal legacy-price sub's historical unmapped price into unknownPrices (checked every row regardless of status), so ok:false was permanent. FIX: src/lib/stripe/reconcile.ts scopes the unknownPrices check to LIVE_STATUSES via isUnknownActivePrice(). CLEAN RUN: POST /api/cron/billing-reconcile -> HTTP 200, report.ok:true, unknownPrices:[], recording the durable cron_runs success that flips cron_billing_reconcile_freshness to ok. Confirmed by authenticated /api/health/ready -> 200 mode:paid, cron_billing_reconcile_freshness:ok. P0-V22-PAID-READINESS CLOSED."
+      "evidence": "docs/release/v23/CERTIFICATION.md",
+      "note": "DONE 2026-09-22 at 1b7dfef: POST /api/cron/billing-reconcile -> HTTP 200, report.ok:true, unknownPrices:[], unresolvable:[], stuckWebhookEvents:[] (routine period_end/trial_end drift synced), recording the durable cron_runs success that flips cron_billing_reconcile_freshness to ok. Confirmed by authenticated /api/health/ready -> 200 mode:paid, cron_billing_reconcile_freshness:ok."
     },
     {
       "id": "authenticated-e2e-matrix",
-      "action": "Run the full authenticated E2E matrix once, unattended, against a throwaway non-production Supabase with 050-054 applied, pinned at the frozen v22 candidate SHA.",
+      "action": "Run the full authenticated E2E matrix once, unattended, against a throwaway non-production Supabase, pinned at the frozen candidate SHA.",
       "status": "ci_pass",
-      "sha": "faf5d165a374d9b0b73bfbb47fc7a34ea0f5c9f1",
-      "evidence": "https://github.com/primocera/Mellowa/actions/runs/33974380517 — release-candidate workflow 'Certify release candidate', success (8m 40s) at faf5d16; authenticated-matrix job confirmed RUN (not skipped), tests > 0.",
-      "note": "Observed in the release-candidate workflow at the frozen RC SHA faf5d16, against the seeded non-production Supabase (Stripe TEST mode). The workflow fails closed if the matrix is skipped or discovers zero tests, so the green run proves it ran and passed. (Also green earlier at 974e534 / run #17, superseded by the reconcile-fix re-cut.)"
+      "sha": "1b7dfef83eec9570774254a8234f057c6e673a7b",
+      "evidence": "https://github.com/primocera/Mellowa/actions/runs/35657030867 — release-candidate workflow, success at 1b7dfef; authenticated-matrix job confirmed RUN (not skipped), tests > 0.",
+      "note": "Observed in the release-candidate workflow at the frozen RC SHA 1b7dfef, against the seeded non-production Supabase (Stripe TEST mode). The workflow fails closed if the matrix is skipped or discovers zero tests, so the green run proves it ran and passed."
     },
     {
       "id": "secret-rotation",
-      "action": "Rotate the previously-reported-exposed credentials (database credentials, disposable keys, CRON_SECRET, ADMIN_STATS_SECRET) and redeploy dependent services, per docs/runbooks/key-rotation-and-backup.md. Record rotation metadata only.",
+      "action": "Rotate the previously-exposed weak credentials (ADMIN_STATS_SECRET, CRON_SECRET) to random values, update the cron scheduler to match, and redeploy. Record rotation metadata only.",
       "status": "live_rehearsed",
-      "evidence": "docs/release/v22/EVIDENCE.md",
-      "note": "DONE — owner-attested 2026-09-05: ADMIN_STATS_SECRET and CRON_SECRET rotated to random values, the cron.org scheduler's CRON_SECRET updated to match, and dependent services redeployed, per docs/runbooks/key-rotation-and-backup.md. The disposable values used during the paid-readiness rehearsal are retired. Metadata only; no secret values are handled or recorded by Claude. See EVIDENCE.md section 5."
+      "evidence": "docs/release/v23/CERTIFICATION.md",
+      "note": "DONE — owner-attested 2026-09-22: the weak/exposed ADMIN_STATS_SECRET and CRON_SECRET were rotated to new values in Vercel and the deployment redeployed; the new ADMIN_STATS_SECRET authenticates /api/health/ready (200) and the new CRON_SECRET authenticates the billing-reconcile cron (200). Metadata only; no secret values handled or recorded by Claude."
     },
     {
       "id": "live-transaction",
       "action": "One real low-value transaction end to end on live Stripe: charge, cancel, reactivate, payment recovery, refund, per docs/runbooks/live-transaction-rehearsal.md.",
       "status": "live_rehearsed",
       "evidence": "docs/release/v22/LIVE-TRANSACTION-EVIDENCE.md",
-      "note": "DONE 2026-09-05 (owner-run on mellowa.app, LIVE Stripe, throwaway identity mon.prim, sub_1UCHR70). Full A-H witnessed live: A checkout/trial->active EUR11.99; B cancel_at_period_end; C optional-email opt-out suppression; D reactivate (no second charge, no duplicate sub); E payment failure (frozen card card_declined -> invoice.payment_failed -> local past_due, paid actions withheld, read access retained) -> recovery (re-paid -> active + recovery email); F late/out-of-order payment_failed resend DROPPED by shouldApplyStripeEvent (stayed active, no repeat email); G refund re_3UCKgK (entitlement unchanged, app stayed active); H duplicate-webhook resend deduped (no double effect) + real cancellation+recovery emails delivered once each. Opaque ids in LIVE-TRANSACTION-EVIDENCE.md. Closes P0-LIVE-TRANSACTION. Claude never executed live money; owner ran all Stripe/card steps."
+      "note": "DONE 2026-09-05 (owner-run on mellowa.app, LIVE Stripe, throwaway identity, sub_1UCHR70). Full A-H witnessed live (charge/cancel/reactivate/failure/recovery/out-of-order-drop/refund/idempotency); each expected transactional email delivered once. Carries forward to 1b7dfef because the v23 patch is dependency-only and NO billing code changed (Stripe frozen at v16, byte-identical between faf5d16 and 1b7dfef) — per the doc, a dependency-only patch does not require repeating the live A-H money rehearsal. Closes P0-LIVE-TRANSACTION. Claude never executed live money."
     }
   ],
   "blockers": [],
@@ -143,7 +145,7 @@
       "owner": "Owner",
       "blocks": ["public_paid"],
       "acceptance": "Recorded owner evidence for the full charge to cancel to reactivate to recovery to refund sequence on the live plan, per docs/runbooks/live-transaction-rehearsal.md.",
-      "closedBy": "owner-run live A-H rehearsal 2026-09-05 (sub_1UCHR70, refund re_3UCKgK)",
+      "closedBy": "owner-run live A-H rehearsal 2026-09-05 (sub_1UCHR70, refund re_3UCKgK); carries forward to 1b7dfef (dependency-only patch, billing code unchanged)",
       "evidence": "docs/release/v22/LIVE-TRANSACTION-EVIDENCE.md"
     },
     {
@@ -152,9 +154,9 @@
       "title": "Paid readiness must reach authenticated /api/health/ready=200 with cron_billing_reconcile_freshness=ok.",
       "owner": "Owner",
       "blocks": ["public_paid"],
-      "acceptance": "With the reconcile fix deployed, one billing-reconcile run returns report.ok:true and records a durable cron_runs success, and authenticated /api/health/ready with LAUNCH_MODE=paid returns 200 on the deployed SHA.",
-      "closedBy": "owner-run reconcile + paid readiness probe 2026-09-05 (deployed SHA bc71ff9)",
-      "evidence": "docs/release/v22/EVIDENCE.md"
+      "acceptance": "authenticated /api/health/ready with LAUNCH_MODE=paid returns 200 on the deployed SHA with every component ok including cron_billing_reconcile_freshness.",
+      "closedBy": "owner-run paid readiness probe 2026-09-22 (deployed SHA 1b7dfef, 200, all components ok)",
+      "evidence": "docs/release/v23/CERTIFICATION.md"
     },
     {
       "id": "P0-V22-MIGRATIONS-APPLIED",
@@ -163,45 +165,46 @@
       "owner": "Owner",
       "blocks": ["public_paid"],
       "acceptance": "Recorded owner evidence that 050-054 are applied and verified in production (exact schema/index/RPC probes), and the 052 readiness schema probe reports ok.",
-      "closedBy": "owner production probe 2026-08-30",
+      "closedBy": "owner production probe 2026-08-30; re-confirmed live at 1b7dfef 2026-09-22",
       "evidence": "docs/release/v22/EVIDENCE.md"
     },
     {
       "id": "P0-V22-RC-NOT-CUT",
       "level": "P0",
-      "title": "No immutable release candidate has been cut at a v22 SHA; ordinary CI or local success cannot promote the manifest.",
+      "title": "No immutable release candidate has been cut at the candidate SHA; ordinary CI or local success cannot promote the manifest.",
       "owner": "Eng (CI) / Owner",
       "blocks": ["capped_beta", "public_paid"],
-      "acceptance": "The release-candidate workflow freezes an artifact at a full v22 SHA (manifest validation, lint, typecheck, unit/contract/safety, eval, build, public E2E, authenticated seeded matrix) with evidence hashes.",
-      "closedBy": "release-candidate workflow 'Certify release candidate' at faf5d16 (success, re-cut of run #17 / 974e534 to include the reconcile fix)",
-      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; earlier run #17 at 974e534 (https://github.com/primocera/Mellowa/actions/runs/33284292315)."
+      "acceptance": "The release-candidate workflow freezes an artifact at a full candidate SHA (manifest validation, lint, typecheck, unit/contract/safety, eval, build, hard dependency-audit gate, public E2E, authenticated seeded matrix) with evidence hashes.",
+      "closedBy": "release-candidate workflow run 35657030867 at 1b7dfef (success; v23 dependency-patch re-cut, now includes the hard npm audit gate)",
+      "evidence": "https://github.com/primocera/Mellowa/actions/runs/35657030867"
     },
     {
       "id": "P1-V22-AUTH-E2E-AT-HEAD",
       "level": "P1",
-      "title": "The authenticated E2E matrix has not been observed at a v22 candidate SHA with 050-054 applied.",
+      "title": "The authenticated E2E matrix has not been observed at the candidate SHA.",
       "owner": "Eng (CI) / Owner (env)",
       "blocks": ["capped_beta", "public_paid"],
-      "acceptance": "The authenticated matrix observed at the v22 candidate SHA (Stripe TEST mode, seeded non-production Supabase, 050-054 applied), or a recorded owner-accepted risk for capped beta.",
-      "closedBy": "release-candidate workflow 'Certify release candidate' at faf5d16 (required authenticated matrix job, green)",
-      "evidence": "release-candidate workflow 'Certify release candidate' — conclusion success (8m 40s) at faf5d16; earlier run #17 at 974e534 (https://github.com/primocera/Mellowa/actions/runs/33284292315)."
+      "acceptance": "The authenticated matrix observed at the candidate SHA (Stripe TEST mode, seeded non-production Supabase).",
+      "closedBy": "release-candidate workflow run 35657030867 at 1b7dfef (required authenticated matrix job, green)",
+      "evidence": "https://github.com/primocera/Mellowa/actions/runs/35657030867"
     }
   ],
   "acceptedRisks": [],
   "verdicts": {
-    "automated_code_gate": "UNASSESSED",
-    "capped_beta": "UNASSESSED",
-    "public_paid": "UNASSESSED"
+    "automated_code_gate": "GO",
+    "capped_beta": "GO",
+    "public_paid": "GO"
   },
-  "scaleExpansion": "UNASSESSED",
-  "rollback": "The v22 product-code changes are src/app/api/ai/regenerate-section/route.ts (free-sample claim/refund correctness) and src/lib/stripe/reconcile.ts (isUnknownActivePrice scoping — no entitlement/money logic changed), each reverted by restoring the previous file; no migration added; no other Stripe code changed (frozen at v16). All 050-054 migrations are additive and reversible with a data-safe rollback recorded in each file. Code rollback target is the last promoted RC.",
+  "scaleExpansion": "GATHERING DATA",
+  "rollback": "The v23 change is a dependency-only security patch (next 16.3.5, eslint-config-next matched, sharp override 0.35.4, baseline-browser-mapping 2.11.x in package.json + package-lock.json) plus release-gate tooling/docs; no product logic and no Stripe/billing code changed (frozen at v16), no migration added. Roll back by reverting to the previous deployment / restoring the prior package.json + package-lock.json. All 050-054 migrations are additive and reversible with a data-safe rollback recorded in each file. Code rollback target is the previous promoted RC.",
   "documents": [
     "docs/release/v22/STATUS.md",
     "docs/release/v22/MELLOWA-FINAL-CLOSURE-CERTIFICATION.md",
     "docs/release/v22/EVIDENCE.md",
     "docs/release/v22/LIVE-TRANSACTION-EVIDENCE.md",
     "docs/release/v22/owner-evidence.v22.json",
-    "docs/release/v21/MELLOWA-CLOSURE-CERTIFICATION.md",
+    "docs/release/v23/CERTIFICATION.md",
+    "docs/release/v23/OWNER-CHECKLIST.md",
     "docs/runbooks/key-rotation-and-backup.md",
     "docs/runbooks/live-transaction-rehearsal.md"
   ]

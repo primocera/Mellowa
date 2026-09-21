@@ -201,24 +201,27 @@ describe("the reconciled v22 manifest is internally consistent and honest", () =
     ).toEqual([]);
   });
 
-  it("is SUPERSEDED with every tier (incl. scale expansion) non-active", () => {
-    expect(m.candidateLifecycle).toBe("superseded");
-    expect(m.supersededNote?.trim()).toBeTruthy();
-    for (const verdict of Object.values(m.verdicts)) {
-      expect(["NO-GO", "UNASSESSED"]).toContain(verdict);
-    }
-    expect(["NO-GO", "UNASSESSED", "GATHERING DATA"]).toContain(m.scaleExpansion);
+  it("is PROMOTED at the v23-patched SHA with launch tiers GO and scale held at GATHERING DATA", () => {
+    expect(m.candidateLifecycle).toBe("promoted");
+    expect(m.rcSha).toBe("1b7dfef83eec9570774254a8234f057c6e673a7b");
+    // Launch safety is GO across the board on the security-patched build...
+    expect(m.verdicts.automated_code_gate).toBe("GO");
+    expect(m.verdicts.capped_beta).toBe("GO");
+    expect(m.verdicts.public_paid).toBe("GO");
+    // ...but scale expansion stays GATHERING DATA (no mature cohort report yet).
+    expect(m.scaleExpansion).toBe("GATHERING DATA");
   });
 
   it("no longer hand-types matureValue=pass or openDependencyAdvisories in owner evidence", () => {
     const oe = JSON.parse(readFileSync("docs/release/v22/owner-evidence.v22.json", "utf8"));
-    expect(oe.matureValue).toBe("absent");
-    expect(oe.openDependencyAdvisories).toBeUndefined();
+    expect(oe.matureValue).toBe("absent"); // never a fabricated pass
+    expect(oe.openDependencyAdvisories).toBeUndefined(); // proven by the audit artifact, not typed
   });
 
-  it("makes the dependency audit a required gate, not an optional local pass", () => {
+  it("makes the dependency audit a required, artifact-backed gate with a freshness instant", () => {
     const audit = m.suites.find((s) => s.id === "dependency-audit");
     expect(audit?.required).toBe(true);
-    expect(audit?.status).toBe("blocked"); // awaiting the fresh RC audit artifact
+    expect(audit?.status).toBe("ci_pass"); // proven by the SHA-pinned RC audit artifact
+    expect(audit?.observedAtUtc).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
   });
 });

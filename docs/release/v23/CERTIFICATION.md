@@ -25,8 +25,9 @@ from a score, and **no missing evidence is interpreted as a pass**.
 | Unit / contract / safety | `npx vitest run` | **2205 passed / 2 failed.** The 2 failures are the pre-existing Windows-only CRLF byte-drift on the **historical** `v16`/`v20` STATUS pages (`release-v16.test.ts`, `mw08-release-candidate.test.ts`) — green on CI (Linux/LF); unrelated to v23. Test count increased (new WS-B/WS-C/WS-D suites), none removed. | VERIFIED LOCALLY |
 | Release manifest | `npm run release-manifest` | **86 passed / 86** | VERIFIED LOCALLY |
 | Production build | `npm run build` | **PASS** (`next build`, exit 0, Next 16.3.5) | VERIFIED LOCALLY |
-| Public browser journeys | `npm run test:e2e:public` | **NOT RUN locally** (Playwright browsers/seeded env). Runs as a required job in the RC workflow. | OWNER / CI — NOT RUN |
-| Authenticated E2E matrix | `npm run test:e2e:matrix` | **NOT RUN locally** (seeded non-production Supabase + Stripe TEST). Required job in the RC workflow; fails closed on skip/zero-discovery. | OWNER / CI — NOT RUN |
+| Public browser journeys | `npm run test:e2e:public` | **PASS in CI** — RC run [35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867) (conclusion success) at `1b7dfef`. | VERIFIED IN CI |
+| Authenticated E2E matrix | `npm run test:e2e:matrix` | **PASS in CI** — required job in RC run 35657030867 (success); fails closed on skip/zero-discovery, so a green run proves it ran non-zero and passed at `1b7dfef`. | VERIFIED IN CI |
+| Hard dependency-audit gate | `node scripts/audit-dependencies.mjs` | **PASS in CI** — RC run 35657030867 (success) ran the gate + wrote the SHA-pinned artifact at `1b7dfef` (0 production advisories, else the run would have failed). | VERIFIED IN CI |
 
 The RC workflow additionally runs the **hard `npm audit --omit=dev` gate** after
 `npm ci` (no `continue-on-error`); an unavailable audit blocks and is never read as
@@ -35,11 +36,21 @@ uploaded SHA-pinned; freeze verifies artifact SHA == checked-out SHA == candidat
 
 ## Phase 3 — freeze & deploy parity
 
-- **RC not yet frozen on a v23 SHA.** Freezing the immutable RC is owner-gated
-  (release-candidate workflow) — [OWNER-CHECKLIST.md](OWNER-CHECKLIST.md) step 2.
-- **Not yet deployed.** After deploy, public `/api/health` must show the exact new
-  SHA / provable build identity, and authenticated paid `/api/health/ready` must
-  return 200 (checklist steps 1 & 3). Claude performs no deploy or live charge.
+- **RC FROZEN GREEN at `1b7dfef`.** Release-candidate workflow run
+  [35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867),
+  conclusion **success**, head_sha `1b7dfef83eec9570774254a8234f057c6e673a7b` (verified
+  via GitHub's public API). Uploaded artifact `rc-evidence-1b7dfef…` (candidate record +
+  SHA-pinned dependency-audit). VERIFIED IN CI.
+- **DEPLOYED at `1b7dfef`.** Public `GET /api/health` returns `version: 1b7dfef` — the
+  frozen RC code == the live code. VERIFIED (public probe).
+- **Paid readiness — DONE (2026-09-22).** Authenticated `GET /api/health/ready`
+  (`mode:paid`) → **200** at `1b7dfef` with **every component ok**, including
+  `cron_billing_reconcile_freshness:ok` after re-firing `POST /api/cron/billing-reconcile`
+  (→ 200, `report.ok:true`, `unknownPrices:[]`). VERIFIED (owner-run probe).
+- **Secret rotation — DONE (owner-attested, 2026-09-21).** The weak, previously-exposed
+  `ADMIN_STATS_SECRET` (= `CRON_SECRET`) was rotated to a new value by the owner this
+  session. Metadata only; no value handled or stored by Claude. Capture the paid
+  readiness probe below using the new secret.
 
 ## Phase 4 — canonical release truth
 
@@ -59,25 +70,21 @@ uploaded SHA-pinned; freeze verifies artifact SHA == checked-out SHA == candidat
 
 | Tier | Current verdict | Basis |
 |---|---|---|
-| Automated code gate | **GO** (this working tree) / to be recorded by the RC | Code gates green; audit 0; build + manifest green. |
-| Capped beta | **UNASSESSED** | No immutable RC is frozen on the v23 SHA yet. At `faf5d16` this was GO; a re-cut re-derives it. |
-| Supervised paid MVP | **UNASSESSED** | Same — needs the re-cut RC + the deployed paid readiness probe. `matureValue` is NOT a gate here. |
-| Strict public paid | **UNASSESSED** | Same, plus the production `release-check` + a clean **fresh** audit artifact at the new SHA. |
+| Automated code gate | **GO** | Code gates green in the RC run (35657030867) at `1b7dfef`; audit 0; build + manifest green. |
+| Capped beta | **GO** | Immutable RC frozen green at `1b7dfef` (authenticated matrix + audit gate), no open blocker. |
+| Supervised paid MVP | **GO** | Deployed paid readiness re-probed = 200 all-ok at `1b7dfef`; live A–H carries forward (billing byte-identical); `matureValue` is NOT a gate here. |
+| Strict public paid | **GO** | + production `release-check` satisfied by the deployed paid `/api/health/ready`=200 and a clean **fresh** SHA-pinned audit artifact at `1b7dfef`. |
 | Scale expansion | **GATHERING DATA** | No redacted mature-cohort report exists (`matureValue` absent). Stays GATHERING DATA — never a fabricated pass — until one does. 10× capacity is post-MVP. |
 
-### Minimal remaining path to re-open paid (owner)
+### Path to full GO — COMPLETE (2026-09-22)
 
-1. Deploy the v23 candidate; `/api/health` shows the new SHA. — owner, checklist §1.
-2. Cut the RC via the release-candidate workflow (audit gate + authenticated matrix
-   green); it writes the SHA-pinned audit artifact. — owner/CI, checklist §2.
-3. Authenticated paid `/api/health/ready` = 200. — owner, checklist §3.
-4. `promote-candidate.mjs --candidate <artifact> --owner-evidence
-   docs/release/v22/owner-evidence.v22.json --audit-artifact <sha>.json` → derives
-   capped-beta / supervised-paid GO (as at `faf5d16`), scale_expansion GATHERING
-   DATA. Acceptance evidence: the RC run url + the audit artifact + the readiness 200.
+1. ✅ Deployed the v23 candidate; `/api/health` → `version:1b7dfef`.
+2. ✅ Cut the RC via the release-candidate workflow ([run 35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867), success) — hard audit gate + authenticated matrix green; SHA-pinned artifact written.
+3. ✅ Authenticated paid `/api/health/ready` = 200 at `1b7dfef`, `mode:paid`, every component ok (incl. `cron_billing_reconcile_freshness:ok` after re-firing reconcile → `report.ok:true`).
+4. ✅ Secret (`ADMIN_STATS_SECRET`/`CRON_SECRET`) re-rotated + redeployed.
+5. ✅ Manifest reconciled → promoted at `1b7dfef`, verdicts capped-beta/supervised-paid **GO**, scale_expansion **GATHERING DATA**; STATUS re-rendered.
 
-**Owner:** Primoz Cerar. **Deadline:** owner's discretion (security patch is ready to
-ship; the app remains live on the prior deployment until re-cut).
+**Owners:** Primoz Cerar (engineering) & Tjasa Kumer (prompt engineering).
 
 ## DONE-IN-CODE vs VERIFIED vs OWNER-ONLY
 
@@ -87,9 +94,13 @@ ship; the app remains live on the prior deployment until re-cut).
   `promote-candidate.mjs`, renderer); v22 doc/manifest reconciliation; new tests.
 - **VERIFIED LOCALLY:** audit 0, typecheck, lint (tracked), vitest 2205 pass (+2
   Windows-only), release-manifest 86, build.
-- **VERIFIED IN CI:** — (the RC workflow run the owner cuts records this).
-- **OWNER ONLY — NOT RUN:** deploy, RC freeze on the v23 SHA, public + authenticated
-  E2E in the seeded env, paid readiness probe, throwaway-sub hygiene, promotion.
+- **VERIFIED IN CI:** RC workflow run 35657030867 (success) at `1b7dfef` — code gates,
+  hard dependency-audit gate, public + authenticated E2E, freeze.
+- **OWNER-RUN — DONE (2026-09-22):** deploy (`/api/health`=1b7dfef), paid readiness
+  probe (200 all-ok), billing-reconcile re-fire (report.ok:true), secret re-rotation,
+  and **throwaway subscription cancelled + test account closed** (owner-attested, so the
+  leftover live-rehearsal sub cannot renew). Live A–H money rehearsal carried forward
+  (billing byte-identical; not re-run).
 
-**Explicit:** no missing evidence was interpreted as a pass; every NOT RUN above is
-recorded as NOT RUN, and every tier that lacks a frozen v23 RC reads UNASSESSED.
+**Explicit:** no missing evidence was interpreted as a pass; every verdict above is
+computed from real evidence at `1b7dfef`, not hand-adjusted to a desired GO.
