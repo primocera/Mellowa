@@ -201,14 +201,18 @@ describe("the reconciled v22 manifest is internally consistent and honest", () =
     ).toEqual([]);
   });
 
-  it("is PROMOTED at the v23-patched SHA with launch tiers GO and scale held at GATHERING DATA", () => {
-    expect(m.candidateLifecycle).toBe("promoted");
+  it("is SUPERSEDED (v24 deploy drift) with launch tiers UNASSESSED and scale held at GATHERING DATA", () => {
+    // v24: the promoted RC 1b7dfef is superseded because production /api/health serves
+    // f0dbcf5 (deploy drift) and v24 release-tooling commits move the tree past it.
+    expect(m.candidateLifecycle).toBe("superseded");
+    expect((m as { supersededNote?: string }).supersededNote ?? "").toMatch(/f0dbcf5|deploy drift/i);
     expect(m.rcSha).toBe("1b7dfef83eec9570774254a8234f057c6e673a7b");
-    // Launch safety is GO across the board on the security-patched build...
-    expect(m.verdicts.automated_code_gate).toBe("GO");
-    expect(m.verdicts.capped_beta).toBe("GO");
-    expect(m.verdicts.public_paid).toBe("GO");
-    // ...but scale expansion stays GATHERING DATA (no mature cohort report yet).
+    expect((m as { productHeadSha?: string }).productHeadSha).toBe("f0dbcf56fe648864bb6fcb9e5acab920af6be629");
+    // No launch tier may present an active verdict while superseded — PENDING recert.
+    expect(m.verdicts.automated_code_gate).toBe("UNASSESSED");
+    expect(m.verdicts.capped_beta).toBe("UNASSESSED");
+    expect(m.verdicts.public_paid).toBe("UNASSESSED");
+    // Scale expansion is kept separate and non-active; GATHERING DATA is allowed here.
     expect(m.scaleExpansion).toBe("GATHERING DATA");
   });
 

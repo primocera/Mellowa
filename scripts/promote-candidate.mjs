@@ -30,7 +30,7 @@
  * Usage:
  *   node scripts/promote-candidate.mjs --candidate <path>
  *        [--owner-evidence <path>] [--audit-artifact <path>]
- *        [--manifest docs/release/manifest.v16.json] [--write [--out <path>]]
+ *        [--manifest <path>] [--write [--out <path>]]   (default: active manifest)
  *
  * --audit-artifact is the fresh, SHA-pinned production dependency audit (from
  * scripts/audit-dependencies.mjs). It is the ONLY source of the paid tier's
@@ -50,6 +50,7 @@ import {
   validateAuditArtifact,
   validateCandidateArtifact,
 } from "./candidate-lib.mjs";
+import { ACTIVE_MANIFEST_PATH } from "./active-manifest.mjs";
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
@@ -68,7 +69,11 @@ if (!candidatePath || !existsSync(candidatePath)) {
   console.error(`--candidate <path> is required and must exist (got ${candidatePath ?? "none"}).`);
   process.exit(2);
 }
-const manifestPath = opt("--manifest", "docs/release/manifest.v16.json");
+// v24 WS-A: promote into the ONE canonical active manifest by default. An explicit
+// --manifest is honoured (and recorded in the proposal provenance below) so a
+// specific line can still be re-cut; the archived v16 default is gone.
+const manifestPath = opt("--manifest", ACTIVE_MANIFEST_PATH);
+const manifestArgExplicit = args.includes("--manifest");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const candidate = JSON.parse(readFileSync(candidatePath, "utf8"));
 
@@ -262,6 +267,13 @@ const proposed = {
   ...manifest,
   rcSha: candidate.rcSha,
   candidateLifecycle: "promoted",
+  // v24 WS-A: record which manifest line this proposal was promoted from, and
+  // whether the path was the canonical active default or an explicit override.
+  promotedFrom: {
+    manifestPath,
+    source: manifestArgExplicit ? "explicit --manifest" : "canonical active path",
+    candidateSha: candidate.rcSha,
+  },
   suites: candidate.suites.map((s) => {
     const rest = { ...s };
     delete rest.suiteClass; // candidate-only annotation, not a manifest field

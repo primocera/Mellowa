@@ -39,6 +39,7 @@ import {
   validateAuditArtifact,
   validateCandidateArtifact,
 } from "./candidate-lib.mjs";
+import { ACTIVE_MANIFEST_PATH } from "./active-manifest.mjs";
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
@@ -70,8 +71,22 @@ const runProvenance = opt("--provenance", process.env.GITHUB_RUN_ID ? "workflow"
 // Workflow runs record CI passes; a local run can only record local passes.
 const passStatus = runProvenance === "workflow" ? "ci_pass" : "local_pass";
 
-const MANIFEST_PATH = "docs/release/manifest.v16.json";
+// v24 WS-A: freeze against the ONE canonical active manifest (or an explicit
+// --manifest for a re-cut of a specific line). The hard-coded v16 path is gone —
+// it froze a stale, archived manifest whose required suites no longer match the
+// active line (v16 has no dependency-audit suite; v22 does).
+const MANIFEST_PATH = opt("--manifest", ACTIVE_MANIFEST_PATH);
 const manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf8"));
+
+// v24 WS-A: the dependency-audit suite is a REQUIRED part of the active line's
+// candidate. Refuse to freeze a manifest that lacks it — a frozen candidate with
+// no dependency posture cannot certify the paid tier.
+if (!manifest.suites?.some((s) => s.id === "dependency-audit" && s.required)) {
+  die(
+    `manifest ${MANIFEST_PATH} has no required "dependency-audit" suite — the active ` +
+      "release line must gate on a fresh SHA-pinned production audit; refusing to freeze.",
+  );
+}
 
 const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
 

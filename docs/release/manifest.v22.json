@@ -3,8 +3,10 @@
   "release": "v22",
   "baselineSha": "30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b",
   "rcSha": "1b7dfef83eec9570774254a8234f057c6e673a7b",
-  "candidateLifecycle": "promoted",
-  "reconciledAtUtc": "2026-09-22T00:00:00Z",
+  "candidateLifecycle": "superseded",
+  "supersededNote": "v24 (2026-09-22): the RC 1b7dfef promoted here is SUPERSEDED. (1) Deploy drift — production GET /api/health serves version f0dbcf5, not 1b7dfef, so exact-SHA deploy parity is broken. (2) The v24 release-truth reconciliation adds new release-tooling commits (scripts/*, .github/workflows/*, tests/*), which are product-tree changes past the frozen RC. No verdict can be read from a superseded candidate: strict public paid is PENDING OWNER RECERTIFICATION until the owner cuts a NEW immutable RC at the v24 final SHA and deploys exactly that SHA. The recorded owner evidence below (migrations, paid readiness, live A-H) is a true historical record observed at 1b7dfef; it does not certify the current deploy.",
+  "productHeadSha": "f0dbcf56fe648864bb6fcb9e5acab920af6be629",
+  "reconciledAtUtc": "2026-09-22T18:00:00Z",
   "buildId": "1b7dfef83eec9570774254a8234f057c6e673a7b",
   "migrations": [
     "001", "002", "003", "004", "005", "006", "007", "008", "009", "010",
@@ -136,7 +138,16 @@
       "note": "DONE 2026-09-05 (owner-run on mellowa.app, LIVE Stripe, throwaway identity, sub_1UCHR70). Full A-H witnessed live (charge/cancel/reactivate/failure/recovery/out-of-order-drop/refund/idempotency); each expected transactional email delivered once. Carries forward to 1b7dfef because the v23 patch is dependency-only and NO billing code changed (Stripe frozen at v16, byte-identical between faf5d16 and 1b7dfef) — per the doc, a dependency-only patch does not require repeating the live A-H money rehearsal. Closes P0-LIVE-TRANSACTION. Claude never executed live money."
     }
   ],
-  "blockers": [],
+  "blockers": [
+    {
+      "id": "P0-V24-DEPLOY-PARITY",
+      "level": "P0",
+      "title": "Deploy drift + superseded RC: production /api/health serves f0dbcf5 while the promoted RC is 1b7dfef, and v24 release-tooling commits move the product tree past the frozen candidate.",
+      "owner": "Owner",
+      "blocks": ["capped_beta", "public_paid"],
+      "acceptance": "Owner cuts a new immutable release-candidate at the v24 final SHA (green: audit/lint/typecheck/unit/eval/build/public E2E/authenticated matrix), deploys exactly that SHA (public /api/health returns its short SHA), and re-probes authenticated paid /api/health/ready = 200; suites sha, rcSha, buildId and deploy version all equal the one final SHA."
+    }
+  ],
   "closedBlockers": [
     {
       "id": "P0-LIVE-TRANSACTION",
@@ -191,9 +202,9 @@
   ],
   "acceptedRisks": [],
   "verdicts": {
-    "automated_code_gate": "GO",
-    "capped_beta": "GO",
-    "public_paid": "GO"
+    "automated_code_gate": "UNASSESSED",
+    "capped_beta": "UNASSESSED",
+    "public_paid": "UNASSESSED"
   },
   "scaleExpansion": "GATHERING DATA",
   "rollback": "The v23 change is a dependency-only security patch (next 16.3.5, eslint-config-next matched, sharp override 0.35.4, baseline-browser-mapping 2.11.x in package.json + package-lock.json) plus release-gate tooling/docs; no product logic and no Stripe/billing code changed (frozen at v16), no migration added. Roll back by reverting to the previous deployment / restoring the prior package.json + package-lock.json. All 050-054 migrations are additive and reversible with a data-safe rollback recorded in each file. Code rollback target is the previous promoted RC.",

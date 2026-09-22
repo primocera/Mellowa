@@ -127,8 +127,11 @@ jobs:
       - name: Validate release manifest
         run: npm run release-manifest
 
+      # v24 WS-A: render-check the ACTIVE line (docs/release/manifest.v22.json),
+      # never the archived v16 manifest. The active line is the one canonical path
+      # (scripts/active-manifest.mjs) freeze/promote also use.
       - name: Status page is in sync with the manifest
-        run: node scripts/render-release-status.mjs docs/release/manifest.v16.json --check
+        run: node scripts/render-release-status.mjs docs/release/manifest.v22.json --check
 
       - name: Lint
         run: npm run lint
@@ -261,6 +264,6 @@ jobs:
           path: |
             docs/release/evidence/v17/candidate/${{ steps.ref.outputs.sha }}.json
             docs/release/evidence/v23/dependency-audit/${{ steps.ref.outputs.sha }}.json
-            docs/release/manifest.v16.json
-            docs/release/v16/STATUS.md
+            docs/release/manifest.v22.json
+            docs/release/v22/STATUS.md
           if-no-files-found: warn

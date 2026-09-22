@@ -19,7 +19,7 @@
     "release-manifest": "vitest run tests/release-manifest.test.ts",
     "freeze-candidate": "node scripts/freeze-candidate.mjs",
     "check-env-contract": "node scripts/check-env-contract.mjs",
-    "render-release-status": "node scripts/render-release-status.mjs docs/release/manifest.v16.json --write",
+    "render-release-status": "node scripts/render-release-status.mjs docs/release/manifest.v22.json --write",
     "perf": "playwright test --project=perf",
     "verify-prices": "node scripts/verify-stripe-prices.mjs"
   },

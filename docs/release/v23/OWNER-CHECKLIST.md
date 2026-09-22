@@ -1,12 +1,18 @@
 # Mellowa v23 — owner-only production checklist (Prompt 3)
 
-> **✅ EXECUTED 2026-09-22 (owners: Primoz Cerar — engineering; Tjasa Kumer — prompt engineering).** All owner steps
-> below were run: deploy at `1b7dfef` (`/api/health`=1b7dfef), RC frozen green
-> ([run 35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867)),
-> paid readiness `/api/health/ready`=200 all-ok, billing-reconcile re-fired
-> (`report.ok:true`), secret re-rotated. The authoritative recorded outcome is in
-> [`CERTIFICATION.md`](CERTIFICATION.md) — verdicts **GO / GO / GO**, scale expansion
-> GATHERING DATA. The template + evidence fields below are retained as the procedure.
+> **This checklist is the PROCEDURE, not the proof.** The evidence table at the bottom
+> is a blank **TEMPLATE HISTORY** — every row reads `NOT RUN` / `_pending_`; it is not a
+> record that these owner steps were executed. Do **not** read the table as done. The
+> authoritative recorded owner outcomes (deploy, paid readiness, billing-reconcile,
+> secret rotation, live A–H) live in [`CERTIFICATION.md`](CERTIFICATION.md), pinned to
+> the SHA they were observed at (`1b7dfef`).
+>
+> **⚠️ Superseded (v24, 2026-09-22).** Those recorded outcomes were observed at RC
+> `1b7dfef`, which is now **superseded** — production `/api/health` serves `f0dbcf5`
+> (deploy drift) and v24 tooling commits move the tree past the frozen RC. The owner
+> steps below must be **re-run at the v24 final SHA** before any tier reads GO again
+> (blocker `P0-V24-DEPLOY-PARITY`). Owners: Primoz Cerar — engineering; Tjasa Kumer —
+> prompt engineering.
 
 > **Claude executes NONE of the steps below.** This file only *prepares and records*
 > owner-run production steps. No live money, production migration, subscription
@@ -53,7 +59,13 @@ Stripe/billing code changed (frozen at v16); no migration added.
 | 7 | **Confirm the two transactional emails** (cancellation + payment-recovered) each still deliver **exactly once** with no duplicate after the deploy. | A duplicate or missing mail appears → stop; the webhook idempotency guard must be checked. | None (observation). |
 | 8 | **Mature cohort stays honest.** Do **not** mark `matureValue` = pass without a real redacted cohort report (measurement window, denominators, results). Record the supervised-paid verdict separately from `scale_expansion` (which stays GATHERING DATA). | Any pressure to type `matureValue: pass` without a report → refuse. | N/A. |
 
-## Evidence record (fill ONE row per actually-executed owner step)
+## Evidence record — TEMPLATE HISTORY (blank; not proof of execution)
+
+> **This table is a blank template.** Every row below is `NOT RUN` / `_pending_` and
+> must not be cited as evidence that a step ran. Real recorded outcomes are in
+> [`CERTIFICATION.md`](CERTIFICATION.md). When the owner re-runs the steps at the v24
+> final SHA, fill one row per **actually-executed** step here (or in a new v24 evidence
+> file) — a missing result stays `NOT RUN`.
 
 For each executed step store only:
 `application` + `candidate_sha`; production deployment id / provable build identity;

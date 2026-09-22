@@ -17,7 +17,7 @@ Release truth is **machine-generated**, not hand-written here — so this sectio
 carries no verdicts, counts or SHAs that could drift. Read the verdicts on the
 generated status page, not in this prose.
 
-**Current line — v22 launch line, promoted at the v23-patched RC `1b7dfef`:**
+**Current line — v22 launch line, RC `1b7dfef` SUPERSEDED (v24): deploy drift + release-truth reconciliation.** Read the current verdicts on the generated status page — presently UNASSESSED / PENDING OWNER RECERTIFICATION, not GO:
 
 - Machine manifest: [`docs/release/manifest.v22.json`](docs/release/manifest.v22.json)
 - Rendered status (generated from the manifest; a contract test fails on drift):
@@ -33,18 +33,21 @@ generated status page, not in this prose.
 [`docs/release/manifest.v16.json`](docs/release/manifest.v16.json) and its rendered
 [`docs/release/v16/STATUS.md`](docs/release/v16/STATUS.md).
 
-The current promoted candidate is the **v23-patched RC `1b7dfef`** (release-candidate
-workflow [run 35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867),
+The v23-patched RC `1b7dfef` (release-candidate workflow
+[run 35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867),
 success; the v23 production dependency security patch — Next.js / Sharp /
-baseline-browser-mapping — folded into the v22 launch line and re-cut through the
-immutable workflow, which now runs a hard dependency-audit gate). Its verdicts and
-owner-evidence live in the generated v22 status + manifest linked above, not restated
-here, so nothing in this section can drift into a hard-coded verdict; the live A–H
-billing rehearsal (carried forward — billing code unchanged), paid readiness re-probed
-at `1b7dfef` and owner-attested secret rotation are tracked in the manifest's
-owner-evidence. Scale expansion is tracked separately and stays GATHERING DATA until a
-mature cohort report exists. Billing code is frozen at v16 apart from fail-closed
-failure-path fixes.
+baseline-browser-mapping — with a hard dependency-audit gate) was promoted, but is now
+**SUPERSEDED** (v24): production `/api/health` serves `f0dbcf5` (deploy drift, exact-SHA
+parity broken), and the v24 release-truth reconciliation adds new release-tooling
+commits past the frozen RC. No verdict can be read from a superseded candidate — every
+launch tier reads **UNASSESSED** and strict public paid is **PENDING OWNER
+RECERTIFICATION** until the owner cuts a new immutable RC at the v24 final SHA and
+deploys exactly that SHA. The recorded owner-evidence (migrations 050–054, paid
+readiness, live A–H billing rehearsal) remains a true historical record observed at
+`1b7dfef` and does not certify the current deploy; the verdicts live in the generated
+v22 status + manifest linked above, never restated here. Scale expansion is tracked
+separately and stays GATHERING DATA until a mature cohort report exists. Billing code is
+frozen at v16 apart from fail-closed failure-path fixes.
 
 Dependency posture is a **hard release gate** (v23): the release-candidate workflow
 runs `npm audit --omit=dev` via

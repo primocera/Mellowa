@@ -17,13 +17,74 @@ import { buildCandidate, deriveVerdicts } from "../scripts/candidate-lib.mjs";
 
 const REPO = process.cwd();
 const HEAD = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
-const MANIFEST = JSON.parse(readFileSync("docs/release/manifest.v16.json", "utf8"));
 const sha256 = (buf: Buffer | string) => createHash("sha256").update(buf).digest("hex");
 
+/**
+ * v24 WS-A: the freeze/promote scripts now default to the ONE canonical active
+ * manifest (docs/release/manifest.v22.json), which is a PROMOTED (and, post-v24,
+ * superseded) record whose suites already passed at another SHA. Freezing that at
+ * a fresh HEAD would rightly refuse. This mechanism test therefore builds a
+ * neutral CLEAN-SLATE fixture that mirrors the active line's required suites
+ * (including the v23 `dependency-audit` gate) but resets every suite to a
+ * non-passing state, and points freeze/promote at it via `--manifest`.
+ */
+const ACTIVE = JSON.parse(readFileSync("docs/release/manifest.v22.json", "utf8"));
+function cleanSlateManifest() {
+  const suiteClass = (id: string) =>
+    id === "e2e-authenticated" ? { suiteClass: "auth_journey" } : id === "release-check" ? { suiteClass: "production_owner" } : {};
+  return {
+    ...ACTIVE,
+    candidateLifecycle: "frozen",
+    supersededNote: undefined,
+    productHeadSha: undefined,
+    changedSinceRc: undefined,
+    rcSha: HEAD,
+    blockers: [],
+    acceptedRisks: [],
+    verdicts: { automated_code_gate: "UNASSESSED", capped_beta: "UNASSESSED", public_paid: "UNASSESSED" },
+    scaleExpansion: "GATHERING DATA",
+    suites: (ACTIVE.suites as { id: string; command: string; required: boolean }[]).map((s) => ({
+      id: s.id,
+      command: s.command,
+      required: s.required,
+      status: "blocked",
+      note: "clean-slate fixture (reset for the mechanism test)",
+      ...suiteClass(s.id),
+    })),
+  };
+}
+// The clean-slate is what promote-candidate re-derives against, so keep a handle.
+const MANIFEST = cleanSlateManifest();
+
 let dir: string;
+let MANIFEST_PATH: string;
 beforeAll(() => {
   dir = mkdtempSync(join(tmpdir(), "rc-contract-"));
+  MANIFEST_PATH = join(dir, "clean-manifest.json");
+  writeFileSync(MANIFEST_PATH, JSON.stringify(MANIFEST, null, 2));
 });
+
+/** A well-formed clean production dependency-audit artifact pinned to `sha`. */
+function writeAudit(sha = HEAD) {
+  const p = join(dir, `audit-${sha.slice(0, 7)}.json`);
+  writeFileSync(
+    p,
+    JSON.stringify(
+      {
+        schema: 1,
+        application: "mellowa",
+        candidateSha: sha,
+        command: "npm audit --omit=dev --json",
+        observedAtUtc: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+        status: "clean",
+        counts: { info: 0, low: 0, moderate: 0, high: 0, critical: 0, total: 0 },
+      },
+      null,
+      2,
+    ),
+  );
+  return p;
+}
 afterAll(() => {
   if (dir && existsSync(dir)) rmSync(dir, { recursive: true, force: true });
 });
@@ -124,9 +185,13 @@ describe("emit-rc-run-summary", () => {
 describe("freeze-candidate records passes honestly", () => {
   it("freezes a clean workflow candidate; auth recorded, release-check left blocked", () => {
     const ev = writeAuthEvidence(HEAD, { total: 40, passed: 40, failed: 0, skipped: 0 });
-    const summary = writeSummary([...CODE_SUITES, { id: "e2e-authenticated", result: "pass", evidence: ev }]);
+    const summary = writeSummary([
+      ...CODE_SUITES,
+      { id: "dependency-audit", result: "pass", evidence: writeAudit() },
+      { id: "e2e-authenticated", result: "pass", evidence: ev },
+    ]);
     const out = join(dir, "cand-ok.json");
-    const r = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--run-summary", summary, "--out", out], {
+    const r = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--manifest", MANIFEST_PATH, "--run-summary", summary, "--out", out], {
       GITHUB_RUN_ID: "999",
     });
     expect(r.status, r.stderr).toBe(0);
@@ -148,7 +213,7 @@ describe("freeze-candidate records passes honestly", () => {
       { id: "e2e-authenticated", result: "pass", evidence: ev },
       { id: "release-check", result: "pass" },
     ]);
-    const r = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--run-summary", summary, "--out", join(dir, "x.json")], {
+    const r = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--manifest", MANIFEST_PATH, "--run-summary", summary, "--out",join(dir, "x.json")], {
       GITHUB_RUN_ID: "999",
     });
     expect(r.status).not.toBe(0);
@@ -158,7 +223,7 @@ describe("freeze-candidate records passes honestly", () => {
   it("fails when the authenticated matrix discovered zero tests", () => {
     const ev = writeAuthEvidence(HEAD, { total: 0, passed: 0, failed: 0, skipped: 0 });
     const summary = writeSummary([...CODE_SUITES, { id: "e2e-authenticated", result: "pass", evidence: ev }]);
-    const r = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--run-summary", summary, "--out", join(dir, "z.json")], {
+    const r = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--manifest", MANIFEST_PATH, "--run-summary", summary, "--out",join(dir, "z.json")], {
       GITHUB_RUN_ID: "999",
     });
     expect(r.status).not.toBe(0);
@@ -168,7 +233,7 @@ describe("freeze-candidate records passes honestly", () => {
   it("fails when the authenticated matrix reported failures", () => {
     const ev = writeAuthEvidence(HEAD, { total: 40, passed: 38, failed: 2, skipped: 0 });
     const summary = writeSummary([...CODE_SUITES, { id: "e2e-authenticated", result: "pass", evidence: ev }]);
-    const r = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--run-summary", summary, "--out", join(dir, "f.json")], {
+    const r = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--manifest", MANIFEST_PATH, "--run-summary", summary, "--out",join(dir, "f.json")], {
       GITHUB_RUN_ID: "999",
     });
     expect(r.status).not.toBe(0);
@@ -180,7 +245,7 @@ describe("freeze-candidate records passes honestly", () => {
       ...CODE_SUITES,
       { id: "e2e-authenticated", result: "pass", evidence: join(dir, "nope.json") },
     ]);
-    const r = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--run-summary", summary, "--out", join(dir, "m.json")], {
+    const r = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--manifest", MANIFEST_PATH, "--run-summary", summary, "--out",join(dir, "m.json")], {
       GITHUB_RUN_ID: "999",
     });
     expect(r.status).not.toBe(0);
@@ -198,11 +263,11 @@ describe("freeze-candidate records passes honestly", () => {
     const ev = writeAuthEvidence(HEAD, { total: 40, passed: 40, failed: 0, skipped: 0 });
     const summary = writeSummary([...CODE_SUITES, { id: "e2e-authenticated", result: "pass", evidence: ev }]);
     const out = join(dir, "dup.json");
-    const first = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--run-summary", summary, "--out", out], { GITHUB_RUN_ID: "999" });
+    const first = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--manifest", MANIFEST_PATH, "--run-summary", summary, "--out",out], { GITHUB_RUN_ID: "999" });
     expect(first.status, first.stderr).toBe(0);
     // A frozen candidate is immutable: a second freeze to the same path is
     // refused (the artifact differs at least by its fresh timestamp/run id).
-    const conflict = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--run-summary", summary, "--out", out], { GITHUB_RUN_ID: "1000" });
+    const conflict = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--manifest", MANIFEST_PATH, "--run-summary", summary, "--out",out], { GITHUB_RUN_ID: "1000" });
     expect(conflict.status).not.toBe(0);
     expect(conflict.stderr).toMatch(/immutable|Refusing to overwrite/i);
   });
@@ -262,11 +327,11 @@ describe("promote-candidate verifies provenance, HEAD, evidence and lifecycle", 
 
   it("promotes a clean workflow candidate at HEAD (dry run) and writes a proposal", () => {
     const cand = makeCandidate();
-    const dry = run("scripts/promote-candidate.mjs", ["--candidate", cand]);
+    const dry = run("scripts/promote-candidate.mjs", ["--candidate", cand, "--manifest", MANIFEST_PATH]);
     expect(dry.status, dry.stderr).toBe(0);
     expect(dry.stdout).toMatch(/promotable/i);
     const outProp = join(dir, "proposed.json");
-    const wr = run("scripts/promote-candidate.mjs", ["--candidate", cand, "--write", "--out", outProp]);
+    const wr = run("scripts/promote-candidate.mjs", ["--candidate", cand, "--manifest", MANIFEST_PATH, "--write", "--out", outProp]);
     expect(wr.status, wr.stderr).toBe(0);
     const proposed = JSON.parse(readFileSync(outProp, "utf8"));
     expect(proposed.candidateLifecycle).toBe("promoted");
@@ -277,14 +342,14 @@ describe("promote-candidate verifies provenance, HEAD, evidence and lifecycle", 
 
   it("rejects a local-provenance candidate", () => {
     const cand = makeCandidate({ provenance: "local" });
-    const r = run("scripts/promote-candidate.mjs", ["--candidate", cand]);
+    const r = run("scripts/promote-candidate.mjs", ["--candidate", cand, "--manifest", MANIFEST_PATH]);
     expect(r.status).not.toBe(0);
     expect(r.stderr).toMatch(/provenance/i);
   });
 
   it("rejects a superseded candidate", () => {
     const cand = makeCandidate({ lifecycle: "superseded" });
-    const r = run("scripts/promote-candidate.mjs", ["--candidate", cand]);
+    const r = run("scripts/promote-candidate.mjs", ["--candidate", cand, "--manifest", MANIFEST_PATH]);
     expect(r.status).not.toBe(0);
     expect(r.stderr).toMatch(/superseded|not "frozen"/i);
   });
@@ -302,7 +367,7 @@ describe("promote-candidate verifies provenance, HEAD, evidence and lifecycle", 
     pub.artifactHash = wrongHash;
     obj.evidenceHashes = { [evPath]: wrongHash };
     writeFileSync(cand, JSON.stringify(obj, null, 2));
-    const r = run("scripts/promote-candidate.mjs", ["--candidate", cand]);
+    const r = run("scripts/promote-candidate.mjs", ["--candidate", cand, "--manifest", MANIFEST_PATH]);
     expect(r.status).not.toBe(0);
     expect(r.stderr).toMatch(/tamper/i);
   });

@@ -1,19 +1,22 @@
 # Mellowa — v22 Final MVP Release Closure: exact-SHA certification
 
-> **✅ RE-CERTIFIED at `1b7dfef` (v23, 2026-09-22) — verdicts `GO / GO / GO`, scale
-> expansion GATHERING DATA.** The v23 production dependency security patch
-> (Next.js `16.2.12`→`16.3.5`, Sharp `→0.35.4`, baseline-browser-mapping `→2.11.x`,
-> resolving the Next.js critical / Sharp high / baseline moderate advisories) is
-> product code, so it required a **new candidate SHA**. That RC was cut and frozen
-> **green** by the release-candidate workflow
-> ([run 35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867),
-> success) at **`1b7dfef83eec9570774254a8234f057c6e673a7b`**, which now runs a **hard
-> `npm audit --omit=dev` gate** (0 production advisories) and writes a SHA-pinned audit
-> artifact. The build is **deployed** (`/api/health` → `version: 1b7dfef`) and
-> **paid readiness re-probed** at `1b7dfef` (authenticated `/api/health/ready` = 200,
-> `mode:paid`, every component ok incl `cron_billing_reconcile_freshness:ok`).
-> `matureValue` is **absent** (no cohort report) and does **not** gate the paid MVP —
-> it gates `scale_expansion`, which is **GATHERING DATA** (see §9).
+> **⚠️ SUPERSEDED at `1b7dfef` (v24, 2026-09-22) — current verdict PENDING OWNER
+> RECERTIFICATION, not GO.** The `GO / GO / GO` recorded below was certified at RC
+> `1b7dfef83eec9570774254a8234f057c6e673a7b`, but that candidate is now superseded on
+> two counts: (1) **deploy drift** — production `GET /api/health` serves `version:
+> f0dbcf5`, not `1b7dfef`, so exact-SHA deploy parity is broken; and (2) the v24
+> release-truth reconciliation adds new release-tooling commits past the frozen RC. No
+> verdict can be read from a superseded candidate. Every launch tier is now
+> **UNASSESSED** and strict public paid is **PENDING OWNER RECERTIFICATION** until the
+> owner cuts a **new immutable RC at the v24 final SHA** and deploys exactly that SHA
+> (see `docs/release/manifest.v22.json`, the generated `STATUS.md`, and blocker
+> `P0-V24-DEPLOY-PARITY`). Everything recorded below is a **true historical record
+> observed at `1b7dfef`** — the v23 dependency security patch (Next.js `16.3.5`, Sharp
+> `0.35.4`, baseline-browser-mapping `2.11.x`), the green RC
+> ([run 35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867)),
+> the paid-readiness probe and the live A–H rehearsal — none of which certifies the
+> current deploy. `matureValue` is **absent** and gates `scale_expansion`
+> (GATHERING DATA), never the paid MVP.
 
 Source pack: `Mellowa_Final_MVP_Fix_Prompts_v22` (Prompt 2) + `Nujne_MVP_Izboljsave_Mellowa_v23`.
 This is an honest, exact-SHA evidence record. **No verdict is inferred from a score.**
@@ -204,13 +207,18 @@ The v22 product-code changes are `src/app/api/ai/regenerate-section/route.ts`
 file to roll it back. No migration added; no other Stripe code changed (frozen at
 v16). Code rollback target for the shipped line remains the last promoted RC.
 
-## 9. Verdicts — `GO / GO / GO` at `1b7dfef`; scale expansion GATHERING DATA
+## 9. Verdicts — HISTORICAL `GO / GO / GO` at `1b7dfef` (SUPERSEDED v24); scale expansion GATHERING DATA
 
-**Current active verdict** at the promoted RC `1b7dfef` (release-candidate workflow
+**Superseded (v24).** The verdicts in the table below are the **historical** verdicts
+that held **at RC `1b7dfef`** (release-candidate workflow
 [run 35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867),
-success — the v23 dependency-patch re-cut with the hard audit gate):
+success — the v23 dependency-patch re-cut with the hard audit gate). They no longer
+describe the current state: production `/api/health` serves `f0dbcf5` (deploy drift) and
+v24 tooling commits move the tree past the frozen RC, so the **current** launch verdict
+for every tier is **UNASSESSED / PENDING OWNER RECERTIFICATION** (see `manifest.v22.json`
+and the generated `STATUS.md`). Scale expansion remains GATHERING DATA throughout.
 
-| Tier | Verdict | Why |
+| Tier | Verdict at `1b7dfef` (HISTORICAL — now SUPERSEDED) | Why |
 |---|---|---|
 | **CAPPED_BETA** | **GO** | Immutable RC frozen green at `1b7dfef` (authenticated E2E matrix green, migrations 050–054 verified, hard dependency-audit gate = 0 production advisories, safety + sample-claim correctness green). No open blocker. |
 | **SUPERVISED_PAID_MVP** | **GO** | Paid readiness re-probed at `1b7dfef` (`P0-V22-PAID-READINESS` closed: authenticated `/api/health/ready`=200, `mode:paid`, every component ok incl `cron_billing_reconcile_freshness:ok` after re-firing reconcile). Live billing **A–H rehearsal** carries forward (`P0-LIVE-TRANSACTION` closed — witnessed live at faf5d16, each expected email delivered once; billing code byte-identical, so a dependency-only patch needs no re-run). matureValue is **not** a gate for this tier (v23). |

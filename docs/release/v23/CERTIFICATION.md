@@ -1,5 +1,14 @@
 # Mellowa v23 — exact-SHA release certification (Prompt 4)
 
+> **⚠️ SUPERSEDED (v24, 2026-09-22).** This record certified RC `1b7dfef`. It is now
+> superseded: production `/api/health` serves `f0dbcf5` (deploy drift) and the v24
+> release-truth reconciliation adds release-tooling commits past the frozen RC. The
+> `GO` verdicts below are **historical, at `1b7dfef`**; the **current** launch verdict
+> for every tier is **UNASSESSED / PENDING OWNER RECERTIFICATION** (see
+> `docs/release/manifest.v22.json`, its generated `STATUS.md`, and blocker
+> `P0-V24-DEPLOY-PARITY`). A new immutable RC must be cut at the v24 final SHA and
+> deployed. No missing evidence is interpreted as a pass.
+
 Independent certifier record for the v23 **dependency security patch + honest
 release gate**. No new features; scope is a safe paid MVP. No verdict is inferred
 from a score, and **no missing evidence is interpreted as a pass**.
@@ -41,8 +50,10 @@ uploaded SHA-pinned; freeze verifies artifact SHA == checked-out SHA == candidat
   conclusion **success**, head_sha `1b7dfef83eec9570774254a8234f057c6e673a7b` (verified
   via GitHub's public API). Uploaded artifact `rc-evidence-1b7dfef…` (candidate record +
   SHA-pinned dependency-audit). VERIFIED IN CI.
-- **DEPLOYED at `1b7dfef`.** Public `GET /api/health` returns `version: 1b7dfef` — the
-  frozen RC code == the live code. VERIFIED (public probe).
+- **DEPLOY DRIFT (v24).** Public `GET /api/health` now returns `version: f0dbcf5`, NOT
+  `1b7dfef` — exact-SHA deploy parity is broken, so the frozen RC no longer describes the
+  live code. VERIFIED (public probe, 2026-09-22). RC `1b7dfef` is SUPERSEDED (blocker
+  `P0-V24-DEPLOY-PARITY`); a new RC must be cut at the v24 final SHA and deployed.
 - **Paid readiness — DONE (2026-09-22).** Authenticated `GET /api/health/ready`
   (`mode:paid`) → **200** at `1b7dfef` with **every component ok**, including
   `cron_billing_reconcile_freshness:ok` after re-firing `POST /api/cron/billing-reconcile`
@@ -54,10 +65,11 @@ uploaded SHA-pinned; freeze verifies artifact SHA == checked-out SHA == candidat
 
 ## Phase 4 — canonical release truth
 
-- **One active manifest.** `docs/release/manifest.v22.json` is now
-  `candidateLifecycle: superseded` (v23 dependency patch), every tier + scale
-  expansion **UNASSESSED**; `docs/release/v22/STATUS.md` re-rendered from it.
-  Historical manifests (v11/v13/v16/v20) unchanged.
+- **One active manifest.** `docs/release/manifest.v22.json` (the ONE canonical active
+  path, `scripts/active-manifest.mjs`) is now `candidateLifecycle: superseded` (v24:
+  deploy drift + release-tooling commits), every launch tier **UNASSESSED** and scale
+  expansion **GATHERING DATA**; `docs/release/v22/STATUS.md` re-rendered from it.
+  Historical manifests (v11/v13/v16/v20) unchanged and archived.
 - **Dependency evidence** originates from a fresh SHA-pinned audit artifact
   (`scripts/audit-dependencies.mjs`), never a hand-typed `openDependencyAdvisories:
   0`. Owner evidence no longer hand-types the count; `matureValue` = **absent**.
@@ -66,9 +78,14 @@ uploaded SHA-pinned; freeze verifies artifact SHA == checked-out SHA == candidat
 - **No active document** asserts NOT RUN and DONE for the same owner gate
   (`tests/active-doc-truth.test.ts` enforces it); the v22 §7 contradiction is fixed.
 
-## Verdicts (separated — not merged)
+## Verdicts (separated — not merged) — HISTORICAL at `1b7dfef`, SUPERSEDED (v24)
 
-| Tier | Current verdict | Basis |
+The verdicts below are the **historical** verdicts that held at RC `1b7dfef`. They are
+**superseded** (deploy drift + v24 tooling); the **current** launch verdict for every
+tier is **UNASSESSED / PENDING OWNER RECERTIFICATION**. Scale expansion stays GATHERING
+DATA.
+
+| Tier | Verdict at `1b7dfef` (HISTORICAL — SUPERSEDED v24) | Basis |
 |---|---|---|
 | Automated code gate | **GO** | Code gates green in the RC run (35657030867) at `1b7dfef`; audit 0; build + manifest green. |
 | Capped beta | **GO** | Immutable RC frozen green at `1b7dfef` (authenticated matrix + audit gate), no open blocker. |
@@ -76,7 +93,7 @@ uploaded SHA-pinned; freeze verifies artifact SHA == checked-out SHA == candidat
 | Strict public paid | **GO** | + production `release-check` satisfied by the deployed paid `/api/health/ready`=200 and a clean **fresh** SHA-pinned audit artifact at `1b7dfef`. |
 | Scale expansion | **GATHERING DATA** | No redacted mature-cohort report exists (`matureValue` absent). Stays GATHERING DATA — never a fabricated pass — until one does. 10× capacity is post-MVP. |
 
-### Path to full GO — COMPLETE (2026-09-22)
+### Path to full GO — steps below were done at `1b7dfef`, but are SUPERSEDED (v24): re-certify at the new final SHA
 
 1. ✅ Deployed the v23 candidate; `/api/health` → `version:1b7dfef`.
 2. ✅ Cut the RC via the release-candidate workflow ([run 35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867), success) — hard audit gate + authenticated matrix green; SHA-pinned artifact written.

@@ -2,19 +2,21 @@
 
 > Generated from `docs/release/manifest.v22.json` by `scripts/render-release-status.mjs`. Do not edit by hand — a contract test regenerates this and fails on any drift.
 
-- **Candidate:** RC 1b7dfef (promoted)
+- **Candidate:** RC 1b7dfef SUPERSEDED
 - **Baseline:** `30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b`
-- **Reconciled:** 2026-09-22T00:00:00Z
+- **Reconciled:** 2026-09-22T18:00:00Z
 - **Migrations:** 54 (001–054)
 
 ## Verdicts
 
 | Tier | Verdict |
 |---|---|
-| Automated code gate | GO |
-| Capped beta | GO |
-| Public paid | GO |
+| Automated code gate | UNASSESSED |
+| Capped beta | UNASSESSED |
+| Public paid | UNASSESSED |
 | Scale expansion | GATHERING DATA |
+
+UNASSESSED is not a weak GO. No candidate is frozen, so no verdict can be read from the gates until one is cut via the immutable release-candidate workflow.
 
 ## Required gates
 
@@ -32,7 +34,9 @@
 
 ## Open blockers
 
-_None open._
+| Id | Level | Blocks | Title |
+|---|---|---|---|
+| P0-V24-DEPLOY-PARITY | P0 | capped_beta, public_paid | Deploy drift + superseded RC: production /api/health serves f0dbcf5 while the promoted RC is 1b7dfef, and v24 release-tooling commits move the product tree past the frozen candidate. |
 
 ## Owner-run evidence
 
