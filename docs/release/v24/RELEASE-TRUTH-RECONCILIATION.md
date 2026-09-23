@@ -143,9 +143,11 @@ base's superseded marker. The contract tests now freeze the promoted manifest sh
 **Derived verdicts at `2543a38`:** code gate **GO** · capped beta **GO** · public paid
 **GO** · scale expansion **GATHERING DATA** (no mature cohort report, never fabricated).
 
+**Prompt 3 step 6 — post-deploy smoke: PASSED** (owner-attested 2026-09-23, operator
+Primoz Cerar, on mellowa.app at `2543a38`): login, plan load, one adjustment, checkout
+open, portal. The owner reported that everything works. No PII or secrets recorded.
+
 **Owner items not recorded (NOT RUN, not claimed):**
-- Prompt 3 step 6: short post-deploy smoke (login, plan load, one adjustment, checkout
-  open, portal, webhook health).
 - Prompt 3 step 7: throwaway subscription cannot renew; cancellation and
   payment-recovered emails each delivered exactly once.
 - Prompt 4: independent read-only certification.
