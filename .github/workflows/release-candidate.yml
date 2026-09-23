@@ -64,7 +64,7 @@ jobs:
           fi
           echo "sha=$REF" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Certify the EXACT commit, and fetch full history so the manifest's
           # drift/migration checks and any rcSha..HEAD diff resolve.
