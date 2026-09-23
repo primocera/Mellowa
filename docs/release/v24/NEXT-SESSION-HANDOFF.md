@@ -65,6 +65,44 @@ final SHA.
 > this bug — the real RC freezes against the promoted v22 manifest. The new test must
 > freeze against the promoted-manifest shape (or the real active manifest) to catch it.
 
+## Freeze fix — DONE (2026-09-23)
+
+Implemented in `scripts/freeze-candidate.mjs`:
+
+- Every suite starts from a non-inherited baseline. A `production_owner` suite
+  (`release-check`) always resets to `blocked` (no sha/evidence/counts). Any other pass is
+  carried only when `s.sha === rcSha`; otherwise it resets to `blocked`. A pass or fail in
+  this run's summary overrides the baseline, as before.
+- The base manifest's `supersededNote` is **not** inherited by the fresh candidate. It
+  describes the OLD RC, and cutting a new RC is how a superseded line gets resolved.
+  Without this, a green RC froze all-UNASSESSED verdicts. Open blockers are current state
+  and still apply.
+- New contract tests in `tests/rc-workflow-contract.test.ts` freeze the **real promoted
+  v22 manifest shape** at HEAD. `release-check` resets and the candidate is valid (no
+  `wrong_sha`/`production_gate_faked`, code gate GO). A stale non-owner pass that this run
+  did not execute resets to `blocked`.
+- Local simulation against the actual `manifest.v22.json` froze successfully:
+  `code=GO, beta=NO-GO, paid=NO-GO`. Beta is NO-GO because the open P0-V24-DEPLOY-PARITY
+  blocker is honest until deploy parity is proven.
+- Gate: typecheck ✓, eslint on tracked code ✓ (`npm run lint` flags only the untracked
+  owner scratch `*.js` in the repo root, which are not in git/CI), eval ✓, build ✓,
+  release-manifest ✓, v22 render --check ✓, `npm audit --omit=dev` 0, vitest 2221 pass /
+  2 known Windows-only CRLF fails (release-v16/v20 STATUS; green on CI).
+
+### Promote note (verified by dry-run)
+
+`promote-candidate.mjs` re-derives the candidate's verdicts against the promote-time
+manifest. If you remove P0-V24-DEPLOY-PARITY **before** running it, the candidate's frozen
+`capped_beta: NO-GO` no longer matches the derived GO → `verdict_mismatch`. Working route:
+
+1. In the base manifest, remove only `supersededNote`. Promote refuses a superseded base.
+   Keep the blocker.
+2. Run `promote-candidate.mjs --candidate … --audit-artifact … [--owner-evidence …] --write`.
+   Verified: "promotable", `code=GO, beta=NO-GO`.
+3. After parity is proven (deploy == FINAL SHA, ready=200), close P0-V24-DEPLOY-PARITY in
+   the reviewed proposal and re-derive the verdicts with `npm run release-manifest` + a
+   re-render. This is the same reviewed-edit path v23 used (f0dbcf5).
+
 ## After the freeze fix — owner sequence to reach parity
 
 1. Merge the fix to `main`; note the new **FINAL SHA**.

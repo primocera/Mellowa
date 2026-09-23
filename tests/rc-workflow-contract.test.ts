@@ -206,6 +206,63 @@ describe("freeze-candidate records passes honestly", () => {
     expect(cand.verdicts.automated_code_gate).toBe("GO");
   });
 
+  it("freezes the PROMOTED/superseded active manifest at a new sha: stale passes reset, candidate valid", () => {
+    // Regression for RC run 35811243648 (v24): the real RC freezes against the
+    // promoted active manifest, whose suites (incl. release-check: live_rehearsed)
+    // are pinned at an older RC. The clean-slate fixture above masked this.
+    const promotedPath = join(dir, "promoted-manifest.json");
+    writeFileSync(promotedPath, JSON.stringify(ACTIVE, null, 2));
+    const rcSuite = ACTIVE.suites.find((s: { id: string }) => s.id === "release-check");
+    expect(rcSuite.status).toMatch(/pass|rehearsed/); // fixture really is the promoted shape
+    expect(rcSuite.sha).not.toBe(HEAD);
+
+    const ev = writeAuthEvidence(HEAD, { total: 40, passed: 40, failed: 0, skipped: 0 });
+    const summary = writeSummary([
+      ...CODE_SUITES,
+      { id: "dependency-audit", result: "pass", evidence: writeAudit() },
+      { id: "e2e-authenticated", result: "pass", evidence: ev },
+    ]);
+    const out = join(dir, "cand-promoted.json");
+    const r = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--manifest", promotedPath, "--run-summary", summary, "--out", out], {
+      GITHUB_RUN_ID: "999",
+    });
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stderr).not.toMatch(/wrong_sha|production_gate_faked/);
+    const cand = JSON.parse(readFileSync(out, "utf8"));
+    const rc = cand.suites.find((s: { id: string }) => s.id === "release-check");
+    expect(rc.status).toBe("blocked");
+    expect(rc.sha).toBeUndefined();
+    expect(rc.evidence).toBeUndefined();
+    for (const s of cand.suites as { id: string; status: string; sha?: string }[]) {
+      if (s.id === "release-check") continue;
+      expect(s.status, s.id).toBe("ci_pass");
+      expect(s.sha, s.id).toBe(HEAD);
+    }
+    expect(cand.verdicts.automated_code_gate).toBe("GO");
+  });
+
+  it("resets a stale non-owner pass that this run did not execute (never carried at another sha)", () => {
+    const promotedPath = join(dir, "promoted-partial.json");
+    writeFileSync(promotedPath, JSON.stringify(ACTIVE, null, 2));
+    const ev = writeAuthEvidence(HEAD, { total: 40, passed: 40, failed: 0, skipped: 0 });
+    // e2e-public intentionally absent from this run's summary.
+    const summary = writeSummary([
+      ...CODE_SUITES.filter((s) => s.id !== "e2e-public"),
+      { id: "dependency-audit", result: "pass", evidence: writeAudit() },
+      { id: "e2e-authenticated", result: "pass", evidence: ev },
+    ]);
+    const out = join(dir, "cand-partial.json");
+    const r = run("scripts/freeze-candidate.mjs", ["--sha", HEAD, "--manifest", promotedPath, "--run-summary", summary, "--out", out], {
+      GITHUB_RUN_ID: "999",
+    });
+    expect(r.status, r.stderr).toBe(0);
+    const cand = JSON.parse(readFileSync(out, "utf8"));
+    const pub = cand.suites.find((s: { id: string }) => s.id === "e2e-public");
+    expect(pub.status).toBe("blocked");
+    expect(pub.sha).toBeUndefined();
+    expect(cand.verdicts.automated_code_gate).not.toBe("GO");
+  });
+
   it("REFUSES a run summary that marks the production-only release-check green", () => {
     const ev = writeAuthEvidence(HEAD, { total: 40, passed: 40, failed: 0, skipped: 0 });
     const summary = writeSummary([

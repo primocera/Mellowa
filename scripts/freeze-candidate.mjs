@@ -93,7 +93,8 @@ const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
 // ---- run summary: the only source of "this suite passed in THIS run" --------
 // Shape: { sha, runId?, environmentClass?, suites: [{ id, result:"pass"|"fail",
 //          command?, counts?, evidence? }] }. A suite absent from the summary
-// keeps its manifest status (typically blocked/not_run) — never guessed green.
+// keeps its manifest status only if that is non-passing or a pass pinned at this
+// exact SHA; a historical pass at another commit resets to blocked (see below).
 const summaryPath = opt("--run-summary");
 let summaryById = new Map();
 if (summaryPath) {
@@ -143,10 +144,27 @@ const suites = manifest.suites.map((s) => {
 
   const summaryEntry = summaryById.get(s.id);
 
-  // Carry forward an already-passing manifest status (e.g. owner evidence) at
-  // its pinned SHA. This is not a fresh pass; it is the recorded historical one.
-  if (isPassing(s.status)) {
-    rec.sha = s.sha ?? rcSha;
+  // v24 freeze fix: the base manifest supplies the suite LIST + required flags,
+  // but a fresh candidate must not inherit historical pass statuses. The active
+  // manifest may be a promoted/superseded record whose passes are pinned at an
+  // older RC; carrying those forward is a stale claim (production_gate_faked /
+  // wrong_sha). Baseline for every suite (a pass/fail in THIS run's summary
+  // overrides it below):
+  //   - a production-owner suite (release-check) always resets to blocked — a
+  //     non-production freeze never carries a production pass;
+  //   - any other pass is carried ONLY when pinned at exactly this commit.
+  const stale =
+    cls === "production_owner" ? isPassing(s.status) || s.sha != null : isPassing(s.status) && s.sha !== rcSha;
+  if (stale) {
+    rec.status = "blocked";
+    rec.counts = undefined;
+    rec.evidence = undefined;
+  }
+
+  // Carry forward a same-commit passing manifest status (e.g. owner evidence).
+  // This is not a fresh pass; it is the recorded one at this exact SHA.
+  if (isPassing(rec.status)) {
+    rec.sha = rcSha;
   }
 
   if (summaryEntry && summaryEntry.result === "pass") {
@@ -242,9 +260,9 @@ const suites = manifest.suites.map((s) => {
     rec.status = "failed";
     rec.sha = null;
     if (summaryEntry.counts) rec.counts = summaryEntry.counts;
-  } else if (isPassing(s.status) && s.evidence) {
-    // Carried-forward pass: hash its existing evidence too.
-    hashEvidence(s.evidence, rec);
+  } else if (isPassing(rec.status) && rec.evidence) {
+    // Carried-forward same-commit pass: hash its existing evidence too.
+    hashEvidence(rec.evidence, rec);
   }
 
   // Drop undefined/null keys for a stable artifact.
@@ -263,7 +281,13 @@ const manifestValid = flag("--assume-valid") || process.env.GITHUB_RUN_ID != nul
 const generatedAtUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 const rollbackTarget = (manifest.rollback.match(/\b([0-9a-f]{7,40})\b/) ?? [])[1] ?? "unknown";
 
-const candidate = buildCandidate(manifest, {
+// v24 freeze fix: a superseded marker describes the BASE record's old RC, not
+// the candidate being cut now — cutting a fresh RC is exactly how a superseded
+// line is resolved. Derive the new candidate's verdicts without inheriting it
+// (open blockers are current state and still apply).
+const base = { ...manifest, supersededNote: undefined };
+
+const candidate = buildCandidate(base, {
   rcSha,
   runId,
   runProvenance,
@@ -275,7 +299,7 @@ const candidate = buildCandidate(manifest, {
   manifestValid,
 });
 
-const violations = validateCandidateArtifact(candidate, manifest, {
+const violations = validateCandidateArtifact(candidate, base, {
   expectHeadSha: HEAD,
   manifestValid,
 });
