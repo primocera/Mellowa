@@ -147,9 +147,14 @@ base's superseded marker. The contract tests now freeze the promoted manifest sh
 Primoz Cerar, on mellowa.app at `2543a38`): login, plan load, one adjustment, checkout
 open, portal. The owner reported that everything works. No PII or secrets recorded.
 
+**Prompt 3 step 7 — throwaway subscription hygiene: PASSED for the subscription**
+(owner-attested 2026-09-23, operator Primoz Cerar): the live throwaway subscription is
+cancelled and cannot renew. The owner has **not re-confirmed** exactly-once delivery of
+the cancellation and payment-recovered emails for this step. That behaviour was
+witnessed in the live A–H rehearsal (2026-09-05, `docs/release/v22/LIVE-TRANSACTION-EVIDENCE.md`)
+and carries forward: the email-idempotency runtime is unchanged `1b7dfef..2543a38`.
+
 **Owner items not recorded (NOT RUN, not claimed):**
-- Prompt 3 step 7: throwaway subscription cannot renew; cancellation and
-  payment-recovered emails each delivered exactly once.
 - Prompt 4: independent read-only certification.
 
 **Known release-tooling gaps. Fix with the next RC; each changes `scripts/`/workflow and
