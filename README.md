@@ -17,7 +17,7 @@ Release truth is **machine-generated**, not hand-written here — so this sectio
 carries no verdicts, counts or SHAs that could drift. Read the verdicts on the
 generated status page, not in this prose.
 
-**Current line — v22 launch line, RC `1b7dfef` SUPERSEDED (v24): deploy drift + release-truth reconciliation.** Read the current verdicts on the generated status page — presently UNASSESSED / PENDING OWNER RECERTIFICATION, not GO:
+**Current line — v22 launch line, recertified at RC `2543a38` (v24).** Read the current verdicts on the generated status page:
 
 - Machine manifest: [`docs/release/manifest.v22.json`](docs/release/manifest.v22.json)
 - Rendered status (generated from the manifest; a contract test fails on drift):
@@ -36,8 +36,9 @@ generated status page, not in this prose.
 The v23-patched RC `1b7dfef` (release-candidate workflow
 [run 35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867),
 success; the v23 production dependency security patch — Next.js / Sharp /
-baseline-browser-mapping — with a hard dependency-audit gate) was promoted, but is now
-**SUPERSEDED** (v24): production `/api/health` serves `f0dbcf5` (deploy drift, exact-SHA
+baseline-browser-mapping — with a hard dependency-audit gate) was promoted, and was then
+**SUPERSEDED** (v24, since resolved: RC `2543a38`, run 35814658356, frozen, deployed and
+promoted; see [`docs/release/v24/RELEASE-TRUTH-RECONCILIATION.md`](docs/release/v24/RELEASE-TRUTH-RECONCILIATION.md)). At the time: production `/api/health` serves `f0dbcf5` (deploy drift, exact-SHA
 parity broken), and the v24 release-truth reconciliation adds new release-tooling
 commits past the frozen RC. No verdict can be read from a superseded candidate — every
 launch tier reads **UNASSESSED** and strict public paid is **PENDING OWNER

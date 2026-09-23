@@ -182,6 +182,24 @@ describe("emit-rc-run-summary", () => {
   });
 });
 
+// The promoted shape: every suite passing, pinned at an OLDER RC (as manifest.v22
+// was at 1b7dfef when RC run 35811243648 failed), release-check live_rehearsed.
+const OLD_RC = "1b7dfef83eec9570774254a8234f057c6e673a7b";
+function promotedAtOldRc() {
+  return {
+    ...ACTIVE,
+    rcSha: OLD_RC,
+    candidateLifecycle: "superseded",
+    supersededNote: "fixture: promoted RC superseded by later commits",
+    suites: (ACTIVE.suites as { id: string; status: string }[]).map((s) => ({
+      ...s,
+      status: s.id === "release-check" ? "live_rehearsed" : "ci_pass",
+      sha: OLD_RC,
+      evidence: `release-candidate workflow run 1 at ${OLD_RC.slice(0, 7)}`,
+    })),
+  };
+}
+
 describe("freeze-candidate records passes honestly", () => {
   it("freezes a clean workflow candidate; auth recorded, release-check left blocked", () => {
     const ev = writeAuthEvidence(HEAD, { total: 40, passed: 40, failed: 0, skipped: 0 });
@@ -211,8 +229,9 @@ describe("freeze-candidate records passes honestly", () => {
     // promoted active manifest, whose suites (incl. release-check: live_rehearsed)
     // are pinned at an older RC. The clean-slate fixture above masked this.
     const promotedPath = join(dir, "promoted-manifest.json");
-    writeFileSync(promotedPath, JSON.stringify(ACTIVE, null, 2));
-    const rcSuite = ACTIVE.suites.find((s: { id: string }) => s.id === "release-check");
+    const PROMOTED = promotedAtOldRc();
+    writeFileSync(promotedPath, JSON.stringify(PROMOTED, null, 2));
+    const rcSuite = PROMOTED.suites.find((s: { id: string }) => s.id === "release-check")!;
     expect(rcSuite.status).toMatch(/pass|rehearsed/); // fixture really is the promoted shape
     expect(rcSuite.sha).not.toBe(HEAD);
 
@@ -243,7 +262,7 @@ describe("freeze-candidate records passes honestly", () => {
 
   it("resets a stale non-owner pass that this run did not execute (never carried at another sha)", () => {
     const promotedPath = join(dir, "promoted-partial.json");
-    writeFileSync(promotedPath, JSON.stringify(ACTIVE, null, 2));
+    writeFileSync(promotedPath, JSON.stringify(promotedAtOldRc(), null, 2));
     const ev = writeAuthEvidence(HEAD, { total: 40, passed: 40, failed: 0, skipped: 0 });
     // e2e-public intentionally absent from this run's summary.
     const summary = writeSummary([

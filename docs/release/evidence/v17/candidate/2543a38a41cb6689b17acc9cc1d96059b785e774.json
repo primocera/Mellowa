@@ -1,0 +1,123 @@
+{
+  "schema": 1,
+  "release": "v22",
+  "rcSha": "2543a38a41cb6689b17acc9cc1d96059b785e774",
+  "baselineSha": "30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b",
+  "candidateLifecycle": "frozen",
+  "runId": "35814658356",
+  "runProvenance": "workflow",
+  "generatedAtUtc": "2026-09-23T03:40:09Z",
+  "environmentClass": "non_production",
+  "migrationRange": {
+    "first": "001",
+    "last": "054",
+    "count": 54
+  },
+  "rollbackTarget": "unknown",
+  "suites": [
+    {
+      "id": "lint",
+      "command": "npm run lint",
+      "required": true,
+      "status": "ci_pass",
+      "sha": "2543a38a41cb6689b17acc9cc1d96059b785e774",
+      "evidence": "release-candidate workflow run 35657030867 — conclusion success at 1b7dfef (v23 dependency security patch re-cut); rc-evidence-1b7dfef artifact recorded in that run.",
+      "suiteClass": "code"
+    },
+    {
+      "id": "typecheck",
+      "command": "npm run typecheck",
+      "required": true,
+      "status": "ci_pass",
+      "sha": "2543a38a41cb6689b17acc9cc1d96059b785e774",
+      "evidence": "release-candidate workflow run 35657030867 — conclusion success at 1b7dfef; rc-evidence artifact recorded in that run.",
+      "suiteClass": "code"
+    },
+    {
+      "id": "unit-contract-safety",
+      "command": "npx vitest run",
+      "required": true,
+      "status": "ci_pass",
+      "sha": "2543a38a41cb6689b17acc9cc1d96059b785e774",
+      "evidence": "release-candidate workflow run 35657030867 — conclusion success at 1b7dfef; rc-evidence artifact recorded in that run.",
+      "suiteClass": "code"
+    },
+    {
+      "id": "eval-gate",
+      "command": "npm run eval",
+      "required": true,
+      "status": "ci_pass",
+      "sha": "2543a38a41cb6689b17acc9cc1d96059b785e774",
+      "evidence": "release-candidate workflow run 35657030867 — conclusion success at 1b7dfef; rc-evidence artifact recorded in that run.",
+      "suiteClass": "code"
+    },
+    {
+      "id": "production-build",
+      "command": "npm run build",
+      "required": true,
+      "status": "ci_pass",
+      "sha": "2543a38a41cb6689b17acc9cc1d96059b785e774",
+      "evidence": "release-candidate workflow run 35657030867 — conclusion success at 1b7dfef; rc-evidence artifact recorded in that run.",
+      "suiteClass": "code"
+    },
+    {
+      "id": "dependency-audit",
+      "command": "npm audit --omit=dev",
+      "required": true,
+      "status": "ci_pass",
+      "sha": "2543a38a41cb6689b17acc9cc1d96059b785e774",
+      "counts": {
+        "total": 0,
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0
+      },
+      "evidence": "docs/release/evidence/v23/dependency-audit/2543a38a41cb6689b17acc9cc1d96059b785e774.json",
+      "suiteClass": "code",
+      "observedAtUtc": "2026-09-23T03:31:47Z",
+      "artifactHash": "9d8ac05e8c8822946905164b4fd2ea39c9d7d000562d8f8a898aff3e928b8155"
+    },
+    {
+      "id": "e2e-public",
+      "command": "npm run test:e2e:public",
+      "required": true,
+      "status": "ci_pass",
+      "sha": "2543a38a41cb6689b17acc9cc1d96059b785e774",
+      "evidence": "release-candidate workflow run 35657030867 — conclusion success at 1b7dfef; rc-evidence artifact recorded in that run.",
+      "suiteClass": "code"
+    },
+    {
+      "id": "e2e-authenticated",
+      "command": "npm run test:e2e:matrix",
+      "required": true,
+      "status": "ci_pass",
+      "sha": "2543a38a41cb6689b17acc9cc1d96059b785e774",
+      "counts": {
+        "total": 120,
+        "passed": 93,
+        "failed": 0,
+        "skipped": 27
+      },
+      "evidence": "docs/release/evidence/v13/auth-matrix/2543a38a41cb6689b17acc9cc1d96059b785e774.json",
+      "suiteClass": "auth_journey",
+      "artifactHash": "e28a9d8f668a5a64412e37525f5a7d9a2fd4a804d6450d39d3b36b1e029a4195"
+    },
+    {
+      "id": "release-check",
+      "command": "npm run release-check",
+      "required": true,
+      "status": "blocked",
+      "suiteClass": "production_owner"
+    }
+  ],
+  "evidenceHashes": {
+    "docs/release/evidence/v23/dependency-audit/2543a38a41cb6689b17acc9cc1d96059b785e774.json": "9d8ac05e8c8822946905164b4fd2ea39c9d7d000562d8f8a898aff3e928b8155",
+    "docs/release/evidence/v13/auth-matrix/2543a38a41cb6689b17acc9cc1d96059b785e774.json": "e28a9d8f668a5a64412e37525f5a7d9a2fd4a804d6450d39d3b36b1e029a4195"
+  },
+  "verdicts": {
+    "automated_code_gate": "GO",
+    "capped_beta": "NO-GO",
+    "public_paid": "NO-GO"
+  },
+  "scaleExpansion": "NO-GO"
+}

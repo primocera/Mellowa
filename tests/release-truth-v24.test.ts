@@ -101,11 +101,12 @@ describe("v24 release-truth: the six fail-conditions", () => {
     expect(deployParityProblem({ verdicts: { public_paid: "GO" }, rcSha: SHA_1B7 }, SHA_F0D)).toBeTruthy();
     // Matching SHA → no problem.
     expect(deployParityProblem({ verdicts: { public_paid: "GO" }, rcSha: SHA_1B7 }, SHA_1B7)).toBeNull();
-    // The REAL active manifest is superseded (not GO), so it makes no parity claim and
-    // is honest even though the deployed version differs.
+    // The REAL active manifest: if it reads public-paid GO, its rcSha must equal the
+    // recorded deployed build (buildId) — the exact-SHA parity the owner re-proved.
     const m = activeManifest();
-    expect(m.verdicts.public_paid).not.toBe("GO");
-    expect(deployParityProblem(m, SHA_F0D)).toBeNull();
+    const deployed = (m as { buildId?: string | null }).buildId ?? null;
+    expect(deployParityProblem(m, deployed)).toBeNull();
+    if (m.verdicts.public_paid === "GO") expect(deployed).toBe(m.rcSha);
   });
 
   it("(2) a candidate missing a required active-line suite cannot read that tier GO", () => {
@@ -187,10 +188,10 @@ describe("v24 release-truth: the six fail-conditions", () => {
     // A real cohort pass lifts scale to follow paid; a fail sinks it — proof they are separate.
     expect(deriveScaleExpansion(g, paidGates({ matureValue: "pass" }))).toBe("GO");
     expect(deriveScaleExpansion(g, paidGates({ matureValue: "fail" }))).toBe("NO-GO");
-    // The real active manifest keeps scale non-active while paid is not GO.
+    // The real active manifest keeps scale at GATHERING DATA (no cohort report),
+    // whatever the paid verdict — scale never rides on the paid GO.
     const m = activeManifest();
     expect(m.scaleExpansion).toBe("GATHERING DATA");
-    expect(["GO", "CONDITIONAL GO"]).not.toContain(m.verdicts.public_paid);
   });
 
   it("the active manifest itself validates with zero violations", () => {

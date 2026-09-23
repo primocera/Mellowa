@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "application": "mellowa",
+  "candidateSha": "2543a38a41cb6689b17acc9cc1d96059b785e774",
+  "command": "npm audit --omit=dev --json",
+  "observedAtUtc": "2026-09-23T03:31:47Z",
+  "status": "clean",
+  "counts": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  }
+}

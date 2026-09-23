@@ -1,5 +1,12 @@
 # Mellowa — v22 Final MVP Release Closure: exact-SHA certification
 
+> **✅ RECERTIFIED at `2543a38` (v24, 2026-09-23): GO / GO / GO; scale expansion GATHERING DATA.**
+> RC run 35814658356 froze `2543a38`. Production `/api/health` and authenticated paid
+> readiness (200) were observed at the same SHA, and `P0-V24-DEPLOY-PARITY` is closed. See
+> [`docs/release/v24/RELEASE-TRUTH-RECONCILIATION.md`](../v24/RELEASE-TRUTH-RECONCILIATION.md)
+> and the generated [`STATUS.md`](../v22/STATUS.md). The superseded note below is kept as
+> history of the `1b7dfef` record.
+>
 > **⚠️ SUPERSEDED at `1b7dfef` (v24, 2026-09-22) — current verdict PENDING OWNER
 > RECERTIFICATION, not GO.** The `GO / GO / GO` recorded below was certified at RC
 > `1b7dfef83eec9570774254a8234f057c6e673a7b`, but that candidate is now superseded on

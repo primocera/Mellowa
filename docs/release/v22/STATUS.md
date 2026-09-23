@@ -2,21 +2,19 @@
 
 > Generated from `docs/release/manifest.v22.json` by `scripts/render-release-status.mjs`. Do not edit by hand — a contract test regenerates this and fails on any drift.
 
-- **Candidate:** RC 1b7dfef SUPERSEDED
+- **Candidate:** RC 2543a38 (promoted)
 - **Baseline:** `30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b`
-- **Reconciled:** 2026-09-22T18:00:00Z
+- **Reconciled:** 2026-09-23T04:30:00Z
 - **Migrations:** 54 (001–054)
 
 ## Verdicts
 
 | Tier | Verdict |
 |---|---|
-| Automated code gate | UNASSESSED |
-| Capped beta | UNASSESSED |
-| Public paid | UNASSESSED |
+| Automated code gate | GO |
+| Capped beta | GO |
+| Public paid | GO |
 | Scale expansion | GATHERING DATA |
-
-UNASSESSED is not a weak GO. No candidate is frozen, so no verdict can be read from the gates until one is cut via the immutable release-candidate workflow.
 
 ## Required gates
 
@@ -34,9 +32,7 @@ UNASSESSED is not a weak GO. No candidate is frozen, so no verdict can be read f
 
 ## Open blockers
 
-| Id | Level | Blocks | Title |
-|---|---|---|---|
-| P0-V24-DEPLOY-PARITY | P0 | capped_beta, public_paid | Deploy drift + superseded RC: production /api/health serves f0dbcf5 while the promoted RC is 1b7dfef, and v24 release-tooling commits move the product tree past the frozen candidate. |
+_None open._
 
 ## Owner-run evidence
 
@@ -50,5 +46,5 @@ UNASSESSED is not a weak GO. No candidate is frozen, so no verdict can be read f
 
 ## Rollback
 
-The v23 change is a dependency-only security patch (next 16.3.5, eslint-config-next matched, sharp override 0.35.4, baseline-browser-mapping 2.11.x in package.json + package-lock.json) plus release-gate tooling/docs; no product logic and no Stripe/billing code changed (frozen at v16), no migration added. Roll back by reverting to the previous deployment / restoring the prior package.json + package-lock.json. All 050-054 migrations are additive and reversible with a data-safe rollback recorded in each file. Code rollback target is the previous promoted RC.
+v24 is release tooling + tests + docs only (no runtime change vs 1b7dfef). Roll back by redeploying the previous production deployment; runtime-identical rollback target is 1b7dfef (v23 promoted RC). Migrations 050-054 are additive with data-safe rollbacks recorded in each file.
 

@@ -201,18 +201,18 @@ describe("the reconciled v22 manifest is internally consistent and honest", () =
     ).toEqual([]);
   });
 
-  it("is SUPERSEDED (v24 deploy drift) with launch tiers UNASSESSED and scale held at GATHERING DATA", () => {
-    // v24: the promoted RC 1b7dfef is superseded because production /api/health serves
-    // f0dbcf5 (deploy drift) and v24 release-tooling commits move the tree past it.
-    expect(m.candidateLifecycle).toBe("superseded");
-    expect((m as { supersededNote?: string }).supersededNote ?? "").toMatch(/f0dbcf5|deploy drift/i);
-    expect(m.rcSha).toBe("1b7dfef83eec9570774254a8234f057c6e673a7b");
-    expect((m as { productHeadSha?: string }).productHeadSha).toBe("f0dbcf56fe648864bb6fcb9e5acab920af6be629");
-    // No launch tier may present an active verdict while superseded — PENDING recert.
-    expect(m.verdicts.automated_code_gate).toBe("UNASSESSED");
-    expect(m.verdicts.capped_beta).toBe("UNASSESSED");
-    expect(m.verdicts.public_paid).toBe("UNASSESSED");
-    // Scale expansion is kept separate and non-active; GATHERING DATA is allowed here.
+  it("is PROMOTED at the v24 final SHA with exact-SHA deploy parity and scale held at GATHERING DATA", () => {
+    // v24 recertification: RC run 35814658356 froze 2543a38, production /api/health and
+    // authenticated paid readiness were observed at the same SHA (2026-09-23).
+    const F = "2543a38a41cb6689b17acc9cc1d96059b785e774";
+    expect(m.candidateLifecycle).toBe("promoted");
+    expect((m as { supersededNote?: string }).supersededNote).toBeUndefined();
+    expect(m.rcSha).toBe(F);
+    expect(m.buildId).toBe(F);
+    for (const s of m.suites) expect(s.sha, s.id).toBe(F);
+    expect(m.blockers.map((b) => b.id)).not.toContain("P0-V24-DEPLOY-PARITY");
+    expect((m.closedBlockers ?? []).map((b) => b.id)).toContain("P0-V24-DEPLOY-PARITY");
+    // Scale expansion is kept separate and non-active without a cohort report.
     expect(m.scaleExpansion).toBe("GATHERING DATA");
   });
 

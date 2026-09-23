@@ -121,3 +121,44 @@ sequence to restore parity (owner-only — Claude runs none of it):
 
 Until step 5, strict public paid stays **PENDING OWNER RECERTIFICATION**; scale
 expansion stays **GATHERING DATA** (no mature cohort report — never fabricated).
+
+## Recertification at the final SHA — DONE (2026-09-23)
+
+**FINAL SHA = `2543a38a41cb6689b17acc9cc1d96059b785e774`.** The first RC at `4b5a795`
+(run 35811243648) failed at the Freeze step. `freeze-candidate.mjs` carried the promoted
+manifest's historical `release-check` pass at `1b7dfef` into a fresh candidate. `e159dee`
+fixed that: stale passes reset to `blocked`, and a fresh candidate no longer inherits the
+base's superseded marker. The contract tests now freeze the promoted manifest shape.
+
+| Step | Result | Evidence |
+|---|---|---|
+| 1. Merge to `main` | done, FINAL SHA `2543a38` | `origin/main` = `2543a38` |
+| 2. Release-candidate workflow | **success**, all 21 steps incl. hard audit, authenticated matrix (120 total / 93 passed / 0 failed / 27 skipped) and **Freeze** | [run 35814658356](https://github.com/primocera/Mellowa/actions/runs/35814658356); `docs/release/evidence/v17/candidate/2543a38a41cb6689b17acc9cc1d96059b785e774.json` |
+| Dependency audit | clean, 0 production advisories, pinned to `2543a38` | `docs/release/evidence/v23/dependency-audit/2543a38a41cb6689b17acc9cc1d96059b785e774.json` |
+| 3. Deploy exact SHA | public `GET /api/health` → `{"ok":true,"version":"2543a38"}` | observed 2026-09-23 |
+| 4. Paid readiness | authenticated `GET /api/health/ready` → **HTTP 200**, `mode: paid`, every component `ok` (incl. `cron_billing_reconcile_freshness`), `version: 2543a38` | owner-run 2026-09-23, operator Primoz Cerar; no secret recorded |
+| 5. Promote | `manifest.v22.json` → `promoted`, `rcSha == buildId == suites.sha == deployed == 2543a38`; `P0-V24-DEPLOY-PARITY` closed | reviewed manifest edit (v23 pattern); verdicts derived by `deriveVerdicts`, not typed |
+| 6. Live A–H carry-forward | valid: `git diff 1b7dfef..2543a38` touches no runtime path | billing/webhook/entitlement/email-idempotency byte-identical |
+
+**Derived verdicts at `2543a38`:** code gate **GO** · capped beta **GO** · public paid
+**GO** · scale expansion **GATHERING DATA** (no mature cohort report, never fabricated).
+
+**Owner items not recorded (NOT RUN, not claimed):**
+- Prompt 3 step 6: short post-deploy smoke (login, plan load, one adjustment, checkout
+  open, portal, webhook health).
+- Prompt 3 step 7: throwaway subscription cannot renew; cancellation and
+  payment-recovered emails each delivered exactly once.
+- Prompt 4: independent read-only certification.
+
+**Known release-tooling gaps. Fix with the next RC; each changes `scripts/`/workflow and
+would supersede this candidate:**
+- `freeze-candidate.mjs` falls back to the base manifest's evidence text for code suites
+  when the run summary gives none. The frozen record's code-suite evidence strings
+  therefore name the old v23 run, even though their `sha` is correctly `2543a38`. The
+  promoted manifest points at run 35814658356.
+- The RC workflow does not upload the authenticated-matrix evidence JSON
+  (`docs/release/evidence/v13/auth-matrix/<sha>.json`). `promote-candidate.mjs` cannot
+  re-verify its hash, which is why promotion used the reviewed-edit path.
+- **Docs-only commits still deploy.** The Ignored Build Step above is not configured in
+  Vercel (`6b71726` auto-deployed). The promotion commit therefore stays **local/unpushed**
+  until that is configured. Otherwise pushing it moves `/api/health` off `2543a38`.
