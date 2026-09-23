@@ -94,10 +94,68 @@ MVP **GO** · Strict public paid **GO** · Scale expansion **GATHERING DATA**.
 | 2 | P2 release integrity | Frozen candidate ima pri code suitih star evidence tekst (sha je pravilen; manifest ga popravi) | Freeze naj prepiše evidence s trenutnim runom (naslednji RC) |
 | 3 | P2 docs | README odstavek je mešal "resolved" in zgodovinski "UNASSESSED"; owner evidence nima vedno UTC časa in imena | README popravljen 2026-09-23; UTC in operator sta v tem dokumentu (razdelek 2) |
 
+## 5. Dokazna tabela: vsaka zahteva dokumenta (Mellowa)
+
+Vsaka vrstica je zahteva iz dokumenta *Finalni MVP release popravki*, preverjena v
+repozitoriju 2026-09-23. ☑ = izpolnjeno z dokazom · ◐ = izpolnjeno z opombo (P2).
+
+### Prompt 2: enotni aktivni manifest in exact SHA release
+
+| Zahteva | Status | Dokaz |
+|---|---|---|
+| A1 En canonical ACTIVE MANIFEST PATH | ◐ | `scripts/active-manifest.mjs` ga izvaža; freeze in promote ga uvažata. YAML workflow in `package.json` JS konstante ne moreta uvoziti, zato ga zapišeta dobesedno; `tests/active-manifest-path.test.ts` faila, če se razlikujeta. |
+| A2 v16 se ne uporablja za freeze/promote/status/upload | ☑ | Nobena aktivna referenca na v16 v workflowu, `freeze-candidate.mjs`, `promote-candidate.mjs` ali `package.json` (ostali so samo komentarji). |
+| A3 freeze sprejme `--manifest` ali canonical path | ☑ | `scripts/freeze-candidate.mjs` (`opt("--manifest", ACTIVE_MANIFEST_PATH)`). |
+| A4 promote uporablja isti path; `--manifest` validiran in zapisan v provenance | ◐ | Isti path ✓; `promotedFrom` provenance ✓. Samo eksplicitni `--manifest` skripta ne validira posebej. Ta promocija ni tekla prek skripte (reviewed edit), manifest pa validira `npm run release-manifest` (86/86). |
+| A5 Workflow validira in render-checka v22, freeze iz v22, upload v22 | ☑ | RC run 35814658356, koraki 9 (validate), 10 (status sync), 20 (freeze), 21 (upload `manifest.v22.json` + `v22/STATUS.md`). |
+| A6 Candidate vsebuje dependency audit s SHA hashom, `observedAtUtc`, clean counts | ☑ | Candidate: `dependency-audit` sha `2543a38`, `artifactHash`, `observedAtUtc 2026-09-23T03:31:47Z`, 0 najdb. Freeze faila brez suita (`freeze-candidate.mjs`); aktivni manifest ga zahteva (`tests/dependency-audit-gate.test.ts`). |
+| A7 Contract test za workflow, freeze, promote, renderer in README | ☑ | `tests/active-manifest-path.test.ts` (vseh 5 potrošnikov). |
+| A8 v16 testi omejeni na arhiv | ☑ | `tests/release-v16.test.ts` bere samo `manifest.v16.json`; ne vpliva na v22 verdict. |
+| B1 Brez GO na 1b7dfef ob drugačnem health | ☑ | v24 je 1b7dfef označil superseded; zdaj promoted `2543a38` = health. |
+| B2 Nov finalni SHA, ne f0dbcf5 | ☑ | FINAL SHA `2543a38`. |
+| B3 suites.sha = rcSha = buildId = deploy = owner readiness | ☑ | Vsi `2543a38` (razdelek 4 in `manifest.v22.json`, `owner-evidence.v22.json`, `/api/health`, `ready-result`). |
+| B4 Docs commit ne sme sam deployati | ☑ | Politika v `RELEASE-TRUTH-RECONCILIATION.md`; evidence je na ne-deployajoči veji `evidence/v24`, `main` = `2543a38` = produkcija. |
+| B5 Scale = GATHERING DATA, mature value ni launch gate | ☑ | `manifest.v22.json` `scaleExpansion`; `tests/release-truth-v24.test.ts` (6). |
+| C1 v23 OWNER-CHECKLIST uvod in tabela usklajena | ☑ | Tabela označena TEMPLATE HISTORY, brez trditve "all executed". |
+| C2 Vsak izveden korak: application, sha, UTC, operator, rezultat, referenca, expected/observed | ☑ | Razdelek 2 in tabela C2 spodaj. |
+| C3 Smoke, throwaway, email exactly once: dokaz ali NOT RUN | ☑ | Smoke passed; naročnina preklicana; email exactly-once iz live A–H (2026-09-05), carried forward. |
+| C4 Brez emailov, skrivnosti, kartic, Stripe objektov | ☑ | Pregled `docs/release/v24`, manifesta, owner evidence in artifactov: 0 zadetkov (email, `sk_live`, `whsec_`, `cus_`, kartice). |
+| C5 A–H carry-forward samo ob praznem runtime diffu | ☑ | `git diff 1b7dfef..2543a38`: `src/`, `supabase/` in `package-lock.json` nespremenjeni (potrdil tudi audit). |
+| D Šest release-truth testov | ☑ | `tests/release-truth-v24.test.ts` (1)–(6). |
+| Obvezni ukazi (ci, audit, lint, typecheck, test, eval, build, release-manifest, render --check) | ☑ | Razdelek 4: audit 0, lint 0, typecheck 0, vitest 2221 (+2 CRLF), eval 81/81, release-manifest 86/86, build ✓, render v sync. |
+| Zaključni odgovor Prompta 2 | ☑ | `RELEASE-TRUTH-RECONCILIATION.md`: path in potrošniki, odstranjene/ohranjene v16 reference, handoff. |
+
+### Tabela C2: expected proti observed
+
+| Korak | Expected | Observed | UTC | Operator | Rezultat |
+|---|---|---|---|---|---|
+| RC na FINAL SHA | success, head `2543a38`, vsi gatei | success, `2543a38`, 21/21 | 03:31–03:40 | Primoz Cerar | passed |
+| Deploy | `/api/health` = `2543a38` | `{"ok":true,"version":"2543a38"}` | 2026-09-23 | Primoz Cerar | passed |
+| Paid readiness | 200, vse ok | 200, 35/35 ok | 03:55:38 | Primoz Cerar | passed |
+| Smoke | login, plan, adjustment, checkout, portal delujejo | "everything works" | 2026-09-23 | Primoz Cerar | passed |
+| Throwaway naročnina | ne more obnoviti | preklicana | 2026-09-23 | Primoz Cerar | passed |
+| Email exactly once | vsak email enkrat | enkrat (live A–H, 2026-09-05); runtime nespremenjen | 2026-09-05 | Primoz Cerar | passed (carried forward) |
+
+### Prompt 3 in Prompt 4
+
+| Zahteva | Status | Dokaz |
+|---|---|---|
+| Prompt 3 pravila: FINAL SHA, brez novega produkcijskega commita | ☑ | `main` = `2543a38` = produkcija; evidence na `evidence/v24`. |
+| Prompt 3 zaporedje za Mellowo 1–8 | ☑ | Razdelek 2 ("Owner koraki"). |
+| Obvezni evidence zapis (8 polj) | ☑ | Razdelek 2. |
+| Stop pogoji (skipped E2E, audit, SHA razlika, readiness blocker, PII, nov commit) | ☑ | Noben ni nastopil: E2E 93/0, audit 0, SHA enaki, readiness 35/35, brez PII, po RC ni runtime commita. |
+| Prompt 4 faze 1–4 in verdict | ☑ | Razdelek 4: GO/GO/GO/GO, scale GATHERING DATA, samo P2. |
+| Končni completion checklist (Mellowa vrstice) | ☑ | Razdelek 1. |
+
+**Zaključek:** vse zahteve dokumenta za Mellowo so izpolnjene in podprte z dokazi.
+Odprte so le P2 opombe (razdelek 4, #1–#2, ter A1 in A4 zgoraj). Nobena ne vpliva na
+verdict; vse se uredijo ob naslednjem runtime releasu. **Mellowa v24: DONE.**
+
 ## Odprto
 
-- P2 #1 in #2 zahtevata spremembo `scripts/` ali workflowa, zato ju popravimo ob
-  naslednjem runtime releasu z novim RC. Zdaj ne, ker bi s tem zavrgli sedanji kandidat.
+- P2 #1, #2 in A4 (validacija eksplicitnega `--manifest` v promote) zahtevajo spremembo
+  `scripts/` ali workflowa, zato jih popravimo ob naslednjem runtime releasu z novim RC.
+  Zdaj ne, ker bi s tem zavrgli sedanji kandidat.
 - **Docs-only commiti še vedno deployajo.** Vercel Ignored Build Step ni nastavljen, zato
   commit tega dokumenta premakne `/api/health` z `2543a38`. Pred pushem nastavi Ignored
   Build Step (glej [`RELEASE-TRUTH-RECONCILIATION.md`](RELEASE-TRUTH-RECONCILIATION.md)).
