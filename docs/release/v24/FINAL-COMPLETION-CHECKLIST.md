@@ -63,9 +63,41 @@ Pravilo iz dokumenta: kljukica brez evidence reference ne šteje.
 Verdicti so izpeljani z `deriveVerdicts` (`scripts/candidate-lib.mjs`), ne ročno vpisani;
 glej [`STATUS.md`](../v22/STATUS.md).
 
+## 4. Prompt 4: neodvisna read-only certifikacija (2026-09-23)
+
+Izvedena v ločeni Claude Code seji, read-only, v ločenem worktree-ju na `2543a38`.
+
+| Preverjanje | Rezultat |
+|---|---|
+| origin/main = FINAL SHA | `2543a38a41cb6689b17acc9cc1d96059b785e774` ✓ |
+| RC run 35814658356 | `workflow_dispatch` na `main`, head_sha `2543a38`, success, 03:31–03:40 UTC, 21/21 korakov; artifact se ujema z `evidence/v24` ✓ |
+| Javni `/api/health` | 200, `version: 2543a38` ✓ |
+| `npm audit --omit=dev` | 0 ✓ |
+| lint / typecheck | exit 0 / 0 napak ✓ |
+| vitest | 2221 pass / 2 fail (release-v16, mw08: Windows CRLF; na CI zelena, korak 13) ✓ |
+| eval / release-manifest | 81/81 / 86/86 ✓ |
+| build | RC korak 15 success + Vercel deploy; lokalno 78/78 strani (kratka pot) ✓ |
+| Odstranjeni ali preimenovani testi | nobeden (+2 datoteki, +14 testov) ✓ |
+| Authenticated E2E | ni skipped: 120 / 93 passed / 0 failed / 27 skipped ✓ |
+| Release truth | en aktivni manifest; STATUS je byte-exact render; 9/9 required suitov; `blockers: []` ✓ |
+| Paid readiness | 200, `mode: paid`, 35/35 komponent ok (03:55 UTC) ✓ |
+| Live A–H carry-forward | runtime diff `1b7dfef..2543a38` prazen ✓ |
+
+**Verdict audita:** Automated code gate **GO** · Capped beta **GO** · Supervised paid
+MVP **GO** · Strict public paid **GO** · Scale expansion **GATHERING DATA**.
+
+**Najdbe (vse P2, nič blokirajočega):**
+
+| # | Nivo | Najdba | Popravek |
+|---|---|---|---|
+| 1 | P2 release integrity | JSON authenticated matrixa ni v RC artifactu (ohranjena sta le counts in hash v candidate) | Dodati pot v upload korak workflowa (naslednji RC) |
+| 2 | P2 release integrity | Frozen candidate ima pri code suitih star evidence tekst (sha je pravilen; manifest ga popravi) | Freeze naj prepiše evidence s trenutnim runom (naslednji RC) |
+| 3 | P2 docs | README odstavek je mešal "resolved" in zgodovinski "UNASSESSED"; owner evidence nima vedno UTC časa in imena | README popravljen 2026-09-23; UTC in operator sta v tem dokumentu (razdelek 2) |
+
 ## Odprto
 
-- **Prompt 4** (neodvisna read-only certifikacija): še ni izveden.
+- P2 #1 in #2 zahtevata spremembo `scripts/` ali workflowa, zato ju popravimo ob
+  naslednjem runtime releasu z novim RC. Zdaj ne, ker bi s tem zavrgli sedanji kandidat.
 - **Docs-only commiti še vedno deployajo.** Vercel Ignored Build Step ni nastavljen, zato
   commit tega dokumenta premakne `/api/health` z `2543a38`. Pred pushem nastavi Ignored
   Build Step (glej [`RELEASE-TRUTH-RECONCILIATION.md`](RELEASE-TRUTH-RECONCILIATION.md)).

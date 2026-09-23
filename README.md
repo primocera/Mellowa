@@ -33,22 +33,17 @@ generated status page, not in this prose.
 [`docs/release/manifest.v16.json`](docs/release/manifest.v16.json) and its rendered
 [`docs/release/v16/STATUS.md`](docs/release/v16/STATUS.md).
 
-The v23-patched RC `1b7dfef` (release-candidate workflow
-[run 35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867),
-success; the v23 production dependency security patch — Next.js / Sharp /
-baseline-browser-mapping — with a hard dependency-audit gate) was promoted, and was then
-**SUPERSEDED** (v24, since resolved: RC `2543a38`, run 35814658356, frozen, deployed and
-promoted; see [`docs/release/v24/RELEASE-TRUTH-RECONCILIATION.md`](docs/release/v24/RELEASE-TRUTH-RECONCILIATION.md)). At the time: production `/api/health` serves `f0dbcf5` (deploy drift, exact-SHA
-parity broken), and the v24 release-truth reconciliation adds new release-tooling
-commits past the frozen RC. No verdict can be read from a superseded candidate — every
-launch tier reads **UNASSESSED** and strict public paid is **PENDING OWNER
-RECERTIFICATION** until the owner cuts a new immutable RC at the v24 final SHA and
-deploys exactly that SHA. The recorded owner-evidence (migrations 050–054, paid
-readiness, live A–H billing rehearsal) remains a true historical record observed at
-`1b7dfef` and does not certify the current deploy; the verdicts live in the generated
-v22 status + manifest linked above, never restated here. Scale expansion is tracked
-separately and stays GATHERING DATA until a mature cohort report exists. Billing code is
-frozen at v16 apart from fail-closed failure-path fixes.
+The current candidate is RC `2543a38` (release-candidate workflow
+[run 35814658356](https://github.com/primocera/Mellowa/actions/runs/35814658356)). It
+was frozen, deployed at that exact SHA and promoted, and an independent read-only audit
+confirmed it (v24; see
+[`docs/release/v24/RELEASE-TRUTH-RECONCILIATION.md`](docs/release/v24/RELEASE-TRUTH-RECONCILIATION.md)).
+The verdicts live in the generated v22 status + manifest linked above and are never
+restated here. History: the v23 RC `1b7dfef`
+([run 35657030867](https://github.com/primocera/Mellowa/actions/runs/35657030867), the
+dependency security patch with a hard audit gate) was superseded in v24 by deploy drift.
+Scale expansion is tracked separately and stays GATHERING DATA until a mature cohort
+report exists. Billing code is frozen at v16 apart from fail-closed failure-path fixes.
 
 Dependency posture is a **hard release gate** (v23): the release-candidate workflow
 runs `npm audit --omit=dev` via
