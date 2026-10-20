@@ -1,4 +1,5 @@
 import "server-only";
+import Anthropic from "@anthropic-ai/sdk";
 import type { z } from "zod";
 import { getAiClient, getAiModel } from "./client";
 import { AiGenerationError } from "./errors";
@@ -6,14 +7,29 @@ import { isAiMockEnabled, mockFromSchema } from "./mock";
 import type { AiUsage } from "./usage";
 import { CircuitBreaker } from "./circuit-breaker";
 import { isKilled, policyFor, type AiRouteName } from "./model-policy";
+import { effortFor, withTokenHeadroom } from "./model-params";
 
 // Instance-local breaker (best-effort on serverless — see circuit-breaker.ts).
 const providerBreaker = new CircuitBreaker({ threshold: 5, openMs: 60_000 });
 
-/** Retryable provider statuses: rate limit and provider overload only. */
+function isTimeoutError(err: unknown): boolean {
+  return (
+    err instanceof Anthropic.APIConnectionTimeoutError ||
+    (err instanceof Error && /timed? ?out/i.test(err.message))
+  );
+}
+
+/**
+ * Retryable provider failures: timeouts and other connection errors, request
+ * timeout/conflict, rate limit and 5xx/overload — the set the SDK would retry
+ * on its own. The SDK's internal retries are switched off (maxRetries: 0), so
+ * this single deadline-aware retry is the only one.
+ */
 function isRetryableProviderError(err: unknown): boolean {
+  if (err instanceof Anthropic.APIConnectionError || isTimeoutError(err)) return true;
   const status = (err as { status?: number } | null)?.status;
-  return status === 429 || status === 529;
+  if (typeof status !== "number") return false;
+  return status === 408 || status === 409 || status === 429 || status >= 500;
 }
 
 const DEFAULT_TIMEOUT_MS = 60_000;
@@ -37,7 +53,7 @@ type GenerateOptions<S extends z.ZodTypeAny> = {
   zodSchema: S;
   /** Route name — applies the model policy defaults + kill switch (Prompt 14). */
   route?: AiRouteName;
-  temperature?: number;
+  /** Visible-output budget; tokenizer/thinking headroom is added on top. */
   maxTokens?: number;
   timeoutMs?: number;
   /**
@@ -69,7 +85,6 @@ export async function generateStructuredJson<S extends z.ZodTypeAny>({
   userPrompt,
   zodSchema,
   route,
-  temperature,
   maxTokens,
   timeoutMs,
   deadline,
@@ -77,8 +92,8 @@ export async function generateStructuredJson<S extends z.ZodTypeAny>({
 }: GenerateOptions<S>): Promise<z.infer<S>> {
   const policy = route ? policyFor(route) : null;
   const model = policy?.model ?? getAiModel();
-  const temp = temperature ?? policy?.temperature ?? 0.6;
-  const tokens = maxTokens ?? policy?.maxTokens ?? 4096;
+  const tokens = withTokenHeadroom(maxTokens ?? policy?.maxTokens ?? 4096);
+  const effort = effortFor(model);
   const timeout = timeoutMs ?? policy?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   /** Effective per-attempt timeout, capped by any remaining deadline budget. */
   const attemptTimeout = () =>
@@ -136,22 +151,26 @@ export async function generateStructuredJson<S extends z.ZodTypeAny>({
   }
 
   let responseText: string;
+  let stopReason: string | null = null;
   let inputTokens = 0;
   let outputTokens = 0;
   try {
+    // No temperature/top_p/top_k (Haiku 5.5 rejects them) and no prefill.
     const request = (perCallTimeout: number) =>
       client.messages.create(
         {
           model,
           max_tokens: tokens,
-          temperature: temp,
+          ...(effort ? { output_config: { effort } } : {}),
           system: `${systemPrompt}\n\nRespond with a single valid JSON object only. No prose, no markdown.`,
           messages: [{ role: "user", content: userPrompt }],
         },
-        { timeout: perCallTimeout }
+        // maxRetries: 0 — the SDK would otherwise retry a timeout twice more,
+        // each with the full per-attempt timeout, past any caller deadline.
+        { timeout: perCallTimeout, maxRetries: 0 }
       );
 
-    // Bounded retry: exactly one, only for rate-limit/overload, with jitter
+    // Bounded retry: exactly one, only for retryable failures, with jitter
     // (backpressure, never a request storm). Under a deadline the jitter and the
     // second attempt are clamped to the remaining budget, and the retry is
     // skipped entirely when too little budget remains.
@@ -175,14 +194,15 @@ export async function generateStructuredJson<S extends z.ZodTypeAny>({
     // Provider token truth — the basis for actual cost.
     inputTokens = message.usage?.input_tokens ?? 0;
     outputTokens = message.usage?.output_tokens ?? 0;
+    stopReason = message.stop_reason ?? null;
 
+    // Thinking blocks may come first; only text blocks carry the answer.
     responseText = message.content
       .filter((block) => block.type === "text")
       .map((block) => block.text)
       .join("");
   } catch (err) {
-    const isTimeout =
-      err instanceof Error && /timed? ?out/i.test(err.message);
+    const isTimeout = isTimeoutError(err);
     console.error("[ai] provider call failed", {
       model,
       timeout: isTimeout,
@@ -195,7 +215,20 @@ export async function generateStructuredJson<S extends z.ZodTypeAny>({
     );
   }
 
+  // The provider answered, so this is a breaker success even when the answer
+  // is a refusal or was cut off.
   providerBreaker.recordSuccess();
+
+  if (stopReason === "refusal") {
+    console.error("[ai] provider declined the request", { model, route });
+    record("refusal", inputTokens, outputTokens);
+    throw new AiGenerationError("AI provider declined the request", "refusal");
+  }
+  if (stopReason === "max_tokens") {
+    console.error("[ai] response hit max_tokens", { model, route, maxTokens: tokens });
+    record("truncated", inputTokens, outputTokens);
+    throw new AiGenerationError("AI response was cut off at max_tokens", "truncated");
+  }
 
   let parsed: unknown;
   try {

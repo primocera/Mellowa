@@ -105,7 +105,6 @@ export async function POST(request: Request) {
       systemPrompt: MEAL_RHYTHM_SYSTEM_PROMPT,
       userPrompt,
       zodSchema: MealRhythmOutput,
-      temperature: 0.7,
       maxTokens: 4096,
       usageSink: sink1,
     });
@@ -123,7 +122,6 @@ export async function POST(request: Request) {
           hadAllergen ? `\n\n${allergenExclusionInstruction(allergies)}` : ""
         }`,
         zodSchema: MealRhythmOutput,
-        temperature: 0.5,
         maxTokens: 4096,
         usageSink: sink2,
       });

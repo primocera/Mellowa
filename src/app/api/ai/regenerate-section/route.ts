@@ -401,7 +401,6 @@ Return ONLY the regenerated part as a single JSON object matching the same shape
       systemPrompt: DAILY_PLAN_V2_SYSTEM_PROMPT,
       userPrompt,
       zodSchema: schema,
-      temperature: 0.7,
       maxTokens: 3072,
       usageSink: sink1,
     });
@@ -425,7 +424,6 @@ IMPORTANT CORRECTION: ${correctiveInstruction([
 
 ${allergenExclusionInstruction(allergies)}` : ""}`,
         zodSchema: schema,
-        temperature: 0.5,
         maxTokens: 3072,
         usageSink: sink2,
       });

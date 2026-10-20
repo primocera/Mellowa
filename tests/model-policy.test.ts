@@ -21,8 +21,10 @@ describe("model policy", () => {
     }
   });
 
-  it("safety classification is deterministic (temperature 0)", () => {
-    expect(MODEL_POLICIES["safety-check"].temperature).toBe(0);
+  it("sends no sampling params (Haiku 5.5 rejects temperature)", () => {
+    for (const p of Object.values(MODEL_POLICIES)) {
+      expect(p).not.toHaveProperty("temperature");
+    }
   });
 });
 

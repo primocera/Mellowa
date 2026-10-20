@@ -61,7 +61,6 @@ export async function generateWeeklyPlan(args: {
 IMPORTANT CORRECTION: ${extraInstruction}`
       : basePrompt,
     zodSchema: WeeklyPlanOutput,
-    temperature: 0.6,
     maxTokens: 8192,
     usageSink,
   });

@@ -18,6 +18,8 @@ export type AiStatus =
   | "provider_error"
   | "quality_failed" // provider returned, but the plan failed quality/allergen gates
   | "safety_blocked"
+  | "refusal" // provider answered with stop_reason "refusal"
+  | "truncated" // provider hit max_tokens; the output is unusable
   | "released"; // reserved but the provider was never called
 
 /** Provider usage captured by generateStructuredJson for one attempt. */

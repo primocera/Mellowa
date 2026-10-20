@@ -105,7 +105,6 @@ export async function POST(request: Request) {
       systemPrompt: JOURNAL_SYSTEM_PROMPT,
       userPrompt,
       zodSchema: JournalReflectionOutput,
-      temperature: 0.7,
       maxTokens: 1024,
       usageSink: sink1,
     });
@@ -119,7 +118,6 @@ export async function POST(request: Request) {
         systemPrompt: JOURNAL_SYSTEM_PROMPT,
         userPrompt: `${userPrompt}\n\nIMPORTANT CORRECTION: ${correctiveInstruction(quality.reasons)}`,
         zodSchema: JournalReflectionOutput,
-        temperature: 0.5,
         maxTokens: 1024,
         usageSink: sink2,
       });

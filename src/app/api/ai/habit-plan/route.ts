@@ -87,7 +87,6 @@ Suggest 1-3 small new habits as structured JSON.`;
       systemPrompt: HABIT_PLAN_SYSTEM_PROMPT,
       userPrompt,
       zodSchema: HabitPlanOutput,
-      temperature: 0.7,
       maxTokens: 2048,
       usageSink: sink1,
     });
@@ -101,7 +100,6 @@ Suggest 1-3 small new habits as structured JSON.`;
         systemPrompt: HABIT_PLAN_SYSTEM_PROMPT,
         userPrompt: `${userPrompt}\n\nIMPORTANT CORRECTION: ${correctiveInstruction(quality.reasons)}`,
         zodSchema: HabitPlanOutput,
-        temperature: 0.5,
         maxTokens: 2048,
         usageSink: sink2,
       });

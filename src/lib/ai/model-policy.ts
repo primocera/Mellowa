@@ -25,7 +25,6 @@ export type AiRouteName =
 export interface ModelPolicy {
   /** Model id; null = the configured default (serverEnv.aiModel). */
   model: string | null;
-  temperature: number;
   maxTokens: number;
   timeoutMs: number;
   /** Reservation/latency budgets — alerting reference, not a hard stop. */
@@ -40,7 +39,6 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 export const MODEL_POLICIES: Record<AiRouteName, ModelPolicy> = {
   "daily-plan": {
     model: null,
-    temperature: 0.6,
     maxTokens: 8192,
     timeoutMs: DEFAULT_TIMEOUT_MS,
     costBudgetUsdPerCall: 0.03,
@@ -49,7 +47,6 @@ export const MODEL_POLICIES: Record<AiRouteName, ModelPolicy> = {
   },
   "weekly-plan": {
     model: null,
-    temperature: 0.6,
     maxTokens: 8192,
     timeoutMs: DEFAULT_TIMEOUT_MS,
     costBudgetUsdPerCall: 0.04,
@@ -58,7 +55,6 @@ export const MODEL_POLICIES: Record<AiRouteName, ModelPolicy> = {
   },
   "meal-rhythm": {
     model: null,
-    temperature: 0.7,
     maxTokens: 4096,
     timeoutMs: DEFAULT_TIMEOUT_MS,
     costBudgetUsdPerCall: 0.02,
@@ -67,7 +63,6 @@ export const MODEL_POLICIES: Record<AiRouteName, ModelPolicy> = {
   },
   "habit-plan": {
     model: null,
-    temperature: 0.7,
     maxTokens: 2048,
     timeoutMs: DEFAULT_TIMEOUT_MS,
     costBudgetUsdPerCall: 0.01,
@@ -76,7 +71,6 @@ export const MODEL_POLICIES: Record<AiRouteName, ModelPolicy> = {
   },
   "low-energy-day": {
     model: null,
-    temperature: 0.6,
     maxTokens: 4096,
     timeoutMs: DEFAULT_TIMEOUT_MS,
     costBudgetUsdPerCall: 0.02,
@@ -85,7 +79,6 @@ export const MODEL_POLICIES: Record<AiRouteName, ModelPolicy> = {
   },
   "journal-reflection": {
     model: null,
-    temperature: 0.7,
     maxTokens: 1024,
     timeoutMs: 30_000,
     costBudgetUsdPerCall: 0.005,
@@ -94,7 +87,6 @@ export const MODEL_POLICIES: Record<AiRouteName, ModelPolicy> = {
   },
   "regenerate-section": {
     model: null,
-    temperature: 0.7,
     maxTokens: 3072,
     timeoutMs: DEFAULT_TIMEOUT_MS,
     costBudgetUsdPerCall: 0.015,
@@ -104,7 +96,6 @@ export const MODEL_POLICIES: Record<AiRouteName, ModelPolicy> = {
   },
   "plan-repair": {
     model: null,
-    temperature: 0.6,
     maxTokens: 4096,
     timeoutMs: DEFAULT_TIMEOUT_MS,
     costBudgetUsdPerCall: 0.025,
@@ -114,7 +105,6 @@ export const MODEL_POLICIES: Record<AiRouteName, ModelPolicy> = {
   },
   "safety-check": {
     model: null,
-    temperature: 0,
     maxTokens: 1024,
     timeoutMs: 20_000,
     costBudgetUsdPerCall: 0.003,

@@ -50,7 +50,6 @@ export async function generateLowEnergyDay(args: {
       ? `${basePrompt}\n\nIMPORTANT CORRECTION: ${args.extraInstruction}`
       : basePrompt,
     zodSchema: LowEnergyDayOutput,
-    temperature: 0.6,
     maxTokens: 4096,
     usageSink: args.usageSink,
   });

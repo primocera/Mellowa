@@ -23,6 +23,8 @@ export interface PriceEntry {
   effective: string; // ISO date the price took effect
   inputPerMTok: number;
   outputPerMTok: number;
+  /** Higher rates for a prompt with more than `aboveInputTokens` input tokens. */
+  longPrompt?: { aboveInputTokens: number; inputPerMTok: number; outputPerMTok: number };
 }
 
 export const PRICING: PriceEntry[] = [
@@ -32,6 +34,14 @@ export const PRICING: PriceEntry[] = [
     effective: "2025-10-01",
     inputPerMTok: 1.0,
     outputPerMTok: 5.0,
+  },
+  {
+    provider: "anthropic",
+    model: "claude-haiku-5-5",
+    effective: "2026-10-07",
+    inputPerMTok: 0.1,
+    outputPerMTok: 0.5,
+    longPrompt: { aboveInputTokens: 100_000, inputPerMTok: 0.5, outputPerMTok: 2.5 },
   },
 ];
 
@@ -56,9 +66,15 @@ export function computeActualCostUsd(
 ): number {
   const price = priceFor(model, atIso);
   if (!price) return computeCostUsd(inputTokens, outputTokens);
+  // The tier is per prompt. Ledger rows can sum several attempts, which only
+  // errs toward the higher rate — and our prompts are a few thousand tokens.
+  const rates =
+    price.longPrompt && inputTokens > price.longPrompt.aboveInputTokens
+      ? price.longPrompt
+      : price;
   return (
-    (inputTokens / 1_000_000) * price.inputPerMTok +
-    (outputTokens / 1_000_000) * price.outputPerMTok
+    (inputTokens / 1_000_000) * rates.inputPerMTok +
+    (outputTokens / 1_000_000) * rates.outputPerMTok
   );
 }
 

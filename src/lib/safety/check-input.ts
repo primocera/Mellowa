@@ -52,7 +52,6 @@ export async function checkInputSafety(
       systemPrompt: SAFETY_SYSTEM_PROMPT,
       userPrompt: `Source: ${source}\n\nUser input:\n"""${trimmed.slice(0, 4000)}"""`,
       zodSchema: SafetyCheckOutput,
-      temperature: 0,
       maxTokens: 1024,
     });
   } catch {

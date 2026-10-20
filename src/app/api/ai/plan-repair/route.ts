@@ -318,7 +318,6 @@ ${scope.mealTypes.length ? `- "meal_cards": exactly ${scope.mealTypes.length} me
       systemPrompt: DAILY_PLAN_V2_SYSTEM_PROMPT,
       userPrompt,
       zodSchema: schema,
-      temperature: 0.6,
       maxTokens: 4096,
       usageSink: sink1,
     })) as Record<string, unknown>;
@@ -340,7 +339,6 @@ ${allergenExclusionInstruction(allergies)}`
             : ""
         }`,
         zodSchema: schema,
-        temperature: 0.4,
         maxTokens: 4096,
         usageSink: sink2,
       })) as Record<string, unknown>;

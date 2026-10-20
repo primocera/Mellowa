@@ -72,7 +72,6 @@ export async function generateDailyPlanV2(args: {
       ? `${basePrompt}\n\nIMPORTANT CORRECTION: ${extraInstruction}`
       : basePrompt,
     zodSchema: DailyPlanV2Output,
-    temperature: 0.6,
     maxTokens: 8192,
     deadline,
     usageSink,
