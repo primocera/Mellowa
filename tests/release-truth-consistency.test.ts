@@ -19,7 +19,8 @@ import type { ReleaseManifest } from "@/lib/release/manifest";
  */
 
 const MANIFEST_PATH = "docs/release/manifest.v11.json";
-const README = "README.md";
+// Release truth moved out of README.md into the agent release notes.
+const README = "docs/internal/RELEASE_NOTES_FOR_AGENTS.md";
 const STATUS = "docs/release/v12/STATUS.md";
 const BUILD_STATE = "docs/BUILD_STATE.md";
 

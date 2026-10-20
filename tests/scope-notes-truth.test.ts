@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
  */
 
 const manifest = JSON.parse(readFileSync("docs/release/manifest.v16.json", "utf8"));
-const scopeNote = readFileSync("PROMPT_PACK_SCOPE_NOTE.md", "utf8");
+const scopeNote = readFileSync("docs/internal/PROMPT_PACK_SCOPE_NOTE.md", "utf8");
 
 const openBlockerIds: string[] = (manifest.blockers ?? []).map((b: { id: string }) => b.id);
 

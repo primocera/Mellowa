@@ -24,7 +24,7 @@ marketing pack instead:
 - [ ] Your pack has prompts named `MW-*`, `XAPP-*`, `S*`, `X*`, or "FINAL"/"certification".
 - [ ] It adds or edits code, tests, migrations, or release/readiness machinery.
 - [ ] Its spine is the authenticated-E2E matrix or the live-money rehearsal (both are
-      owner-gated — see `PROMPT_PACK_SCOPE_NOTE.md` — a prompt cannot close them).
+      owner-gated — see `docs/internal/PROMPT_PACK_SCOPE_NOTE.md` — a prompt cannot close them).
 - [ ] You are "just tightening" something that already has tests.
 
 A correct next pack contains **zero** code diffs. Its deliverables are messaging,

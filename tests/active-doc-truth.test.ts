@@ -21,7 +21,8 @@ const v22 = (): ReleaseManifest =>
   JSON.parse(read("docs/release/manifest.v22.json")) as ReleaseManifest;
 
 describe("README defers to machine-generated release truth", () => {
-  const readme = read("README.md");
+  // Release truth moved out of README.md into the agent release notes.
+  const readme = read("docs/internal/RELEASE_NOTES_FOR_AGENTS.md");
 
   it("does not overclaim: the release loop is not narrated as 'closed' in prose", () => {
     // Even with v22 promoted, the README must not restate a hand-written

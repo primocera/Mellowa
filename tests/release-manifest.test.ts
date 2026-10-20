@@ -776,7 +776,7 @@ describe("the real v11 manifest", () => {
 describe("the human launch documents agree with the manifest", () => {
   const manifest = JSON.parse(readFileSync(REAL_MANIFEST_PATH, "utf8")) as ReleaseManifest;
   const doc = readFileSync("docs/launch-go-no-go-v11.md", "utf8");
-  const readme = readFileSync("README.md", "utf8");
+  const readme = readFileSync("docs/internal/RELEASE_NOTES_FOR_AGENTS.md", "utf8");
   const buildState = readFileSync("docs/BUILD_STATE.md", "utf8");
 
   const isSuperseded =
@@ -793,7 +793,7 @@ describe("the human launch documents agree with the manifest", () => {
     if (!isSuperseded) return;
     for (const [name, text] of [
       ["launch-go-no-go-v11.md", doc],
-      ["README.md", readme],
+      ["RELEASE_NOTES_FOR_AGENTS.md", readme],
     ] as const) {
       expect(text, `${name} does not mark the candidate SUPERSEDED`).toMatch(/SUPERSEDED/i);
       expect(text, `${name} does not carry the UNASSESSED verdict`).toMatch(/UNASSESSED/);

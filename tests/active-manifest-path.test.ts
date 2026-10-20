@@ -70,7 +70,7 @@ describe("every active RC consumer uses the canonical active path (not v16)", ()
   });
 
   it("README pins the active line to v22 (v16 stays linked only as archived history)", () => {
-    const readme = read("README.md");
+    const readme = read("docs/internal/RELEASE_NOTES_FOR_AGENTS.md");
     expect(readme).toContain(ACTIVE_MANIFEST_PATH);
     expect(readme).toContain(ACTIVE_STATUS_PATH);
     // v16 may still appear, but only under an archived/superseded heading.
