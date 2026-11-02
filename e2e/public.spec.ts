@@ -394,10 +394,12 @@ test("focus is visible on the primary signup control", async ({ page }) => {
   expect(outlined, "focused input has no visible focus indicator").toBe(true);
 });
 
-test("signup requires 18+ and policy consent (not pre-checked)", async ({ page }) => {
+test("signup requires 18+, policy and health-data consent (not pre-checked)", async ({ page }) => {
   await page.goto("/signup");
   const checkboxes = page.locator('input[type="checkbox"]');
-  await expect(checkboxes).toHaveCount(2);
+  // 18+, Terms/Privacy, and the separate GDPR Art. 9 health-data consent.
+  await expect(checkboxes).toHaveCount(3);
+  await expect(page.getByText(/wellbeing details I share/i)).toBeVisible();
   for (const box of await checkboxes.all()) {
     await expect(box).not.toBeChecked();
   }
