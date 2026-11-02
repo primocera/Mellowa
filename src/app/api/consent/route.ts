@@ -13,6 +13,9 @@ import { getConsentStatus, recordRequiredConsents } from "@/lib/consent/status";
 const Input = z.object({
   age_18_plus: z.literal(true),
   terms_and_privacy: z.literal(true),
+  // Explicit GDPR Art. 9 consent to processing wellbeing (health) data —
+  // its own checkbox, recorded with the current privacy version.
+  health_data: z.literal(true),
 });
 
 export async function GET() {

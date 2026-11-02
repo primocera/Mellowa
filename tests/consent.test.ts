@@ -74,6 +74,22 @@ describe("MW-02: signup and onboarding copy contract", () => {
     expect(authForm).not.toMatch(/defaultChecked/);
   });
 
+  it("GDPR Art. 9: health-data consent is its own required checkbox, sent to every consent write", () => {
+    expect(authForm).toMatch(/register\("healthData",\s*\{\s*required:/);
+    const checkpoint = readFileSync(
+      "src/components/dailyflow/consent-checkpoint.tsx",
+      "utf8"
+    );
+    const route = readFileSync("src/app/api/consent/route.ts", "utf8");
+    const callback = readFileSync("src/app/auth/callback/route.ts", "utf8");
+    expect(route).toMatch(/health_data:\s*z\.literal\(true\)/);
+    expect(callback).toMatch(/meta\?\.health_data === true/);
+    expect(checkpoint).toMatch(/!healthData/);
+    for (const src of [authForm, checkpoint]) {
+      expect(src).toMatch(/health_data: true/);
+    }
+  });
+
   it("signup states baseline + one sample and no payment method until Premium", () => {
     expect(signup).toMatch(/planning baseline/i);
     expect(signup).toMatch(/one free\s*sample|one free sample/i);

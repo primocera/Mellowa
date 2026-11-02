@@ -10,8 +10,16 @@
 export const POLICY_VERSIONS = {
   /** Age self-declaration wording version. */
   age_18_plus: "2026-07",
-  terms: process.env.NEXT_PUBLIC_TERMS_VERSION ?? "2026-07",
-  privacy: process.env.NEXT_PUBLIC_PRIVACY_VERSION ?? "2026-07",
+  terms: process.env.NEXT_PUBLIC_TERMS_VERSION ?? "2026-10",
+  /**
+   * From 2026-10 a `privacy` row also records the user's EXPLICIT consent to
+   * processing wellbeing information (GDPR Art. 9(2)(a) health data: mood,
+   * energy, stress, sleep, allergies, journal). That consent is collected by
+   * its own separate, unticked checkbox (`health_data` in /api/consent) and is
+   * never inferred from accepting the policies; the API refuses to record a
+   * privacy row without it.
+   */
+  privacy: process.env.NEXT_PUBLIC_PRIVACY_VERSION ?? "2026-10",
 } as const;
 
 export type RequiredConsentType = keyof typeof POLICY_VERSIONS;

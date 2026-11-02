@@ -21,6 +21,7 @@ type AuthValues = {
   password: string;
   age18: boolean;
   policies: boolean;
+  healthData: boolean;
 };
 
 export function AuthForm({
@@ -97,7 +98,7 @@ export function AuthForm({
       password: values.password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback${intentQuery}`,
-        data: { age_18_plus: true, terms_and_privacy: true },
+        data: { age_18_plus: true, terms_and_privacy: true, health_data: true },
       },
     });
 
@@ -128,7 +129,11 @@ export function AuthForm({
     void fetch("/api/consent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ age_18_plus: true, terms_and_privacy: true }),
+      body: JSON.stringify({
+        age_18_plus: true,
+        terms_and_privacy: true,
+        health_data: true,
+      }),
     }).catch(() => {});
     void fetch("/api/email/welcome", { method: "POST" }).catch(() => {});
 
@@ -231,6 +236,24 @@ export function AuthForm({
           </label>
           {errors.policies && (
             <p className="text-sm text-red-500">{errors.policies.message}</p>
+          )}
+          <label className="flex min-h-[44px] items-center gap-2.5 py-1 text-sm text-[#1F2937]">
+            <input
+              type="checkbox"
+              // GDPR Art. 9: explicit consent for wellbeing (health) data gets
+              // its own unticked box — never bundled into accepting the policies.
+              className="h-4 w-4 shrink-0 rounded border-[#E5E1DA] accent-[#7C9A92]"
+              {...register("healthData", {
+                required: "Please agree so Mellowa can use your answers to build your plans",
+              })}
+            />
+            <span>
+              I agree that Mellowa may use the wellbeing details I share (such as
+              mood, energy, stress, sleep and allergies) to create my plans
+            </span>
+          </label>
+          {errors.healthData && (
+            <p className="text-sm text-red-500">{errors.healthData.message}</p>
           )}
         </fieldset>
       )}

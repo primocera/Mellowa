@@ -17,6 +17,7 @@ export const PUBLIC_ROUTES = [
   "/privacy",
   "/terms",
   "/refund",
+  "/health-data",
   "/login",
   "/signup",
 ] as const;

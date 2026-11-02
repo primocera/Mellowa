@@ -35,14 +35,11 @@ export interface RegisteredStorageKey {
   note: string;
 }
 
+// Every key below is strictly necessary for something the user asked for
+// (resuming onboarding, their own "Not now" choices), so it is exempt from the
+// ePrivacy consent requirement. Analytics identifiers are NOT allowed here: the
+// pre-signup anon id lives in memory only (see lib/analytics/client.ts).
 export const BROWSER_STORAGE_REGISTRY: readonly RegisteredStorageKey[] = [
-  {
-    key: "mellowa_anon_id",
-    store: "localStorage",
-    sensitivity: "opaque_id",
-    purgeOnSignOut: false,
-    note: "Opaque pre-signup analytics id. No personal meaning; kept across sessions.",
-  },
   {
     key: "mellowa.onboarding.progress.v2",
     store: "localStorage",

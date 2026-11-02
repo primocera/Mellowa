@@ -476,6 +476,11 @@ export default async function LandingPage() {
           <Link href="/refund" className={FOOTER_LINK}>
             Refunds
           </Link>
+          {/* Washington MHMDA: the consumer health data policy must be linked
+              from the homepage. */}
+          <Link href="/health-data" className={FOOTER_LINK}>
+            Consumer Health Data
+          </Link>
           <a href={`mailto:${legal.supportEmail}`} className={FOOTER_LINK}>
             Support
           </a>

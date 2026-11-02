@@ -9,6 +9,7 @@ const POLICIES = [
   { href: "/terms", label: "Terms of Service" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/refund", label: "Refund Policy" },
+  { href: "/health-data", label: "Consumer Health Data Privacy Policy" },
 ];
 
 export default function HelpPage() {

@@ -14,6 +14,7 @@ export function ConsentCheckpoint() {
   const [needed, setNeeded] = useState(false);
   const [age18, setAge18] = useState(false);
   const [policies, setPolicies] = useState(false);
+  const [healthData, setHealthData] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +34,11 @@ export function ConsentCheckpoint() {
       const res = await fetch("/api/consent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ age_18_plus: true, terms_and_privacy: true }),
+        body: JSON.stringify({
+          age_18_plus: true,
+          terms_and_privacy: true,
+          health_data: true,
+        }),
       });
       if (res.ok) {
         setNeeded(false);
@@ -81,10 +86,22 @@ export function ConsentCheckpoint() {
             </Link>
           </span>
         </label>
+        <label className="flex items-start gap-2.5 text-sm text-[#1F2937]">
+          <input
+            type="checkbox"
+            checked={healthData}
+            onChange={(e) => setHealthData(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-[#E5E1DA] accent-[#7C9A92]"
+          />
+          <span>
+            I agree that Mellowa may use the wellbeing details I share (such as
+            mood, energy, stress, sleep and allergies) to create my plans
+          </span>
+        </label>
       </div>
       <button
         onClick={confirm}
-        disabled={!age18 || !policies || busy}
+        disabled={!age18 || !policies || !healthData || busy}
         className="mt-4 flex items-center gap-2 rounded-xl bg-[#7C9A92] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#6D8C7D] disabled:opacity-60"
       >
         {busy && <Loader2 className="h-4 w-4 animate-spin" />}

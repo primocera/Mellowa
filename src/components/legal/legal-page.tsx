@@ -71,6 +71,9 @@ export function LegalPage({
           <Link href="/terms" className="hover:text-[#6D8C7D]">
             Terms
           </Link>
+          <Link href="/health-data" className="hover:text-[#6D8C7D]">
+            Health data
+          </Link>
           <Link href="/refund" className="hover:text-[#6D8C7D]">
             Refunds
           </Link>

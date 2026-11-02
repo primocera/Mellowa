@@ -95,7 +95,11 @@ export async function GET(request: Request) {
 
   const user = data.user;
   const meta = user.user_metadata as Record<string, unknown> | null;
-  if (meta?.age_18_plus === true && meta?.terms_and_privacy === true) {
+  if (
+    meta?.age_18_plus === true &&
+    meta?.terms_and_privacy === true &&
+    meta?.health_data === true
+  ) {
     // Best-effort: the in-app consent checkpoint remains the backstop if this
     // write fails; verification must still complete.
     try {

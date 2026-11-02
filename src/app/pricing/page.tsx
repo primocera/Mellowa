@@ -177,6 +177,20 @@ export default async function PricingPage() {
             : "Your subscription renews automatically. Cancel anytime from your billing settings."}{" "}
           Mellowa is not medical care, therapy or emergency support.
         </p>
+        {/* EU Consumer Rights Directive: terms and the withdrawal right must be
+            available before the contract is concluded at checkout. */}
+        <p className="mt-2 text-center text-xs text-[#9CA3AF]">
+          By subscribing you agree to the{" "}
+          <Link href="/terms" className="underline hover:text-[#6D8C7D]">
+            Terms of Service
+          </Link>
+          . EU, EEA and UK customers can withdraw within 14 days for a full
+          refund — see the{" "}
+          <Link href="/refund" className="underline hover:text-[#6D8C7D]">
+            Refund &amp; Cancellation Policy
+          </Link>
+          .
+        </p>
       </main>
     </div>
   );
