@@ -1,5 +1,9 @@
 # NEXT STEPS — read this first (for the next LLM / prompt author)
 
+> **Latest session (Nov 2026):** the legal pass, the release step and the product ideas
+> discussed (camera, custom expert plans) are in
+> [`docs/internal/SESSION_NOTES_2026-11.md`](internal/SESSION_NOTES_2026-11.md).
+
 > ## ⛔ STOP — do not write another engineering pack
 >
 > The engineering build is done and certified **through v20**. Do **not** audit this
