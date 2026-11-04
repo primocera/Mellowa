@@ -29,6 +29,8 @@ const h = vi.hoisted(() => ({
   releaseCalls: [] as unknown[],
   claimCalls: 0,
   refundCalls: 0,
+  userClientProfileWrites: [] as Row[],
+  adminFilters: [] as { col: string; val: unknown }[],
 }));
 
 function from(table: string) {
@@ -45,29 +47,18 @@ function from(table: string) {
   }
   if (table === "wellbeing_profiles") {
     return {
-      update: (payload: Row) => ({
-        eq: () => ({
-          // claim path: .is(...).select(...).maybeSingle()
-          is: () => ({
-            select: () => ({
-              maybeSingle: async () => {
-                h.claimCalls += 1;
-                if (h.claimError) return { data: null, error: h.claimError };
-                return { data: h.claimClaimable ? { user_id: "u1" } : null, error: null };
-              },
-            }),
+      // The USER client must never write sample_adjustment_used_at (migration
+      // 055 rejects it for anon/authenticated) — record any attempt.
+      update: (payload: Row) => {
+        h.userClientProfileWrites.push(payload);
+        const rejected = { data: null, error: { message: "rejected by trigger" } };
+        return {
+          eq: () => ({
+            is: () => ({ select: () => ({ maybeSingle: async () => rejected }) }),
+            then: (resolve: (v: Row) => void) => resolve(rejected),
           }),
-          // refund path: .update({...:null}).eq("user_id", id) awaited directly
-          then: (resolve: (v: Row) => void) => {
-            if (payload.sample_adjustment_used_at === null) {
-              h.refundCalls += 1;
-              resolve({ error: h.refundError });
-            } else {
-              resolve({ error: null });
-            }
-          },
-        }),
-      }),
+        };
+      },
       select: () => ({
         eq: () => ({ maybeSingle: async () => ({ data: h.profile, error: null }) }),
       }),
@@ -75,6 +66,45 @@ function from(table: string) {
   }
   return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) };
 }
+
+/** Server-only admin client: the ONLY writer of sample_adjustment_used_at. */
+function adminFrom(table: string) {
+  if (table === "wellbeing_profiles") {
+    return {
+      update: (payload: Row) => ({
+        eq: (col: string, val: unknown) => {
+          h.adminFilters.push({ col, val });
+          return {
+            // claim path: .is(...).select(...).maybeSingle()
+            is: () => ({
+              select: () => ({
+                maybeSingle: async () => {
+                  h.claimCalls += 1;
+                  if (h.claimError) return { data: null, error: h.claimError };
+                  return { data: h.claimClaimable ? { user_id: "u1" } : null, error: null };
+                },
+              }),
+            }),
+            // refund path: .update({...:null}).eq("user_id", id) awaited directly
+            then: (resolve: (v: Row) => void) => {
+              if (payload.sample_adjustment_used_at === null) {
+                h.refundCalls += 1;
+                resolve({ error: h.refundError });
+              } else {
+                resolve({ error: null });
+              }
+            },
+          };
+        },
+      }),
+    };
+  }
+  throw new Error(`unexpected admin table ${table}`);
+}
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({ from: adminFrom }),
+}));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
@@ -136,6 +166,8 @@ beforeEach(() => {
   h.releaseCalls = [];
   h.claimCalls = 0;
   h.refundCalls = 0;
+  h.userClientProfileWrites = [];
+  h.adminFilters = [];
 });
 
 describe("sample claim / refund correctness (v22)", () => {
@@ -217,5 +249,29 @@ describe("sample claim / refund correctness (v22)", () => {
     expect(body.sample_adjustment).toBe(true);
     expect(h.claimCalls).toBe(2); // one claim per attempt, never extra allowance
     expect(h.refundCalls).toBe(1); // second attempt succeeded — no further refund
+  });
+
+  it("claim and refund go through the server-only admin client, scoped to the user", async () => {
+    h.curatedError = { message: "write failed" }; // forces claim + refund
+    const res = await POST(sampleSwap());
+    expect(res.status).toBe(500);
+    expect(h.claimCalls).toBe(1);
+    expect(h.refundCalls).toBe(1);
+    // The user (RLS) client never writes the sample timestamp.
+    expect(h.userClientProfileWrites).toHaveLength(0);
+    // Both admin writes carry an explicit user_id filter for the caller.
+    expect(h.adminFilters).toEqual([
+      { col: "user_id", val: "u1" },
+      { col: "user_id", val: "u1" },
+    ]);
+  });
+
+  it("premium users never touch the admin client or the sample timestamp", async () => {
+    h.isPremium = true;
+    const res = await POST(sampleSwap());
+    expect(res.status).toBe(200);
+    expect(h.claimCalls).toBe(0);
+    expect(h.adminFilters).toHaveLength(0);
+    expect(h.userClientProfileWrites).toHaveLength(0);
   });
 });

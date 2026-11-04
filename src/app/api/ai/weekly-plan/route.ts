@@ -9,7 +9,7 @@ import { finalizeAiUsage, releaseReservation } from "@/lib/ai/usage";
 import { promptVersionId } from "@/prompts/versions";
 import { AiGenerationError } from "@/lib/ai/errors";
 import { canUsePremiumFeature, canGenerateWeeklyPlan } from "@/lib/stripe/subscription";
-import { claimAiGeneration } from "@/lib/ai/rate-limit";
+import { guardAiRoute } from "@/lib/ai/guard";
 import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
 import { MealCardSchema } from "@/schemas/ai-output-v2";
 import { findMealAllergenViolations } from "@/lib/safety/allergens";
@@ -103,28 +103,19 @@ export async function POST(request: Request) {
   const finish = (status: "succeeded" | "failed", resultId?: string | null) =>
     finishGenerationRequest(supabase, { requestId, userId: user.id, status, resultId });
 
-  // Abuse guard — atomic per-user rate limit + global cost ceiling.
-  const claim = await claimAiGeneration(user.id, "weekly-plan");
-  if (!claim.ok) {
+  // Shared AI guard — operator per-account switch, consent checkpoint, atomic
+  // per-user rate limit + global cost ceiling (same gate as every other AI
+  // route). Premium was already verified above via canUsePremiumFeature, so the
+  // guard does not re-read the subscription. A denial closes the idempotency
+  // attempt so a retry is not stuck "in progress".
+  const guard = await guardAiRoute(user.id, { requirePremium: false, route: "weekly-plan" });
+  if (guard instanceof NextResponse) {
     await finish("failed");
-    if (claim.scope === "capacity") {
-      return NextResponse.json(
-        {
-          error: "capacity",
-          user_message:
-            "Mellowa is at capacity right now. Please try again a little later.",
-          retryAfterMinutes: claim.retryAfterMinutes,
-        },
-        { status: 503 }
-      );
-    }
-    return NextResponse.json(
-      { error: "rate_limited", scope: claim.scope, retryAfterMinutes: claim.retryAfterMinutes },
-      { status: 429 }
-    );
+    return guard;
   }
+  const eventId = guard.eventId;
 
-  // Ledger row is reserved (claim.eventId). It is finalized with provider truth
+  // Ledger row is reserved (eventId). It is finalized with provider truth
   // on a real generation, or released if we exit before calling the provider.
   const usageSink: UsageSink = {};
 
@@ -138,7 +129,7 @@ export async function POST(request: Request) {
   const parsed = WeeklyPlanInput.safeParse(body ?? {});
   if (!parsed.success) {
     await finish("failed");
-    await releaseReservation(claim.eventId);
+    await releaseReservation(eventId);
     return NextResponse.json(
       { error: "Invalid input", issues: parsed.error.issues },
       { status: 400 }
@@ -195,7 +186,7 @@ export async function POST(request: Request) {
     const safety = await checkInputSafety(user.id, "weekly-plan", safetyText);
     if (safety.should_block_generation) {
       await finish("failed");
-      await finalizeAiUsage(claim.eventId, { status: "safety_blocked", promptVersion: PROMPT_VERSION });
+      await finalizeAiUsage(eventId, { status: "safety_blocked", promptVersion: PROMPT_VERSION });
       return NextResponse.json(
         { blocked: true, user_message: safety.user_message },
         { status: 200 }
@@ -269,7 +260,7 @@ ${allergenExclusionInstruction(allergies)}` : ""
       if (!quality.ok) {
         const failedOnAllergen = quality.reasons.some((r) => r.startsWith("allergen:"));
         await finish("failed");
-        await finalizeAiUsage(claim.eventId, {
+        await finalizeAiUsage(eventId, {
           status: failedOnAllergen ? "safety_blocked" : "quality_failed",
           promptVersion: PROMPT_VERSION,
           usage: sumUsage([usageSink.usage, retrySink.usage], "quality_failed"),
@@ -287,7 +278,7 @@ ${allergenExclusionInstruction(allergies)}` : ""
     // The precise outcome (timeout/provider_error/invalid_json/schema_failed)
     // is captured in the sink; the provider may have been billed even on failure.
     const failStatus = retrySink.usage?.status ?? usageSink.usage?.status ?? "provider_error";
-    await finalizeAiUsage(claim.eventId, {
+    await finalizeAiUsage(eventId, {
       status: failStatus,
       promptVersion: PROMPT_VERSION,
       usage: sumUsage([usageSink.usage, retrySink.usage], failStatus),
@@ -320,7 +311,7 @@ ${allergenExclusionInstruction(allergies)}` : ""
     await finish("failed");
     // The provider call succeeded and was billed, so record the real cost even
     // though persistence failed — the row is truthful, just without a result_id.
-    await finalizeAiUsage(claim.eventId, {
+    await finalizeAiUsage(eventId, {
       status: "success",
       usage: sumUsage([usageSink.usage, retrySink.usage], "success"),
       promptVersion: PROMPT_VERSION,
@@ -338,7 +329,7 @@ ${allergenExclusionInstruction(allergies)}` : ""
     userId: user.id,
     properties: { outcome: "success" },
   });
-  await finalizeAiUsage(claim.eventId, {
+  await finalizeAiUsage(eventId, {
     status: "success",
     promptVersion: PROMPT_VERSION,
     usage: sumUsage([usageSink.usage, retrySink.usage], "success"),

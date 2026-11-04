@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ArrowLeft, ArrowRight, Check } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import {
   WellbeingProfileInput,
-  CONSENT_VERSION,
+  PROFILE_LIMITS,
   type WellbeingProfileInputType,
 } from "@/schemas/wellbeing";
 import clsx from "clsx";
@@ -318,50 +317,47 @@ export function OnboardingWizard() {
     }
 
     setSaving(true);
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // The baseline is saved SERVER-side (/api/onboarding/profile): the server
+    // authenticates, checks current-version consent, re-validates with the same
+    // schema and stamps the consent version itself. The browser never writes
+    // wellbeing_profiles directly.
+    const d = parsed.data;
+    let res: Response | null = null;
+    try {
+      res = await fetch("/api/onboarding/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...d, allergies_severe: draft.allergies_severe }),
+      });
+    } catch {
+      res = null;
+    }
 
-    if (!user) {
+    if (res?.status === 401) {
       router.push("/login");
       return;
     }
 
-    const d = parsed.data;
-    const { error: dbError } = await supabase.from("wellbeing_profiles").upsert(
-      {
-        user_id: user.id,
-        wake_time: d.wake_time,
-        sleep_time: d.sleep_time,
-        work_schedule: d.work_schedule,
-        primary_goal: d.primary_goal,
-        food_preferences: d.food_preferences,
-        allergies: d.allergies,
-        disliked_ingredients: d.disliked_ingredients,
-        cooking_time: d.cooking_time,
-        budget_level: d.budget_level,
-        movement_level: d.movement_level,
-        sleep_quality_baseline: String(d.sleep_quality_baseline),
-        stress_baseline: String(d.stress_baseline),
-        preferred_tone: d.preferred_tone,
-        safety_acknowledged: d.safety_acknowledged,
-        is_adult: d.is_adult,
-        allergies_severe: draft.allergies_severe,
-        timezone: d.timezone || null,
-        locale: d.locale || null,
-        consent_version: CONSENT_VERSION,
-        consent_accepted_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
-
-    if (dbError) {
-      // Raw provider errors are never customer copy; the draft stays on this
-      // device, so retrying is safe and loses nothing.
-      setError(
-        "Your baseline couldn't be saved just now. Your answers are still here — please try again in a moment."
-      );
+    if (!res?.ok) {
+      const body = (res ? await res.json().catch(() => null) : null) as
+        | { error?: string; user_message?: string }
+        | null;
+      if (body?.error === "consent_required") {
+        // The consent checkpoint is shown at the top of this page; nothing was
+        // stored, and the answers stay here for the retry.
+        setError(
+          "Please complete the quick confirmation at the top of this page first. Your answers are still here."
+        );
+        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (body?.error === "invalid_input" && body.user_message) {
+        setError(body.user_message);
+      } else {
+        // Raw provider errors are never customer copy; the draft stays on this
+        // device, so retrying is safe and loses nothing.
+        setError(
+          "Your baseline couldn't be saved just now. Your answers are still here — please try again in a moment."
+        );
+      }
       setSaving(false);
       return;
     }
@@ -454,6 +450,7 @@ export function OnboardingWizard() {
               <input
                 type="text"
                 value={draft.work_schedule}
+                maxLength={PROFILE_LIMITS.workScheduleChars}
                 onChange={(e) => set("work_schedule", e.target.value)}
                 placeholder="Office hours, shifts, caregiving, variable days…"
                 className="w-full rounded-xl border border-[#E5E1DA] px-4 py-3 text-[#1F2937] placeholder:text-[#9CA3AF] focus:border-[#7C9A92] focus:outline-none"

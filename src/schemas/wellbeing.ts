@@ -47,13 +47,67 @@ export const kitchenEquipmentOptions = [
   "minimal",
 ] as const;
 
+/**
+ * Input bounds for the wellbeing profile and check-in (server-validated; the DB
+ * mirrors them as CHECK constraints). Generous for real answers, but a bound —
+ * these values travel into AI prompts and are stored as health-adjacent data.
+ */
+export const PROFILE_LIMITS = {
+  /** wake_time / sleep_time: an <input type="time"> value ("HH:MM[:SS]"). */
+  timeChars: 16,
+  workScheduleChars: 200,
+  /** food_preferences / allergies / disliked_ingredients, per item. */
+  listItemChars: 60,
+  /** food_preferences / allergies / disliked_ingredients, item count. */
+  listMaxItems: 30,
+  timezoneChars: 64,
+  localeChars: 16,
+} as const;
+
+export const CHECKIN_LIMITS = {
+  hungerPatternChars: 300,
+  timeAvailableChars: 60,
+  todayFocusChars: 300,
+  notesChars: 2000,
+} as const;
+
+/** A bounded free-text list (comma-separated answers split client-side). */
+function boundedList(label: string) {
+  return z
+    .array(
+      z
+        .string()
+        .max(
+          PROFILE_LIMITS.listItemChars,
+          `Please keep each ${label} under ${PROFILE_LIMITS.listItemChars} characters.`
+        )
+    )
+    .max(
+      PROFILE_LIMITS.listMaxItems,
+      `Please list at most ${PROFILE_LIMITS.listMaxItems} ${label}s.`
+    )
+    .default([]);
+}
+
 export const WellbeingProfileInput = z.object({
-  wake_time: z.string().min(1, "Pick a wake time"),
-  sleep_time: z.string().min(1, "Pick a sleep time"),
-  work_schedule: z.string().min(1, "Tell us your typical schedule"),
+  wake_time: z
+    .string()
+    .min(1, "Pick a wake time")
+    .max(PROFILE_LIMITS.timeChars, "Pick a wake time"),
+  sleep_time: z
+    .string()
+    .min(1, "Pick a sleep time")
+    .max(PROFILE_LIMITS.timeChars, "Pick a sleep time"),
+  work_schedule: z
+    .string()
+    .min(1, "Tell us your typical schedule")
+    .max(
+      PROFILE_LIMITS.workScheduleChars,
+      `Please keep your schedule under ${PROFILE_LIMITS.workScheduleChars} characters.`
+    ),
   primary_goal: z.enum(primaryGoals),
-  food_preferences: z.array(z.string()).default([]),
-  allergies: z.array(z.string()).default([]),
+  food_preferences: boundedList("food preference"),
+  allergies: boundedList("allergy"),
   cooking_time: z.enum(["under_15", "15_30", "30_60", "over_60"]),
   budget_level: z.enum(["low", "medium", "flexible"]),
   energy_baseline: levelScale,
@@ -62,10 +116,10 @@ export const WellbeingProfileInput = z.object({
   movement_level: z.enum(["mostly_sitting", "lightly_active", "active", "very_active"]),
   preferred_tone: z.enum(preferredTones),
   // Preference, kept separate from the allergies safety field.
-  disliked_ingredients: z.array(z.string()).default([]),
+  disliked_ingredients: boundedList("disliked ingredient"),
   // Locale/time context (auto-detected client-side, optional).
-  timezone: z.string().max(64).optional().default(""),
-  locale: z.string().max(16).optional().default(""),
+  timezone: z.string().max(PROFILE_LIMITS.timezoneChars).optional().default(""),
+  locale: z.string().max(PROFILE_LIMITS.localeChars).optional().default(""),
   safety_acknowledged: z.literal(true, {
     error: "Please confirm you understand what Mellowa is (and isn't).",
   }),
@@ -107,8 +161,8 @@ export const DailyCheckinInput = z.object({
   mood_level: levelScale.optional().default(3),
   stress_level: levelScale,
   sleep_quality: levelScale.optional().default(3),
-  hunger_pattern: z.string().optional().default(""),
-  time_available: z.string().optional().default(""),
+  hunger_pattern: z.string().max(CHECKIN_LIMITS.hungerPatternChars).optional().default(""),
+  time_available: z.string().max(CHECKIN_LIMITS.timeAvailableChars).optional().default(""),
   // Prompt 3: day context (never a health condition).
   context: z
     .enum([
@@ -135,8 +189,8 @@ export const DailyCheckinInput = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
   timezone: z.string().max(64).optional().default(""),
-  today_focus: z.string().optional().default(""),
-  notes: z.string().max(2000).optional().default(""),
+  today_focus: z.string().max(CHECKIN_LIMITS.todayFocusChars).optional().default(""),
+  notes: z.string().max(CHECKIN_LIMITS.notesChars).optional().default(""),
   // Prompt 2: plan-mode selection. "auto" resolves from energy/stress/time.
   mode: z
     .enum(["auto", "minimum", "balanced", "reset", "custom"])

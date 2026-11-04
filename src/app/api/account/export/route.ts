@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-import { USER_DATA_REGISTRY } from "@/lib/privacy/registry";
+import { USER_DATA_REGISTRY, exportOrderColumn } from "@/lib/privacy/registry";
 
 /**
  * GDPR-style data export (Prompt 18). Returns everything Mellowa holds about
@@ -34,14 +34,18 @@ export async function GET() {
   // Paginated per table (Prompt 16): the export stays complete but every
   // query is bounded, so one huge table can't blow the statement timeout.
   const PAGE = 1000;
-  for (const { table, column } of USER_DATA_REGISTRY) {
+  for (const entry of USER_DATA_REGISTRY) {
+    const { table, column } = entry;
+    // Not every table has a surrogate `id` (composite / user-keyed PKs), so
+    // the registry names the stable pagination column per table.
+    const orderColumn = exportOrderColumn(entry);
     const all: unknown[] = [];
     for (let from = 0; ; from += PAGE) {
       const { data: rows, error } = await admin
         .from(table)
         .select("*")
         .eq(column, user.id)
-        .order("id", { ascending: true })
+        .order(orderColumn, { ascending: true })
         .range(from, from + PAGE - 1);
       if (error) {
         console.error("[account/export] failed to read table", { table });

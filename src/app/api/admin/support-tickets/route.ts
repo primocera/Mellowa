@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin/auth";
+import { requireAdmin, adminRoleFor } from "@/lib/admin/auth";
+import { checkPermission } from "@/lib/admin/permissions";
 import { recordAdminAction } from "@/lib/admin/support";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { readExclusionRegistry } from "@/lib/analytics/facts";
@@ -131,6 +132,21 @@ async function handleBatchImport(body: unknown, actorId: string) {
 export async function POST(request: Request) {
   const actorId = await requireAdmin();
   if (!actorId) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+  // Least privilege (permissions matrix): importing support metadata is an
+  // operator action. The audit reason is generated from the validated ticket
+  // below, so the permission check is given that fixed, non-empty purpose.
+  const role = adminRoleFor(actorId);
+  if (!role) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const permission = checkPermission({
+    role,
+    action: "support_ticket_import",
+    reason: "support ledger import",
+  });
+  if (!permission.allowed) {
+    return NextResponse.json({ error: permission.error }, { status: 403 });
+  }
+
   if (rateLimited(actorId)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
 
   let body: unknown;

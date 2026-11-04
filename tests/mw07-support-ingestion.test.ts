@@ -13,6 +13,7 @@ type Row = Record<string, unknown>;
 
 const h = vi.hoisted(() => ({
   admin: "admin-1" as string | null,
+  role: "operator" as "viewer" | "operator" | "owner",
   ticketWrites: [] as Row[],
   ingestionRuns: [] as Row[],
   actions: [] as Row[],
@@ -21,9 +22,20 @@ const h = vi.hoisted(() => ({
 
 vi.mock("@/lib/admin/auth", () => ({
   requireAdmin: async () => h.admin,
+  // Default role for an admin without an explicit ADMIN_ROLES entry.
+  adminRoleFor: (id: string | null) => (id ? h.role : null),
 }));
 
 vi.mock("@/lib/admin/support", () => ({
+  ADMIN_ACTIONS: [
+    "view_user",
+    "resend_verification",
+    "replay_failed_emails",
+    "flag_billing_review",
+    "unflag_billing_review",
+    "disable_generation",
+    "enable_generation",
+  ],
   recordAdminAction: async (a: Row) => {
     h.actions.push(a);
   },
@@ -71,6 +83,7 @@ function req(body: unknown) {
 
 beforeEach(() => {
   h.admin = "admin-1";
+  h.role = "operator";
   h.ticketWrites = [];
   h.ingestionRuns = [];
   h.actions = [];
@@ -156,6 +169,16 @@ describe("POST /api/admin/support-tickets — batch import (MW-07)", () => {
     const res = await POST(req({ tickets: [{ dedupe_key: "a", category: CAT }] }));
     expect(res.status).toBe(404);
     expect(h.ticketWrites).toEqual([]);
+  });
+
+  it("403 for a read-only (viewer) admin — the permission matrix is enforced, nothing written", async () => {
+    h.role = "viewer";
+    const res = await POST(req({ tickets: [{ dedupe_key: "a", category: CAT }] }));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe("insufficient_role");
+    expect(h.ticketWrites).toEqual([]);
+    expect(h.ingestionRuns).toEqual([]);
+    expect(h.actions).toEqual([]);
   });
 });
 

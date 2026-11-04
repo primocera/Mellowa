@@ -5,7 +5,7 @@
 - **Candidate:** RC 1b7dfef SUPERSEDED
 - **Baseline:** `30646b3c1590f73a1693e3dbc9aa2a87b8da9f9b`
 - **Reconciled:** 2026-09-22T18:00:00Z
-- **Migrations:** 54 (001–054)
+- **Migrations:** 55 (001–055)
 
 ## Verdicts
 

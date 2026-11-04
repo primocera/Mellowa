@@ -24,48 +24,70 @@ const ALLERGEN_MAP: Record<string, string[]> = {
     "pecans", "pistachio", "pistachios", "hazelnut", "hazelnuts", "macadamia",
     "brazil nut", "brazil nuts", "pine nut", "pine nuts", "nut", "nuts",
     "nut butter", "praline", "marzipan", "nougat",
+    // Foods that are usually made from tree nuts.
+    "pesto", "nutella", "frangipane", "gianduja", "baklava", "amaretti",
   ],
   dairy: [
     "milk", "cheese", "butter", "cream", "yogurt", "yoghurt", "whey", "casein",
     "ghee", "kefir", "mozzarella", "parmesan", "cheddar", "feta", "ricotta",
     "mascarpone", "buttermilk", "custard", "ice cream", "lactose", "halloumi",
     "cottage cheese", "creme fraiche", "crème fraîche",
+    "paneer", "labneh", "skyr", "quark", "brie", "camembert", "gouda",
+    "gruyere", "gruyère", "burrata", "pecorino", "provolone", "tzatziki",
+    "raita", "lassi", "bechamel", "béchamel", "alfredo",
+    // Foods that usually contain dairy.
+    "pesto", "nutella", "pancake", "waffle", "crepe", "crêpe", "brioche",
   ],
-  egg: ["egg", "eggs", "mayonnaise", "mayo", "aioli", "meringue", "albumin", "frittata", "omelette", "omelet"],
+  egg: [
+    "egg", "eggs", "mayonnaise", "mayo", "aioli", "meringue", "albumin", "frittata", "omelette", "omelet",
+    "pancake", "waffle", "crepe", "crêpe", "brioche", "quiche", "hollandaise",
+    "carbonara", "custard", "shakshuka",
+  ],
   gluten: [
     "wheat", "flour", "bread", "pasta", "noodles", "couscous", "bulgur",
     "semolina", "barley", "rye", "spelt", "seitan", "breadcrumbs", "cracker",
     "crackers", "tortilla", "wrap", "pita", "gluten", "soy sauce", "croutons",
     "orzo", "farro", "malt", "wheat berries", "panko",
+    "flatbread", "naan", "roti", "chapati", "bagel", "croissant", "pastry",
+    "pizza", "biscuit", "cake", "pancake", "waffle", "crepe", "crêpe",
+    "dumpling", "muffin", "brioche", "baguette", "sourdough", "lasagne",
+    "lasagna", "spaghetti", "ramen", "udon", "gnocchi", "pie", "baklava",
   ],
   soy: ["soy", "soya", "tofu", "tempeh", "edamame", "soy sauce", "tamari", "miso", "soybean", "soybeans", "soy milk"],
   fish: [
     "fish", "salmon", "tuna", "cod", "haddock", "trout", "sardine", "sardines",
     "anchovy", "anchovies", "mackerel", "tilapia", "sea bass", "fish sauce",
-    "worcestershire",
+    "worcestershire", "bonito", "dashi",
   ],
   shellfish: [
     "shrimp", "prawn", "prawns", "crab", "lobster", "mussel", "mussels",
     "clam", "clams", "oyster", "oysters", "scallop", "scallops", "squid",
     "calamari", "octopus", "shellfish",
   ],
-  sesame: ["sesame", "tahini", "sesame oil", "sesame seeds"],
+  sesame: [
+    "sesame", "tahini", "sesame oil", "sesame seeds",
+    "hummus", "houmous", "hummous", "halva", "halvah", "za'atar", "zaatar", "gomasio",
+  ],
   celery: ["celery", "celeriac"],
   mustard: ["mustard", "dijon"],
 };
 
-// User-input synonyms → canonical category.
-const USER_TERM_TO_CATEGORY: Record<string, string> = {
-  peanut: "peanut", peanuts: "peanut", groundnut: "peanut",
-  nut: "tree_nut", nuts: "tree_nut", "tree nut": "tree_nut", "tree nuts": "tree_nut",
+// User-input synonyms → canonical category (or categories). Plurals are
+// matched by termPattern, so only the singular form needs listing.
+const USER_TERM_TO_CATEGORY: Record<string, string | string[]> = {
+  peanut: "peanut", groundnut: "peanut",
+  nut: "tree_nut", "tree nut": "tree_nut",
   almond: "tree_nut", walnut: "tree_nut", cashew: "tree_nut", hazelnut: "tree_nut",
+  pecan: "tree_nut", pistachio: "tree_nut", macadamia: "tree_nut", "pine nut": "tree_nut",
+  "brazil nut": "tree_nut",
   dairy: "dairy", milk: "dairy", lactose: "dairy", whey: "dairy", casein: "dairy", cheese: "dairy",
-  egg: "egg", eggs: "egg",
+  egg: "egg",
   gluten: "gluten", wheat: "gluten", celiac: "gluten", coeliac: "gluten",
   soy: "soy", soya: "soy", soybean: "soy",
-  fish: "fish",
-  shellfish: "shellfish", shrimp: "shellfish", prawn: "shellfish", prawns: "shellfish",
-  crustacean: "shellfish", crustaceans: "shellfish", seafood: "shellfish",
+  fish: "fish", salmon: "fish", tuna: "fish", cod: "fish", anchovy: "fish",
+  shellfish: "shellfish", shrimp: "shellfish", prawn: "shellfish",
+  crab: "shellfish", lobster: "shellfish", mussel: "shellfish", oyster: "shellfish",
+  crustacean: "shellfish", seafood: ["shellfish", "fish"],
   sesame: "sesame", tahini: "sesame",
   celery: "celery",
   mustard: "mustard",
@@ -86,13 +108,13 @@ export function normalizeAllergies(allergies: string[]): NormalizedAllergies {
     // Try full entry, then each word (handles "cow's milk allergy").
     const direct = USER_TERM_TO_CATEGORY[entry];
     if (direct) {
-      categories.add(direct);
+      for (const cat of [direct].flat()) categories.add(cat);
       continue;
     }
     let matched = false;
     for (const [term, cat] of Object.entries(USER_TERM_TO_CATEGORY)) {
-      if (new RegExp(`\\b${escapeRegExp(term)}\\b`, "i").test(entry)) {
-        categories.add(cat);
+      if (termPattern(term).test(entry)) {
+        for (const c of [cat].flat()) categories.add(c);
         matched = true;
       }
     }
@@ -103,6 +125,17 @@ export function normalizeAllergies(allergies: string[]): NormalizedAllergies {
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Word-boundary match that also accepts the plural ("tortilla" matches
+ * "tortillas", "anchovy" matches "anchovies"). Over-matching is the safe
+ * direction here: a false hit only triggers a regeneration.
+ */
+function termPattern(term: string): RegExp {
+  const t = escapeRegExp(term);
+  const body = /[^aeiou]y$/.test(term) ? `${t.slice(0, -1)}(?:y|ies)` : `${t}(?:s|es)?`;
+  return new RegExp(`\\b${body}\\b`, "i");
 }
 
 function termsForCategories(categories: string[]): { term: string; category: string }[] {
@@ -160,7 +193,7 @@ export function findMealAllergenViolations(
     for (const { term, category } of allTerms) {
       const key = `${category}:${location}`;
       if (seen.has(key)) continue;
-      if (new RegExp(`\\b${escapeRegExp(term)}\\b`, "i").test(lower)) {
+      if (termPattern(term).test(lower)) {
         // Swap fields legitimately name the allergen they replace
         // ("dairy-free swap: use oat milk instead of milk") — only flag swaps
         // when the term is suggested as an addition is hard to detect, so we
@@ -193,7 +226,7 @@ export function allergenExclusionInstruction(allergies: string[]): string {
   const parts = [...normalized.categories, ...normalized.customTerms];
   return `CRITICAL ALLERGY SAFETY: the previous meal contained or mentioned a listed allergen. The user is allergic to: ${parts.join(
     ", "
-  )}. Every meal, ingredient, swap suggestion, grocery item and preparation step must completely avoid these allergens and ALL their derivatives (e.g. dairy includes whey, casein, butter, cheese; gluten includes wheat flour, bread, pasta, soy sauce). Do not even mention them as things to avoid — simply build meals without them.`;
+  )}. Every meal, ingredient, swap suggestion, grocery item and preparation step must completely avoid these allergens and ALL their derivatives (e.g. dairy includes whey, casein, butter, cheese, paneer, pancakes; gluten includes wheat flour, bread, pasta, wraps, tortillas, pancakes, soy sauce; sesame includes tahini and hummus; tree nuts include pesto and Nutella). Do not even mention them as things to avoid — simply build meals without them.`;
 }
 
 /**
@@ -240,7 +273,7 @@ export function findAllergenCategoriesInText(
   const lower = text.toLowerCase();
   const hits = new Set<string>();
   for (const { term, category } of allTerms) {
-    if (new RegExp(`\\b${escapeRegExp(term)}\\b`, "i").test(lower)) hits.add(category);
+    if (termPattern(term).test(lower)) hits.add(category);
   }
   return [...hits];
 }

@@ -21,9 +21,12 @@ export async function pruneExpiredData(): Promise<Record<string, number>> {
       if ("onlyStatuses" in rule && rule.onlyStatuses) {
         q = q.in("status", [...rule.onlyStatuses]);
       }
+      if ("onlyTemplates" in rule && rule.onlyTemplates) {
+        q = q.in("template", [...rule.onlyTemplates]);
+      }
       const { count, error } = await q;
       if (error) throw new Error(error.message);
-      pruned[rule.table] = count ?? 0;
+      pruned[rule.table] = (pruned[rule.table] ?? 0) + (count ?? 0);
     } catch (err) {
       console.error("[privacy] retention prune failed", {
         table: rule.table,

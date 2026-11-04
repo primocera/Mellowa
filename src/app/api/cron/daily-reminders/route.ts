@@ -58,6 +58,8 @@ export async function GET(request: Request) {
     safetySuppressed: 0,
     pausedOrSkipped: 0,
     inQuietHours: 0,
+    // Batches skipped because the safety / billing facts could not be read.
+    factsUnavailable: 0,
   };
 
   for (;;) {
@@ -89,19 +91,33 @@ export async function GET(request: Request) {
     // MW-V10-05: the planner decides everything, but it is pure — the two
     // facts it cannot know are fetched here, once per batch.
     const batchIds = profiles.map((p) => p.user_id as string);
-    const [{ data: subs }, { data: safetyRows }] = await Promise.all([
-      admin.from("subscriptions").select("user_id, status").in("user_id", batchIds),
-      // A recent crisis / eating-disorder signal suppresses activity nudges.
-      // Only the user id is read — never the signal's content.
-      admin
-        .from("safety_events")
-        .select("user_id")
-        .in("user_id", batchIds)
-        .gte(
-          "created_at",
-          new Date(now.getTime() - SAFETY_SUPPRESSION_DAYS * 86_400_000).toISOString()
-        ),
-    ]);
+    const [{ data: subs, error: subsError }, { data: safetyRows, error: safetyError }] =
+      await Promise.all([
+        admin.from("subscriptions").select("user_id, status").in("user_id", batchIds),
+        // A recent crisis / eating-disorder signal suppresses activity nudges.
+        // Only the user id is read — never the signal's content.
+        admin
+          .from("safety_events")
+          .select("user_id")
+          .in("user_id", batchIds)
+          .gte(
+            "created_at",
+            new Date(now.getTime() - SAFETY_SUPPRESSION_DAYS * 86_400_000).toISOString()
+          ),
+      ]);
+    // Fail CLOSED: if either fact is unreadable we cannot tell who is in a
+    // recent crisis (or in a billing state that must not be nudged), so nobody
+    // in this batch is sent anything. They are not marked as sent, so the next
+    // trigger retries them once the read recovers.
+    if (subsError || safetyError) {
+      console.error("[daily-reminders] suppression facts unavailable — batch skipped", {
+        subscriptions: subsError?.message ?? null,
+        safety: safetyError?.message ?? null,
+      });
+      skips.factsUnavailable += profiles.length;
+      if (profiles.length < BATCH_SIZE) break;
+      continue;
+    }
     const statusByUser = new Map(
       (subs ?? []).map((r) => [r.user_id as string, r.status as string | null])
     );

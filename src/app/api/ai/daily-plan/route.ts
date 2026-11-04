@@ -547,6 +547,10 @@ export async function POST(request: Request) {
     if (!hasAllergies && isFlagEnabled("fallback_plan")) {
       console.error("[ai] daily plan generation failed, serving fallback", { code });
       plan = buildFallbackDailyPlan();
+      // A severe-allergy user (onboarding flag only, no list) must never be
+      // served the static fallback's specific meals — strip them exactly like
+      // the AI path does, so generated_meal_cards below persists nothing.
+      if (severeAllergy) stripMealsForSevereAllergy(plan);
       usedFallback = true; // ledger is finalized once, at the success path below
       trackEvent("plan_fallback_served", {
         userId: user.id,

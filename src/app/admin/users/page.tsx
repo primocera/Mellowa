@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireAdmin } from "@/lib/admin/auth";
+import { requireAdminWithRole } from "@/lib/admin/auth";
+import { ADMIN_ACTION_POLICY } from "@/lib/admin/permissions";
 import {
-  findUserIdByEmail,
+  lookupUserByEmail,
   getUserOverview,
   recordAdminAction,
 } from "@/lib/admin/support";
@@ -16,17 +17,23 @@ export const metadata = { robots: { index: false, follow: false } };
  * ADMIN_USER_IDS; non-admins get 404). Shows only safe metadata — never
  * journal text, check-in notes, allergies, mood values or generated content.
  * Every lookup is audited.
+ *
+ * Lookup resolves the AUTH email exactly (never the user-editable profiles
+ * email, never a LIKE pattern); an ambiguous or unverifiable lookup shows no
+ * account rather than risk showing the wrong one.
  */
 export default async function AdminUsersPage({
   searchParams,
 }: {
   searchParams: Promise<{ email?: string }>;
 }) {
-  const adminId = await requireAdmin();
-  if (!adminId) notFound();
+  const caller = await requireAdminWithRole();
+  if (!caller) notFound();
+  const adminId = caller.id;
 
   const { email } = await searchParams;
-  const userId = email ? await findUserIdByEmail(email) : null;
+  const lookup = email ? await lookupUserByEmail(email) : null;
+  const userId = lookup?.status === "found" ? lookup.userId : null;
   const overview = userId ? await getUserOverview(userId) : null;
 
   if (userId && overview) {
@@ -62,7 +69,13 @@ export default async function AdminUsersPage({
       </form>
 
       {email && !overview && (
-        <p className="text-sm text-[#6B7280]">No account found for {email}.</p>
+        <p className="text-sm text-[#6B7280]" role="status">
+          {lookup?.status === "ambiguous"
+            ? `More than one account matches ${email}, so none is shown. Look the account up by its exact sign-in address.`
+            : lookup?.status === "unavailable"
+              ? "The lookup couldn't be completed just now. Please try again in a moment."
+              : `No account found for ${email}.`}
+        </p>
       )}
 
       {overview && (
@@ -124,14 +137,21 @@ export default async function AdminUsersPage({
 
           <section className="rounded-2xl bg-white p-5 shadow-sm">
             <h2 className="mb-2 font-medium">Consents</h2>
-            <ul className="text-sm">
-              {overview.consents.map((c, i) => (
-                <li key={i}>
-                  {c.kind} v{c.version} — {c.createdAt.slice(0, 10)}
-                </li>
-              ))}
-              {!overview.consents.length && <li className="text-[#6B7280]">none recorded</li>}
-            </ul>
+            {overview.consents === null ? (
+              <p className="text-sm text-[#991B1B]" role="status">
+                Couldn&apos;t load consents just now — this is not the same as none recorded.
+              </p>
+            ) : (
+              <ul className="text-sm">
+                {overview.consents.map((c, i) => (
+                  <li key={i}>
+                    {c.consentType} v{c.version}
+                    {!c.granted && " (withdrawn)"} — {c.createdAt.slice(0, 10)}
+                  </li>
+                ))}
+                {!overview.consents.length && <li className="text-[#6B7280]">none recorded</li>}
+              </ul>
+            )}
           </section>
 
           <section className="rounded-2xl bg-white p-5 shadow-sm">
@@ -177,6 +197,10 @@ export default async function AdminUsersPage({
             targetUserId={overview.account.id}
             verified={overview.account.emailVerified}
             flags={overview.flags}
+            role={caller.role}
+            stepUpActions={Object.entries(ADMIN_ACTION_POLICY)
+              .filter(([, p]) => p.requiresStepUp)
+              .map(([a]) => a)}
           />
         </div>
       )}

@@ -5,6 +5,7 @@ import {
   USER_DATA_REGISTRY,
   EXEMPT_TABLES,
   RETENTION_RULES,
+  exportOrderColumn,
 } from "@/lib/privacy/registry";
 
 /**
@@ -32,7 +33,85 @@ function tablesFromMigrations(): string[] {
   return [...tables];
 }
 
+/**
+ * Columns per table as the migrations define them: CREATE TABLE bodies plus
+ * every later `alter table ... add column`. Used to prove the export's
+ * ORDER BY column (and the owner column) really exist — an ORDER BY on a
+ * missing column is a PostgREST error that 500s the whole export.
+ */
+function columnsFromMigrations(): Map<string, Set<string>> {
+  const dir = join(__dirname, "..", "supabase", "migrations");
+  const cols = new Map<string, Set<string>>();
+  const add = (table: string, col: string) => {
+    const t = table.toLowerCase();
+    if (!cols.has(t)) cols.set(t, new Set());
+    cols.get(t)!.add(col.toLowerCase());
+  };
+  const NOT_COLUMNS = new Set([
+    "primary", "unique", "constraint", "check", "foreign", "exclude", "like",
+  ]);
+  for (const file of readdirSync(dir).filter((f) => f.endsWith(".sql"))) {
+    // Strip line comments so commented-out DDL is never counted.
+    const sql = readFileSync(join(dir, file), "utf8").replace(/--[^\n]*/g, "");
+    const createRe =
+      /create table (?:if not exists )?(?:public\.)?(\w+)\s*\(([\s\S]*?)\n\);/gi;
+    let m: RegExpExecArray | null;
+    while ((m = createRe.exec(sql))) {
+      const [, table, body] = m;
+      for (const line of body.split("\n")) {
+        const col = /^\s*"?(\w+)"?\s+\w/.exec(line)?.[1];
+        if (col && !NOT_COLUMNS.has(col.toLowerCase())) add(table, col);
+      }
+    }
+    const alterRe =
+      /alter table (?:if exists )?(?:only )?(?:public\.)?(\w+)([\s\S]*?);/gi;
+    while ((m = alterRe.exec(sql))) {
+      const [, table, body] = m;
+      const addRe = /add column (?:if not exists )?"?(\w+)"?/gi;
+      let a: RegExpExecArray | null;
+      while ((a = addRe.exec(body))) add(table, a[1]);
+    }
+  }
+  return cols;
+}
+
 describe("privacy registry contract (Prompt 4)", () => {
+  it("every registry table's export ORDER BY column (default id) exists in the migrations", () => {
+    const cols = columnsFromMigrations();
+    const problems: string[] = [];
+    for (const entry of USER_DATA_REGISTRY) {
+      const tableCols = cols.get(entry.table);
+      if (!tableCols) {
+        problems.push(`${entry.table}: no CREATE TABLE found in supabase/migrations`);
+        continue;
+      }
+      const order = exportOrderColumn(entry);
+      if (!tableCols.has(order)) {
+        problems.push(`${entry.table}: export orders by "${order}" but the table has no such column`);
+      }
+      if (!tableCols.has(entry.column)) {
+        problems.push(`${entry.table}: owner column "${entry.column}" does not exist`);
+      }
+    }
+    expect(problems, problems.join("\n")).toEqual([]);
+  });
+
+  it("the tables without a surrogate id paginate by a real key column", () => {
+    const byTable = new Map(USER_DATA_REGISTRY.map((e) => [e.table, e]));
+    expect(exportOrderColumn(byTable.get("daily_plan_generation_claims")!)).toBe("local_date");
+    expect(exportOrderColumn(byTable.get("learned_signal_suppressions")!)).toBe("signal");
+    expect(exportOrderColumn(byTable.get("onboarding_completions")!)).toBe("user_id");
+  });
+
+  it("the export route paginates by the registry's order column, never a hardcoded id", () => {
+    const src = readFileSync(
+      join(__dirname, "..", "src", "app", "api", "account", "export", "route.ts"),
+      "utf8"
+    );
+    expect(src).toContain("exportOrderColumn(entry)");
+    expect(src).not.toMatch(/\.order\("id"/);
+  });
+
   it("covers every user-linked table created by migrations", () => {
     const registered = new Set(USER_DATA_REGISTRY.map((t) => t.table));
     const exempt = new Set(EXEMPT_TABLES.map((t) => t.table));

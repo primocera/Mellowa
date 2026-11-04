@@ -18,6 +18,7 @@ import {
   allergenExclusionInstruction,
 } from "@/lib/safety/allergens";
 import { checkRegeneratedMealOutput, correctiveInstruction } from "@/lib/ai/output-guards";
+import { isSevereAllergy } from "@/lib/safety/severe-allergy";
 import {
   REPAIR_REASONS,
   REPAIR_REASON_INSTRUCTIONS,
@@ -220,16 +221,6 @@ export async function POST(request: Request) {
   }
   const completedKeys = (completions ?? []).map((c) => c.item_key);
 
-  const scope = replaceableScope(plan as RepairPlanRow, completedKeys, keep_keys);
-  if (!scope.mealTypes.length && !scope.sections.length) {
-    await releaseReservation(eventId);
-    return fail(400, {
-      error: "nothing_to_adjust",
-      user_message:
-        "Everything left in today's plan is marked done or kept, so there's nothing to adjust. No plan generation was used.",
-    });
-  }
-
   // Allergies, food preferences and movement limitations are required SAFETY
   // context for the repair prompt. A read ERROR must never become an empty
   // allergy list — fail closed. A verified-absent profile means onboarding is
@@ -238,7 +229,7 @@ export async function POST(request: Request) {
   const { data: profile, error: profileError } = await supabase
     .from("wellbeing_profiles")
     .select(
-      "primary_goal, cooking_time, cooking_skill, budget_level, movement_level, movement_limitations, food_preferences, allergies, preferred_tone"
+      "primary_goal, cooking_time, cooking_skill, budget_level, movement_level, movement_limitations, food_preferences, allergies, allergies_severe, preferred_tone"
     )
     .eq("user_id", user.id)
     .maybeSingle();
@@ -259,6 +250,22 @@ export async function POST(request: Request) {
     });
   }
   const allergies = (profile.allergies ?? []).filter(Boolean);
+
+  const scope = replaceableScope(plan as RepairPlanRow, completedKeys, keep_keys);
+  // Severe / life-threatening allergy (onboarding flag OR a text signal):
+  // Mellowa never suggests specific meals at this level, so meals are taken out
+  // of the replaceable scope entirely — the repair can never produce a meal, and
+  // existing meal cards are carried over unchanged. Done BEFORE the
+  // nothing_to_adjust check so a meals-only scope correctly releases.
+  if (isSevereAllergy(profile)) scope.mealTypes = [];
+  if (!scope.mealTypes.length && !scope.sections.length) {
+    await releaseReservation(eventId);
+    return fail(400, {
+      error: "nothing_to_adjust",
+      user_message:
+        "Everything left in today's plan is marked done or kept, so there's nothing to adjust. No plan generation was used.",
+    });
+  }
 
   const schema = repairOutputSchema(scope);
   const currentOpen: Record<string, unknown> = {};

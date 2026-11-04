@@ -19,6 +19,7 @@ const h = vi.hoisted(() => ({
   profile: { allergies: ["peanuts"] } as Row | null,
   profileError: null as Row | null,
   providerCalls: 0,
+  providerArgs: [] as Row[],
   releaseCalls: [] as unknown[],
   finishCalls: [] as Row[],
 }));
@@ -56,9 +57,10 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 vi.mock("@/lib/ai/generate-json", () => ({
-  generateStructuredJson: async () => {
+  generateStructuredJson: async (args: Row) => {
     h.providerCalls += 1;
-    return {};
+    h.providerArgs.push(args);
+    return { repair_summary: "Lighter now." };
   },
 }));
 
@@ -105,6 +107,7 @@ beforeEach(() => {
   h.profile = { allergies: ["peanuts"] };
   h.profileError = null;
   h.providerCalls = 0;
+  h.providerArgs = [];
   h.releaseCalls = [];
   h.finishCalls = [];
 });
@@ -148,5 +151,42 @@ describe("plan-repair fails closed on required-read errors (WS-A)", () => {
     expect((await res.json()).error).toBe("onboarding_required");
     expect(h.providerCalls).toBe(0);
     expect(h.releaseCalls).toContain("evt-1");
+  });
+});
+
+describe("plan-repair never produces meals for a severe allergy", () => {
+  it("flag-only severe user with a meals-only open scope → nothing_to_adjust, no provider, reservation released", async () => {
+    h.profile = { allergies: [], allergies_severe: true };
+    const res = await POST(req());
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("nothing_to_adjust");
+    expect(h.providerCalls).toBe(0);
+    expect(h.releaseCalls).toContain("evt-1");
+    expect(h.finishCalls.some((c) => c.status === "failed")).toBe(true);
+  });
+
+  it("severe user with open non-meal sections → repair schema excludes meal_cards", async () => {
+    h.profile = { allergies: ["sesame anaphylaxis"], allergies_severe: false };
+    h.plan = {
+      id: "11111111-1111-4111-8111-111111111111",
+      plan_date: "2026-08-23",
+      meal_cards: [{ meal_type: "lunch" }],
+      movement_plan: { title: "Walk" },
+    };
+    const res = await POST(req());
+    expect(res.status).toBe(200);
+    expect(h.providerCalls).toBe(1);
+    const schema = h.providerArgs[0].zodSchema as { shape: Record<string, unknown> };
+    expect(Object.keys(schema.shape)).not.toContain("meal_cards");
+    expect(Object.keys(schema.shape)).toContain("movement_plan");
+    expect(String(h.providerArgs[0].userPrompt)).not.toMatch(/meal card\(s\) for meal_type/);
+  });
+
+  it("non-severe user keeps meals in scope", async () => {
+    h.profile = { allergies: ["peanuts"], allergies_severe: false };
+    await POST(req());
+    expect(h.providerCalls).toBe(1);
+    const schema = h.providerArgs[0].zodSchema as { shape: Record<string, unknown> };
+    expect(Object.keys(schema.shape)).toContain("meal_cards");
   });
 });

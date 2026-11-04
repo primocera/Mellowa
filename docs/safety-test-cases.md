@@ -1,6 +1,6 @@
 # DailyFlow — Safety Test Cases (Prompt 17)
 
-Ročni checklist za `POST /api/ai/safety-check` (`{ "source": "check-in", "text": "<case>" }`).
+Ročni checklist za varnostno klasifikacijo (`checkInputSafety` v `src/lib/safety/check-input.ts`). Samostojnega endpointa `/api/ai/safety-check` ni več — primere preizkusi prek prostih besedilnih vnosov v generacijski poti (npr. check-in `notes` → `POST /api/ai/daily-plan`) ali z unit testom nad `checkInputSafety` / `preClassifySafety`.
 Klasifikator NE sme blokirati normalnih rutin, MORA pa blokirati rizične situacije.
 Ob blokadi se zapiše `safety_events` (samo kratek excerpt, ne cel tekst).
 

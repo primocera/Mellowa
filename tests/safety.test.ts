@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import {
   normalizeAllergies,
@@ -82,9 +82,7 @@ describe("safety pre-classifier (P17)", () => {
 
 describe("MW-04: safety gate is wired into every AI generation route", () => {
   it("every generation route classifies input before generating", () => {
-    const routes = readdirSync("src/app/api/ai").filter(
-      (r: string) => r !== "safety-check"
-    );
+    const routes = readdirSync("src/app/api/ai");
     for (const route of routes) {
       const src = readFileSync(`src/app/api/ai/${route}/route.ts`, "utf8");
       expect(
@@ -92,6 +90,14 @@ describe("MW-04: safety gate is wired into every AI generation route", () => {
         `AI route "${route}" must call the safety gate before generation`
       ).toBe(true);
     }
+  });
+
+  it("there is no standalone, unledgered /api/ai/safety-check endpoint", () => {
+    // The classifier is a paid provider call; it runs only INSIDE guarded
+    // generation routes (via checkInputSafety), never as a free-standing route
+    // without a claim, consent check or rate limit.
+    expect(existsSync("src/app/api/ai/safety-check")).toBe(false);
+    expect(readdirSync("src/app/api/ai")).not.toContain("safety-check");
   });
 
   it("the daily-plan route has no v1 generator import (one source of truth)", () => {

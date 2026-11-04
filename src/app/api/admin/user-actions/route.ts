@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/admin/auth";
+import { requireAdmin, adminRoleFor } from "@/lib/admin/auth";
+import { checkPermission } from "@/lib/admin/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   ADMIN_ACTIONS,
@@ -12,12 +13,20 @@ import {
  * Safe admin actions (Launch v6, Prompt 17). Authorized via the signed-in
  * admin's Supabase session + ADMIN_USER_IDS (never a guessable URL alone).
  * Every action requires a reason and is written to admin_audit_log.
+ *
+ * Least privilege (MW-V18-X07 matrix, lib/admin/permissions.ts): the caller's
+ * role (ADMIN_ROLES, see lib/admin/auth.ts) must meet the action's minRole, and
+ * destructive actions need an explicit step-up confirmation from the console
+ * (`step_up_confirmed: true`). Denials are 403 and change nothing.
  */
 
 const ActionInput = z.object({
   action: z.enum(ADMIN_ACTIONS),
   target_user_id: z.string().uuid(),
   reason: z.string().min(3).max(500),
+  // Explicit second confirmation for destructive actions (the console asks the
+  // operator to confirm before sending it). Absent = not confirmed.
+  step_up_confirmed: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -34,7 +43,22 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_input", issues: parsed.error.issues }, { status: 400 });
   }
-  const { action, target_user_id, reason } = parsed.data;
+  const { action, target_user_id, reason, step_up_confirmed } = parsed.data;
+
+  // Fail closed: no resolvable role, an under-privileged role, a missing reason
+  // or an unconfirmed destructive action all deny before anything is touched.
+  const role = adminRoleFor(actorId);
+  if (!role) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const permission = checkPermission({
+    role,
+    action,
+    reason,
+    stepUpConfirmed: step_up_confirmed === true,
+  });
+  if (!permission.allowed) {
+    return NextResponse.json({ error: permission.error }, { status: 403 });
+  }
+
   const admin = createAdminClient();
 
   let result: Record<string, unknown> = {};

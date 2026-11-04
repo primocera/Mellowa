@@ -326,12 +326,18 @@ export async function reconcileBilling(
     report.driftFixed.push(...drift);
   }
 
-  // Webhook health: failed events, or claimed-but-never-finalized ones.
+  // Webhook health: recent failed events, or claimed-but-never-finalized ones.
+  // Failed events are age-limited: Stripe stops retrying after ~3 days, so an
+  // older failure is history, not live drift — without the bound one dead event
+  // kept this check red forever. The window leaves a few days to notice it.
   const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const failedWindowStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { data: stuck } = await admin
     .from("stripe_events")
     .select("event_id, type, status, created_at")
-    .or(`status.eq.failed,and(status.eq.processing,created_at.lt.${hourAgo})`)
+    .or(
+      `and(status.eq.failed,created_at.gte.${failedWindowStart}),and(status.eq.processing,created_at.lt.${hourAgo})`
+    )
     .order("created_at", { ascending: false })
     .limit(50);
   report.stuckWebhookEvents = (stuck ?? []).map((e) => ({

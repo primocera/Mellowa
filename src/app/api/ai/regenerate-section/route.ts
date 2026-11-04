@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { checkInputSafety } from "@/lib/safety/check-input";
 import { generateStructuredJson } from "@/lib/ai/generate-json";
 import { AiGenerationError } from "@/lib/ai/errors";
@@ -24,6 +25,7 @@ import {
   findMealAllergenViolations,
   allergenExclusionInstruction,
 } from "@/lib/safety/allergens";
+import { severeAllergyBlock } from "@/lib/safety/severe-allergy";
 import {
   pickBreathing,
   pickRelaxation,
@@ -210,7 +212,7 @@ export async function POST(request: Request) {
   const { data: profile, error: profileError } = await supabase
     .from("wellbeing_profiles")
     .select(
-      "primary_goal, cooking_time, cooking_skill, budget_level, movement_level, movement_limitations, food_preferences, allergies, preferred_tone"
+      "primary_goal, cooking_time, cooking_skill, budget_level, movement_level, movement_limitations, food_preferences, allergies, allergies_severe, preferred_tone"
     )
     .eq("user_id", user.id)
     .maybeSingle();
@@ -237,6 +239,26 @@ export async function POST(request: Request) {
     );
   }
 
+  // Severe / life-threatening allergy (onboarding flag OR a text signal): a
+  // regenerated meal card IS a specific meal, which Mellowa never suggests at
+  // this level. Return the same calm block the meal-only routes return — BEFORE
+  // the sample claim and any provider call, with the reservation released, so
+  // nothing is consumed or charged. (The sample tier never reaches here for a
+  // meal card: it was refused with premium_required above.)
+  if (section_name === "meal_card") {
+    const severe = severeAllergyBlock(profile);
+    if (severe) {
+      await releaseReservation(eventId);
+      return NextResponse.json(severe, { status: 200 });
+    }
+  }
+
+  // The sample-adjustment timestamp is written ONLY through the server-only
+  // admin client: migration 055 rejects any change to it by the anon /
+  // authenticated roles, so a user can never reset their own lifetime sample.
+  // Every write is still scoped to the authenticated user via .eq("user_id").
+  const admin = !sub.isPremium ? createAdminClient() : null;
+
   // Sample tier: claim the one-lifetime curated adjustment NOW — after every
   // fail-closed read and validation above, and immediately before the only
   // mutation. The claim is an atomic conditional update (succeeds only while
@@ -244,8 +266,8 @@ export async function POST(request: Request) {
   // A claim RPC ERROR is an outage, NEVER "already used": fail closed (503),
   // call no provider and consume no entitlement. A verified no-row means the
   // single lifetime allowance is genuinely already spent (402).
-  if (!sub.isPremium) {
-    const { data: claimed, error: claimError } = await supabase
+  if (admin) {
+    const { data: claimed, error: claimError } = await admin
       .from("wellbeing_profiles")
       .update({ sample_adjustment_used_at: new Date().toISOString() })
       .eq("user_id", user.id)
@@ -280,8 +302,8 @@ export async function POST(request: Request) {
   // breadcrumb (ids only, no plan content) and the caller surfaces an explicit
   // repairable state so the allowance can be restored.
   const refundSampleAdjustment = async (): Promise<boolean> => {
-    if (!sampleAdjustment) return true;
-    const { error: refundError } = await supabase
+    if (!sampleAdjustment || !admin) return true;
+    const { error: refundError } = await admin
       .from("wellbeing_profiles")
       .update({ sample_adjustment_used_at: null })
       .eq("user_id", user.id);

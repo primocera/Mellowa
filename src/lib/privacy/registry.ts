@@ -20,6 +20,19 @@ export interface UserTable {
    * - anonymize: user link is set null; row keeps only non-personal data
    */
   onDelete: "cascade" | "anonymize";
+  /**
+   * Stable column the export paginates by. Defaults to "id"; tables whose
+   * primary key is not a surrogate `id` (composite or user-keyed) MUST name a
+   * real column here, or PostgREST rejects the ORDER BY and the whole export
+   * fails. tests/privacy-registry.test.ts checks every entry against the
+   * migrations.
+   */
+  orderBy?: string;
+}
+
+/** The pagination column for a registry entry ("id" unless overridden). */
+export function exportOrderColumn(entry: UserTable): string {
+  return entry.orderBy ?? "id";
 }
 
 export const USER_DATA_REGISTRY: UserTable[] = [
@@ -44,14 +57,17 @@ export const USER_DATA_REGISTRY: UserTable[] = [
   { table: "user_consents", column: "user_id", onDelete: "cascade" },
   { table: "subscriptions", column: "user_id", onDelete: "cascade" },
   { table: "generation_requests", column: "user_id", onDelete: "cascade" },
-  { table: "daily_plan_generation_claims", column: "user_id", onDelete: "cascade" },
+  // PK (user_id, local_date) — no surrogate id (051).
+  { table: "daily_plan_generation_claims", column: "user_id", onDelete: "cascade", orderBy: "local_date" },
   { table: "daily_plan_versions", column: "user_id", onDelete: "cascade" },
-  { table: "learned_signal_suppressions", column: "user_id", onDelete: "cascade" },
+  // PK (user_id, signal) — no surrogate id (028).
+  { table: "learned_signal_suppressions", column: "user_id", onDelete: "cascade", orderBy: "signal" },
   { table: "routine_presets", column: "user_id", onDelete: "cascade" },
   { table: "weekly_reflections", column: "user_id", onDelete: "cascade" },
   // MW-V17-06: exactly-once onboarding completion marker (no personal content,
   // just the fact + timestamp). FK ON DELETE CASCADE removes it with the user.
-  { table: "onboarding_completions", column: "user_id", onDelete: "cascade" },
+  // PK user_id — no surrogate id (043).
+  { table: "onboarding_completions", column: "user_id", onDelete: "cascade", orderBy: "user_id" },
   // MW-V18-08: privacy-safe support ledger. No message content; the account link
   // is ON DELETE SET NULL, so a deleted user's aggregate category survives while
   // the identity link is removed (anonymize, same posture as app_events).
@@ -105,5 +121,13 @@ export const RETENTION_RULES = [
     days: 90,
     onlyStatuses: ["failed_permanent", "failed_transient", "not_configured"],
     reason: "ops visibility for undelivered email",
+  },
+  {
+    // The goodbye email has no user_id (the account is already gone), so it
+    // never cascades — without this rule its recipient address lived forever.
+    table: "email_deliveries",
+    days: 30,
+    onlyTemplates: ["account_deleted"],
+    reason: "deleted-account confirmation: keep the address only long enough to deliver",
   },
 ] as const;

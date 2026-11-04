@@ -29,10 +29,15 @@ const h = vi.hoisted(() => ({
   // Ledger spies.
   finalizeCalls: [] as Array<Row>,
   releaseCalls: [] as Array<string | null | undefined>,
-  // Auth / entitlement / claim / input-safety knobs.
+  // Auth / consent / entitlement / guard / input-safety knobs.
   user: { id: "user-1" } as { id: string } | null,
+  consentComplete: true,
   isPremium: true,
-  claim: { ok: true, eventId: "evt-1" } as Row,
+  // null = guard passes with eventId "evt-1"; otherwise the denial to return.
+  guardDenial: null as null | { status: number; body: Row },
+  guardCalls: [] as Row[],
+  safetyCalls: [] as string[],
+  order: [] as string[],
   inputBlocked: false,
   saveError: null as Row | null,
   inserted: [] as Row[],
@@ -50,20 +55,48 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-vi.mock("@/lib/safety/check-input", () => ({
-  checkInputSafety: async () => ({
-    should_block_generation: h.inputBlocked,
-    user_message: h.inputBlocked ? "Let's keep this gentle." : null,
-  }),
+vi.mock("@/lib/safety/check-input", async () => {
+  // Mirror the real contract: the deterministic pre-classifier short-circuits
+  // first (no provider call); otherwise the (paid) AI classifier verdict.
+  const { preClassifySafety } = await import("@/lib/safety/pre-classify");
+  return {
+    checkInputSafety: async (_userId: string, _source: string, text: string) => {
+      h.safetyCalls.push(text);
+      h.order.push("checkInputSafety");
+      const pre = preClassifySafety(text);
+      if (pre) return pre;
+      return {
+        should_block_generation: h.inputBlocked,
+        user_message: h.inputBlocked ? "Let's keep this gentle." : null,
+      };
+    },
+  };
+});
+
+vi.mock("@/lib/consent/status", () => ({
+  getConsentStatus: async () =>
+    h.consentComplete
+      ? { complete: true, missing: [] }
+      : { complete: false, missing: ["health_data"] },
 }));
 
 vi.mock("@/lib/stripe/subscription", () => ({
   getUserSubscriptionStatus: async () => ({ isPremium: h.isPremium }),
 }));
 
-vi.mock("@/lib/ai/rate-limit", () => ({
-  claimAiGeneration: async () => h.claim,
-}));
+vi.mock("@/lib/ai/guard", async () => {
+  const { NextResponse } = await import("next/server");
+  return {
+    guardAiRoute: async (userId: string, opts: Row) => {
+      h.guardCalls.push({ userId, ...opts });
+      h.order.push("guard");
+      if (h.guardDenial) {
+        return NextResponse.json(h.guardDenial.body, { status: h.guardDenial.status });
+      }
+      return { eventId: "evt-1" };
+    },
+  };
+});
 
 // Provider boundary: consume the queued attempt, write into the caller's sink.
 vi.mock("@/lib/ai/generate-json", () => ({
@@ -134,8 +167,12 @@ beforeEach(() => {
   h.finalizeCalls = [];
   h.releaseCalls = [];
   h.user = { id: "user-1" };
+  h.consentComplete = true;
   h.isPremium = true;
-  h.claim = { ok: true, eventId: "evt-1" };
+  h.guardDenial = null;
+  h.guardCalls = [];
+  h.safetyCalls = [];
+  h.order = [];
   h.inputBlocked = false;
   h.saveError = null;
   h.inserted = [];
@@ -154,6 +191,27 @@ describe("journal-reflection route — entitlement", () => {
     expect(h.inserted).toHaveLength(1); // journal still saved
   });
 
+  it("free user: the PAID classifier (checkInputSafety) is never called and no guard/reservation", async () => {
+    h.isPremium = false;
+    h.inputBlocked = true; // even if the AI classifier WOULD block, it is never asked
+    const { json } = await invoke();
+    expect(h.safetyCalls).toHaveLength(0);
+    expect(h.guardCalls).toHaveLength(0);
+    expect(json.saved).toBe(true);
+    expect(json.blocked).toBe(false);
+  });
+
+  it("free user with crisis text: deterministic block, crisis message, nothing saved, no provider", async () => {
+    h.isPremium = false;
+    const { status, json } = await invoke({ prompt: "", answer: "I want to kill myself" });
+    expect(status).toBe(200);
+    expect(json.blocked).toBe(true);
+    expect(typeof json.user_message).toBe("string");
+    expect(h.inserted).toHaveLength(0);
+    expect(h.providerCalls).toHaveLength(0);
+    expect(h.guardCalls).toHaveLength(0);
+  });
+
   it("unauthenticated request is rejected before any work", async () => {
     h.user = null;
     const { status } = await invoke();
@@ -163,15 +221,88 @@ describe("journal-reflection route — entitlement", () => {
   });
 });
 
+describe("journal-reflection route — consent", () => {
+  it("no current consent → 403 consent_required; nothing stored, classified or reserved", async () => {
+    h.consentComplete = false;
+    const { status, json } = await invoke();
+    expect(status).toBe(403);
+    expect(json.error).toBe("consent_required");
+    expect(h.inserted).toHaveLength(0);
+    expect(h.safetyCalls).toHaveLength(0);
+    expect(h.guardCalls).toHaveLength(0);
+    expect(h.providerCalls).toHaveLength(0);
+  });
+
+  it("no consent blocks free users too (no deterministic classification or save)", async () => {
+    h.consentComplete = false;
+    h.isPremium = false;
+    const { status } = await invoke({ prompt: "", answer: "I want to kill myself" });
+    expect(status).toBe(403);
+    expect(h.inserted).toHaveLength(0);
+    expect(h.safetyCalls).toHaveLength(0);
+  });
+});
+
+describe("journal-reflection route — premium guard", () => {
+  it("premium: guardAiRoute runs BEFORE checkInputSafety, for the journal-reflection route", async () => {
+    h.attempts = [{ kind: "ok", result: safeReflection() }];
+    await invoke();
+    expect(h.guardCalls).toHaveLength(1);
+    expect(h.guardCalls[0]).toMatchObject({ userId: "user-1", route: "journal-reflection" });
+    expect(h.order.indexOf("guard")).toBeGreaterThanOrEqual(0);
+    expect(h.order.indexOf("guard")).toBeLessThan(h.order.indexOf("checkInputSafety"));
+  });
+
+  it("guard rate limit (429): entry saved gracefully, rate_limited flag, no paid classifier, no provider", async () => {
+    h.guardDenial = { status: 429, body: { error: "rate_limited", scope: "day" } };
+    const { status, json } = await invoke();
+    expect(status).toBe(200);
+    expect(json).toMatchObject({ saved: true, reflection: null, rate_limited: true, capacity: false });
+    expect(h.inserted).toHaveLength(1);
+    expect(h.safetyCalls).toHaveLength(0);
+    expect(h.providerCalls).toHaveLength(0);
+  });
+
+  it("guard capacity (503): entry saved, capacity flag", async () => {
+    h.guardDenial = { status: 503, body: { error: "capacity" } };
+    const { json } = await invoke();
+    expect(json).toMatchObject({ saved: true, reflection: null, capacity: true, rate_limited: false });
+  });
+
+  it("operator kill switch (403 generation_unavailable): entry saved, no reflection, no provider", async () => {
+    h.guardDenial = { status: 403, body: { error: "generation_unavailable" } };
+    const { json } = await invoke();
+    expect(json).toMatchObject({ saved: true, reflection: null, generation_unavailable: true });
+    expect(h.providerCalls).toHaveLength(0);
+  });
+
+  it("guard denial still screens crisis text deterministically and stores nothing", async () => {
+    h.guardDenial = { status: 429, body: { error: "rate_limited" } };
+    const { json } = await invoke({ prompt: "", answer: "I want to kill myself" });
+    expect(json.blocked).toBe(true);
+    expect(h.inserted).toHaveLength(0);
+  });
+
+  it("guard consent_required (race) is returned as-is with nothing stored", async () => {
+    h.guardDenial = { status: 403, body: { error: "consent_required", missing: ["terms"] } };
+    const { status, json } = await invoke();
+    expect(status).toBe(403);
+    expect(json.error).toBe("consent_required");
+    expect(h.inserted).toHaveLength(0);
+  });
+});
+
 describe("journal-reflection route — input safety", () => {
-  it("input-safety block: no provider call, no reservation, no finalize/release, safe message", async () => {
+  it("input-safety block: no provider call, reservation finalized as safety_blocked, nothing saved", async () => {
     h.inputBlocked = true;
     const { json } = await invoke();
     expect(json.blocked).toBe(true);
     expect(typeof json.user_message).toBe("string");
     expect(h.providerCalls).toHaveLength(0);
-    // Block happens before claimAiGeneration, so nothing to finalize or release.
-    expect(h.finalizeCalls).toHaveLength(0);
+    expect(h.inserted).toHaveLength(0);
+    // The guard reserved a row; it is closed exactly once with the safety outcome.
+    expect(h.finalizeCalls).toHaveLength(1);
+    expect(h.finalizeCalls[0]).toMatchObject({ eventId: "evt-1", status: "safety_blocked" });
     expect(h.releaseCalls).toHaveLength(0);
   });
 });
@@ -246,11 +377,21 @@ describe("journal-reflection route — provider failure", () => {
 });
 
 describe("journal-reflection route — reservation without provider work", () => {
-  it("save failure returns 500 before reservation (no claim, no finalize)", async () => {
+  it("premium save failure returns 500 and RELEASES the reservation (no finalize, no provider)", async () => {
     h.saveError = { message: "db down" };
     const { status, json } = await invoke();
     expect(status).toBe(500);
     expect(json.error).toBe("Failed to save entry");
+    expect(h.finalizeCalls).toHaveLength(0);
+    expect(h.releaseCalls).toEqual(["evt-1"]);
+    expect(h.providerCalls).toHaveLength(0);
+  });
+
+  it("free save failure returns 500 with no reservation at all", async () => {
+    h.isPremium = false;
+    h.saveError = { message: "db down" };
+    const { status } = await invoke();
+    expect(status).toBe(500);
     expect(h.finalizeCalls).toHaveLength(0);
     expect(h.releaseCalls).toHaveLength(0);
   });

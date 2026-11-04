@@ -132,16 +132,18 @@ export default async function TodayPage() {
     latestPlan && latestPlan.plan_date !== assumedLocalDate ? latestPlan : null;
 
   // Opt-in only (Prompt 7); a recent eating-disorder safety signal overrides
-  // the preference so estimates never show to someone at risk.
+  // the preference so estimates never show to someone at risk. If that signal
+  // cannot be read, fail CLOSED and hide the estimates — an outage must never
+  // be treated as "no safety signal".
   let showMacros = profileRes.data?.show_macros ?? false;
   if (showMacros) {
-    const { count: edSignals } = await supabase
+    const { count: edSignals, error: edSignalsError } = await supabase
       .from("safety_events")
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
       .ilike("risk_type", "%eating_disorder%")
       .gte("created_at", ninetyDaysAgoIso());
-    if ((edSignals ?? 0) > 0) showMacros = false;
+    if (edSignalsError || (edSignals ?? 0) > 0) showMacros = false;
   }
 
   // No plan for today, or an older plan from before the v2 format → check-in.

@@ -36,6 +36,18 @@ function from(table: string) {
   }
   if (table === "wellbeing_profiles") {
     return {
+      select: () => ({
+        eq: () => ({ maybeSingle: async () => ({ data: h.profile, error: h.profileError }) }),
+      }),
+    };
+  }
+  return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) };
+}
+
+/** Server-only admin client: the only writer of sample_adjustment_used_at. */
+function adminFrom(table: string) {
+  if (table === "wellbeing_profiles") {
+    return {
       update: (payload: Row) => ({
         eq: () => ({
           // claim path: .is(...).select(...).maybeSingle()
@@ -54,13 +66,14 @@ function from(table: string) {
           },
         }),
       }),
-      select: () => ({
-        eq: () => ({ maybeSingle: async () => ({ data: h.profile, error: h.profileError }) }),
-      }),
     };
   }
-  return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) };
+  throw new Error(`unexpected admin table ${table}`);
 }
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({ from: adminFrom }),
+}));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
@@ -157,5 +170,44 @@ describe("regenerate-section fails closed on required-read errors (WS-A)", () =>
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("onboarding_required");
     expect(h.providerCalls).toBe(0);
+  });
+});
+
+describe("regenerate-section never regenerates a meal for a severe allergy", () => {
+  const mealReq = () =>
+    req({ plan_id: PLAN_ID, section_name: "meal_card", meal_type: "lunch", reason: "different_meals" });
+
+  it("allergies_severe flag (no listed allergies) → 200 blocked, no provider, reservation released", async () => {
+    h.profile = { allergies: [], movement_limitations: [], allergies_severe: true };
+    const res = await POST(mealReq());
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.blocked).toBe(true);
+    expect(typeof body.user_message).toBe("string");
+    expect(h.providerCalls).toBe(0);
+    expect(h.releaseCalls).toContain("evt-1");
+  });
+
+  it("severe text signal in the allergy list → same block, no provider", async () => {
+    h.profile = { allergies: ["peanut anaphylaxis"], movement_limitations: [], allergies_severe: false };
+    const res = await POST(mealReq());
+    expect(res.status).toBe(200);
+    expect((await res.json()).blocked).toBe(true);
+    expect(h.providerCalls).toBe(0);
+  });
+
+  it("non-meal sections still swap for a severe-allergy user (curated, no provider)", async () => {
+    h.profile = { allergies: [], movement_limitations: null, allergies_severe: true };
+    const res = await POST(req({ plan_id: PLAN_ID, section_name: "movement_moment", reason: "make_easier" }));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.blocked).toBe(false);
+    expect(h.providerCalls).toBe(0);
+  });
+
+  it("the profile read selects allergies_severe", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync("src/app/api/ai/regenerate-section/route.ts", "utf8");
+    expect(src).toMatch(/food_preferences, allergies, allergies_severe/);
   });
 });

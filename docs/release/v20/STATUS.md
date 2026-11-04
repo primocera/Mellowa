@@ -5,7 +5,7 @@
 - **Candidate:** no frozen candidate — baseline 5fea5a9 (draft)
 - **Baseline:** `5fea5a98e763876c16a07f3ad63448a8e68b9bbd`
 - **Reconciled:** 2026-08-17T00:00:00Z
-- **Migrations:** 54 (001–054)
+- **Migrations:** 55 (001–055)
 
 ## Verdicts
 

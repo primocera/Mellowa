@@ -33,6 +33,25 @@ describe("actions contract", () => {
     expect(src).toMatch(/reason: z\.string\(\)\.min\(3\)/);
     expect(src).toContain("recordAdminAction");
   });
+
+  it("every admin mutation route enforces the permission matrix", () => {
+    for (const route of [
+      "src/app/api/admin/user-actions/route.ts",
+      "src/app/api/admin/onboarding-backfill/route.ts",
+      "src/app/api/admin/support-tickets/route.ts",
+    ]) {
+      const src = readFileSync(route, "utf8");
+      expect(src, route).toContain("checkPermission(");
+      expect(src, route).toContain("adminRoleFor(");
+    }
+  });
+
+  it("the support lookup never pattern-matches the user-editable profiles.email", () => {
+    const src = readFileSync("src/lib/admin/support.ts", "utf8");
+    expect(src).not.toMatch(/\.ilike\(/);
+    expect(src).not.toMatch(/\.like\(/);
+    expect(src).toContain("auth.admin.listUsers");
+  });
 });
 
 describe("privacy of the safe overview", () => {
@@ -56,7 +75,7 @@ describe("privacy of the safe overview", () => {
 
   it("support console page is admin-gated and audited", () => {
     const src = readFileSync("src/app/admin/users/page.tsx", "utf8");
-    expect(src).toContain("requireAdmin()");
+    expect(src).toMatch(/requireAdmin(WithRole)?\(\)/);
     expect(src).toContain("notFound()");
     expect(src).toContain('action: "view_user"');
   });

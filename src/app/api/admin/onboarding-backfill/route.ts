@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin/auth";
+import { requireAdmin, adminRoleFor } from "@/lib/admin/auth";
+import { checkPermission } from "@/lib/admin/permissions";
 import { recordAdminAction } from "@/lib/admin/support";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -12,9 +13,13 @@ import {
 /**
  * MW-V18-06: admin-only onboarding-completion backfill.
  *
- * GET  (?dryRun=1, default) — report the eligible / backfilled(-would) /
- *      skipped-partial / already-present counts WITHOUT writing anything.
+ * GET  — report the eligible / backfilled(-would) / skipped-partial /
+ *      already-present counts WITHOUT writing anything (always a dry run; a
+ *      GET never writes — `?dryRun=0` is refused with 405, use POST).
  * POST (dryRun:false) — actually insert the inferred completions, idempotently.
+ *      A real run is an owner-only destructive data job (permissions matrix):
+ *      the caller's ADMIN_ROLES role must be `owner`, and the body must carry a
+ *      `reason` (>= 3 chars) and `step_up_confirmed: true`. Denied = 403.
  *
  * Authorized by the signed-in admin's session + ADMIN_USER_IDS (never a
  * guessable URL). Every real run is written to admin_audit_log. No PII in the
@@ -57,13 +62,13 @@ function makeDeps(): BackfillDeps {
   };
 }
 
-async function handle(dryRun: boolean, actorId: string) {
+async function handle(dryRun: boolean, actorId: string, operatorReason?: string) {
   const report = await runOnboardingBackfill(makeDeps(), { dryRun });
   if (!dryRun) {
     await recordAdminAction({
       actorUserId: actorId,
       action: "onboarding_backfill",
-      reason: `legacy onboarding backfill (${report.definitionVersion}): backfilled ${report.backfilled}, skipped ${report.skippedPartial} partial, ${report.failed} failed`,
+      reason: `${operatorReason ? `${operatorReason} — ` : ""}legacy onboarding backfill (${report.definitionVersion}): backfilled ${report.backfilled}, skipped ${report.skippedPartial} partial, ${report.failed} failed`,
     });
   }
   return NextResponse.json(report);
@@ -72,18 +77,40 @@ async function handle(dryRun: boolean, actorId: string) {
 export async function GET(request: Request) {
   const actorId = await requireAdmin();
   if (!actorId) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  const dryRun = new URL(request.url).searchParams.get("dryRun") !== "0";
-  return handle(dryRun, actorId);
+  // A GET is read-only: a real (writing) run must be a POST with a reason and
+  // step-up, so it can never be triggered by a link or a prefetch.
+  if (new URL(request.url).searchParams.get("dryRun") === "0") {
+    return NextResponse.json({ error: "use_post_for_real_run" }, { status: 405 });
+  }
+  return handle(true, actorId);
 }
 
 export async function POST(request: Request) {
   const actorId = await requireAdmin();
   if (!actorId) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  let body: { dryRun?: boolean } = {};
+  let body: { dryRun?: unknown; reason?: unknown; step_up_confirmed?: unknown } = {};
   try {
-    body = (await request.json()) as { dryRun?: boolean };
+    const parsed: unknown = await request.json();
+    if (parsed && typeof parsed === "object") body = parsed as typeof body;
   } catch {
-    // empty body → treat as a real run
+    // empty body → treat as a real run (and so it needs reason + step-up)
   }
-  return handle(body.dryRun === true, actorId);
+  const dryRun = body.dryRun === true;
+  if (dryRun) return handle(true, actorId);
+
+  // Real run: owner-only destructive data job. Fail closed on every missing
+  // requirement before anything is written.
+  const role = adminRoleFor(actorId);
+  if (!role) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 500) : undefined;
+  const permission = checkPermission({
+    role,
+    action: "onboarding_backfill",
+    reason,
+    stepUpConfirmed: body.step_up_confirmed === true,
+  });
+  if (!permission.allowed) {
+    return NextResponse.json({ error: permission.error }, { status: 403 });
+  }
+  return handle(false, actorId, reason);
 }

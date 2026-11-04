@@ -4,27 +4,54 @@ import { useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { Loader2, MailCheck } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { HONEYPOT_FIELD } from "@/lib/auth/honeypot";
 
-type Values = { email: string };
+type Values = { email: string; company_website?: string };
 
 export function ForgotPasswordForm() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<Values>();
 
-  async function onSubmit({ email }: Values) {
+  async function onSubmit({ email, company_website }: Values) {
     setLoading(true);
-    const supabase = createClient();
-    // Deliberately ignore the result so we never reveal whether an account
-    // exists (no user enumeration).
-    await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    setError(null);
+    // Server route (/api/auth/password-reset): rate-limited per address and
+    // non-enumerating — it answers the same way whether or not an account
+    // exists, so the result never reveals that.
+    let res: Response | null = null;
+    try {
+      res = await fetch("/api/auth/password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, [HONEYPOT_FIELD]: company_website ?? "" }),
+      });
+    } catch {
+      res = null;
+    }
+    if (res && (res.status === 429 || res.status === 503)) {
+      // Too many requests, or the service is briefly unavailable: say so calmly.
+      const body = (await res.json().catch(() => null)) as { user_message?: string } | null;
+      setError(body?.user_message ?? "Please wait a little and try again.");
+      setLoading(false);
+      return;
+    }
+    if (!res) {
+      setError("That didn't go through. Please check your connection and try again.");
+      setLoading(false);
+      return;
+    }
+    if (res.status === 400) {
+      // A malformed address — says nothing about whether an account exists.
+      setError("Please check the email address and try again.");
+      setLoading(false);
+      return;
+    }
     setSent(true);
     setLoading(false);
   }
@@ -77,6 +104,25 @@ export function ForgotPasswordForm() {
           <p className="mt-1 text-sm text-red-500">{errors.email.message}</p>
         )}
       </div>
+
+      {/* Honeypot: off-screen, hidden from assistive tech, out of tab order. */}
+      <div aria-hidden="true" className="absolute -left-[10000px] top-auto h-11 w-px overflow-hidden">
+        <label htmlFor={HONEYPOT_FIELD}>Company website</label>
+        <input
+          id={HONEYPOT_FIELD}
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          className="h-11"
+          {...register(HONEYPOT_FIELD)}
+        />
+      </div>
+
+      {error && (
+        <div className="rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm text-[#991B1B]" role="alert">
+          {error}
+        </div>
+      )}
 
       <button
         type="submit"

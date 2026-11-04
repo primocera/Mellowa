@@ -15,6 +15,7 @@ import {
   serializeIntent,
   type PlanIntent,
 } from "@/lib/auth/intent";
+import { HONEYPOT_FIELD } from "@/lib/auth/honeypot";
 
 type AuthValues = {
   email: string;
@@ -22,6 +23,8 @@ type AuthValues = {
   age18: boolean;
   policies: boolean;
   healthData: boolean;
+  /** Honeypot (signup only): hidden from people, filled by bots. */
+  company_website?: string;
 };
 
 export function AuthForm({
@@ -68,14 +71,26 @@ export function AuthForm({
     return "That didn't go through. Please try again.";
   }
 
+  // Server signup responses → the same calm, non-enumerating copy.
+  function signupError(result: { error?: string; user_message?: string } | null): string {
+    if (result?.error === "beta_closed") return BETA_CLOSED_MESSAGE;
+    if (result?.error === "weak_password") {
+      return "Please use a longer password — at least 8 characters.";
+    }
+    if ((result?.error === "rate_limited" || result?.error === "unavailable") && result.user_message) {
+      return result.user_message;
+    }
+    return safeAuthError(result?.error ?? "");
+  }
+
   async function onSubmit(values: AuthValues) {
     setError(null);
     setLoading(true);
-    const supabase = createClient();
 
     const intentQuery = serializeIntent({ plan, next });
 
     if (isLogin) {
+      const supabase = createClient();
       const { error } = await supabase.auth.signInWithPassword({
         email: values.email,
         password: values.password,
@@ -90,37 +105,44 @@ export function AuthForm({
       return;
     }
 
-    // Signup: consents travel in user metadata; the auth callback records
-    // them server-side after the email is verified. Never assume a live
-    // session here — with email confirmation enabled there is none.
-    const { data, error } = await supabase.auth.signUp({
-      email: values.email,
-      password: values.password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback${intentQuery}`,
-        data: { age_18_plus: true, terms_and_privacy: true, health_data: true },
-      },
-    });
+    // Signup runs SERVER-side (/api/auth/signup): rate-limited per IP and per
+    // address, honeypot-checked, and the consents travel in user metadata from
+    // there; the auth callback records them after the email is verified. Never
+    // assume a live session here — with email confirmation enabled there is none.
+    const verifyEmailPath = `/verify-email${intentQuery}${intentQuery ? "&" : "?"}email=${encodeURIComponent(values.email)}`;
+    let res: Response | null = null;
+    try {
+      res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: values.email,
+          password: values.password,
+          age18: values.age18 === true,
+          policies: values.policies === true,
+          healthData: values.healthData === true,
+          plan,
+          next,
+          [HONEYPOT_FIELD]: values.company_website ?? "",
+        }),
+      });
+    } catch {
+      res = null;
+    }
+    const result = (res ? await res.json().catch(() => null) : null) as
+      | { ok?: boolean; next?: string; error?: string; user_message?: string }
+      | null;
 
-    if (error) {
-      // Non-enumerating: an already-registered address gets the same
-      // verify-email screen as a new one instead of a revealing error.
-      if (/already registered/i.test(error.message)) {
-        router.push(
-          `/verify-email${serializeIntent({ plan, next })}${intentQuery ? "&" : "?"}email=${encodeURIComponent(values.email)}`
-        );
-        return;
-      }
-      setError(safeAuthError(error.message));
+    if (!res?.ok || !result?.ok) {
+      setError(signupError(result));
       setLoading(false);
       return;
     }
 
-    if (!data.session) {
+    if (result.next !== "session") {
       // Email confirmation is enabled — verification continues over email.
-      router.push(
-        `/verify-email${intentQuery}${intentQuery ? "&" : "?"}email=${encodeURIComponent(values.email)}`
-      );
+      // Non-enumerating: an already-registered address lands here too.
+      router.push(verifyEmailPath);
       return;
     }
 
@@ -192,6 +214,23 @@ export function AuthForm({
           </div>
         )}
       </div>
+
+      {!isLogin && (
+        // Honeypot: off-screen (not display:none), hidden from assistive tech
+        // and out of the tab order. People never fill it; bots that do get the
+        // ordinary success response and no account is created.
+        <div aria-hidden="true" className="absolute -left-[10000px] top-auto h-11 w-px overflow-hidden">
+          <label htmlFor={HONEYPOT_FIELD}>Company website</label>
+          <input
+            id={HONEYPOT_FIELD}
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            className="h-11"
+            {...register(HONEYPOT_FIELD)}
+          />
+        </div>
+      )}
 
       {!isLogin && (
         <fieldset className="space-y-2.5">

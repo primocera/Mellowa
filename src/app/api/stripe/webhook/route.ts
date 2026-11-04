@@ -99,8 +99,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "claim_failed" }, { status: 500 });
   }
   if (!claimed) {
-    // Duplicate / replay of an already-processed event. Ack without redoing.
-    return NextResponse.json({ received: true, duplicate: true });
+    // Not claimable: already done, or another delivery holds a live lease
+    // (claim_stripe_event only re-claims failed or stale rows, migration 055).
+    // Only a finished event is acked; a live one gets a retryable 409 so that,
+    // if the first delivery crashes, Stripe's next retry can still process it.
+    const { data: existing, error: statusError } = await admin
+      .from("stripe_events")
+      .select("status")
+      .eq("event_id", event.id)
+      .maybeSingle();
+    if (!statusError && existing?.status === "done") {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+    return NextResponse.json({ error: "event_in_progress" }, { status: 409 });
   }
 
   async function finalize(status: "done" | "failed", lastError?: string) {
@@ -340,6 +351,18 @@ export async function POST(request: Request) {
       },
       { onConflict: "user_id" }
     );
+    // 23503 = foreign_key_violation: the profiles row is gone, which only
+    // happens when the account was deleted (the deletion worker cancels the
+    // subscription first, so Stripe's subscription.deleted arrives after the
+    // user no longer exists). Nothing is left to sync — ack instead of failing
+    // for Stripe's 3-day retry window and keeping billing-reconcile red.
+    if (error?.code === "23503") {
+      console.info("[stripe] subscription for a deleted account, acknowledged", {
+        subscription: subscription.id,
+        status: subscription.status,
+      });
+      return { ignored: true as const };
+    }
     if (error) throw new RetryableError(`subscriptions upsert: ${error.message}`);
   }
 
