@@ -47,9 +47,6 @@ export async function GET(request: Request) {
     .select("id, user_id, trial_end, plan_name, currency")
     .eq("status", "trialing")
     .eq("trial_reminder_sent", false)
-    // A trial the user already cancelled will not charge — never send the
-    // "you'll be charged on…" reminder for it.
-    .eq("cancel_at_period_end", false)
     .gt("trial_end", now.toISOString())
     .lte("trial_end", in48h.toISOString());
 

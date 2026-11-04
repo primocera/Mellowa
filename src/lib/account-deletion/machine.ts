@@ -246,7 +246,7 @@ export async function processDeletionRequest(
     let code: string | null = null;
     if (job.recipient_email) {
       const res = await deps.queueNotification({
-        eventKey: `account_deleted:${job.id}`, // opaque request id, never the raw user uuid
+        eventKey: `account_deleted:${userId}`,
         to: job.recipient_email,
       });
       // Email delivery is durable + retried by the outbox worker. If we could not

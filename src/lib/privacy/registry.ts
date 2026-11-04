@@ -122,12 +122,4 @@ export const RETENTION_RULES = [
     onlyStatuses: ["failed_permanent", "failed_transient", "not_configured"],
     reason: "ops visibility for undelivered email",
   },
-  {
-    // The goodbye email has no user_id (the account is already gone), so it
-    // never cascades — without this rule its recipient address lived forever.
-    table: "email_deliveries",
-    days: 30,
-    onlyTemplates: ["account_deleted"],
-    reason: "deleted-account confirmation: keep the address only long enough to deliver",
-  },
 ] as const;

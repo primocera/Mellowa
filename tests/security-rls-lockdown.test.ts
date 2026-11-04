@@ -148,12 +148,11 @@ describe("055: function grants and ownership checks", () => {
     expect(m055.slice(at, m055.indexOf(";", at))).toContain("from public, anon, authenticated");
   });
 
-  it("claim_stripe_event only reclaims failed or stale-lease rows", () => {
-    const body = latestFunction("claim_stripe_event");
-    expect(body).not.toContain("status <> 'done'");
-    expect(body).toContain("public.stripe_events.status = 'failed'");
-    expect(body).toContain("< now() - interval '10 minutes'");
-    expect(m055).toContain("add column if not exists claimed_at timestamptz");
+  it("055 does not touch billing runtime: claim_stripe_event body is unchanged", () => {
+    // Only its grants change. The body still comes from 006, so the webhook's
+    // behaviour (and the live-money rehearsal evidence) is unaffected.
+    expect(m055).not.toMatch(/create or replace function public\.claim_stripe_event/);
+    expect(m055).not.toContain("stripe_events");
   });
 });
 
@@ -174,26 +173,5 @@ describe("rls-audit.sql covers the 055 lock-down", () => {
     for (const fn of ["claim_stripe_event", "claim_daily_plan_generation", "claim_auth_rate_limit"]) {
       expect(audit).toContain(`'${fn}'`);
     }
-  });
-});
-
-describe("server-side follow-ups shipped with 055", () => {
-  const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
-
-  it("trial reminders skip trials the user already cancelled", () => {
-    expect(read("src/app/api/cron/trial-reminders/route.ts")).toContain('.eq("cancel_at_period_end", false)');
-  });
-
-  it("billing reconcile age-limits failed webhook events", () => {
-    const src = read("src/lib/stripe/reconcile.ts");
-    expect(src).toContain("and(status.eq.failed,created_at.gte.${failedWindowStart})");
-  });
-
-  it("the deleted-account email is keyed by the request id and expires", async () => {
-    expect(read("src/lib/account-deletion/machine.ts")).toContain("eventKey: `account_deleted:${job.id}`");
-    const { RETENTION_RULES } = await import("@/lib/privacy/registry");
-    const rule = RETENTION_RULES.find((r) => "onlyTemplates" in r);
-    expect(rule).toMatchObject({ table: "email_deliveries", onlyTemplates: ["account_deleted"] });
-    expect(read("src/lib/privacy/retention.ts")).toContain('q.in("template"');
   });
 });

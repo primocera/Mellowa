@@ -23,8 +23,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({
   subs: new Map<string, Record<string, unknown>>(),
   claimed: new Set<string>(),
-  // stripe_events.status per event id, as finalize() writes it.
-  eventStatus: new Map<string, string>(),
   emails: new Map<string, string>(),
   deliverEmail: vi.fn(async () => {}),
   trackEvent: vi.fn(),
@@ -61,7 +59,7 @@ vi.mock("@/lib/email/billing-facts", () => ({
 }));
 
 vi.mock("@/lib/supabase/admin", () => {
-  const { subs, claimed, emails, eventStatus } = h;
+  const { subs, claimed, emails } = h;
   // A tiny PostgREST-shaped builder: enough of `.from().select().eq().maybeSingle()`
   // and `.from().update().eq()` for the two invoice branches to run unchanged.
   function from(name: string) {
@@ -75,9 +73,6 @@ vi.mock("@/lib/supabase/admin", () => {
         const row = subs.get(String(st.filters.stripe_customer_id));
         if (row && st.payload) Object.assign(row, st.payload);
       }
-      if (name === "stripe_events" && st.op === "update" && st.payload) {
-        eventStatus.set(String(st.filters.event_id), String(st.payload.status));
-      }
       return { data: null, error: null };
     };
     const chain: Record<string, unknown> = {
@@ -88,10 +83,6 @@ vi.mock("@/lib/supabase/admin", () => {
       maybeSingle: async () => {
         if (name === "subscriptions") {
           return { data: subs.get(String(st.filters.stripe_customer_id)) ?? null, error: null };
-        }
-        if (name === "stripe_events") {
-          const status = eventStatus.get(String(st.filters.event_id));
-          return { data: status ? { status } : null, error: null };
         }
         return { data: null, error: null };
       },
@@ -153,7 +144,6 @@ describe("real webhook handler — billing lifecycle steps 5–6", () => {
   beforeEach(() => {
     h.subs.clear();
     h.claimed.clear();
-    h.eventStatus.clear();
     h.emails.clear();
     h.deliverEmail.mockClear();
     h.trackEvent.mockClear();

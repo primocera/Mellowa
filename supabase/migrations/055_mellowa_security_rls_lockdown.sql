@@ -25,8 +25,6 @@
 --   * SECURITY DEFINER functions revoked only "from public" keep Supabase's
 --     default EXECUTE grant to anon/authenticated; the claim/finish functions
 --     only checked ownership for role 'authenticated', so anon skipped it.
---   * claim_stripe_event re-claimed rows still in 'processing' → a concurrent
---     duplicate delivery processed the same event twice.
 --
 -- Everything here is additive and idempotent. RLS stays ENABLED everywhere.
 -- service_role (webhook, checkout, cancel, crons, admin routes) bypasses RLS,
@@ -424,38 +422,11 @@ grant execute on function public.claim_daily_plan_generation(uuid, date, int) to
 grant execute on function public.finish_daily_plan_generation(uuid, date, uuid, text, uuid, text) to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
--- 9. claim_stripe_event: reclaim only failed or stale-lease rows, service-role
---    only. Before, any non-done row (including one being processed right now)
---    was re-claimed, so overlapping deliveries both ran the handler.
+-- 9. claim_stripe_event: service-role only. It had no grants at all, so anon
+--    and authenticated could call it (and flip an event's status). The webhook
+--    calls it with the service role, so its behaviour is unchanged; the
+--    function body is NOT touched here (billing runtime stays byte-identical).
 -- ---------------------------------------------------------------------------
-alter table public.stripe_events
-  add column if not exists claimed_at timestamptz;
-
-create or replace function public.claim_stripe_event(p_event_id text, p_type text)
-returns boolean
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  claimed boolean;
-begin
-  insert into public.stripe_events (event_id, type, status, attempts, claimed_at)
-  values (p_event_id, p_type, 'processing', 1, now())
-  on conflict (event_id) do update
-    set attempts = public.stripe_events.attempts + 1,
-        status = 'processing',
-        claimed_at = now()
-    where public.stripe_events.status = 'failed'
-       or (public.stripe_events.status = 'processing'
-           and coalesce(public.stripe_events.claimed_at, public.stripe_events.created_at)
-               < now() - interval '10 minutes')
-  returning true into claimed;
-
-  return coalesce(claimed, false);
-end;
-$$;
-
 revoke all on function public.claim_stripe_event(text, text) from public, anon, authenticated;
 grant execute on function public.claim_stripe_event(text, text) to service_role;
 
