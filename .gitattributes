@@ -1,0 +1,25 @@
+# Audit O6: one line-ending rule for every machine.
+#
+# The repository already stores text as LF. Without this file, a Windows clone
+# with core.autocrlf=true checks files out as CRLF, and the tests that compare
+# a rendered document byte-for-byte with the committed one fail locally while
+# passing on CI. `eol=lf` makes the working tree match the repository
+# everywhere, regardless of each contributor's git config.
+* text=auto eol=lf
+
+# Windows-only scripts keep the line endings their interpreters expect.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Never touch binaries.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.docx binary
