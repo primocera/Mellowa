@@ -59,6 +59,24 @@ function mellowaUserIdFromMetadata(
 
 class RetryableError extends Error {}
 
+/**
+ * Fail-closed read guard (audit B1/B2). supabase-js reports a failed query as
+ * `{ data: null, error }` and does not throw, so destructuring only `data`
+ * turns a database outage into "no such row" — and this handler acts on "no
+ * row" (it preserves nothing, ignores the event, or acks it as another
+ * product's). Every `subscriptions` read here goes through this: an unverified
+ * read throws `RetryableError`, the event is marked failed and Stripe
+ * redelivers. Only a read that actually succeeded may conclude "no row".
+ */
+function verifiedRead<
+  R extends { data: unknown; error: { message: string } | null },
+>(result: R, what: string): R["data"] {
+  if (result.error) {
+    throw new RetryableError(`${what} read failed: ${result.error.message}`);
+  }
+  return result.data;
+}
+
 export async function POST(request: Request) {
   const stripe = getStripe();
 
@@ -125,11 +143,14 @@ export async function POST(request: Request) {
         typeof subscription.customer === "string"
           ? subscription.customer
           : subscription.customer.id;
-      const { data } = await admin
-        .from("subscriptions")
-        .select("user_id")
-        .eq("stripe_customer_id", customerId)
-        .maybeSingle();
+      const data = verifiedRead(
+        await admin
+          .from("subscriptions")
+          .select("user_id")
+          .eq("stripe_customer_id", customerId)
+          .maybeSingle(),
+        "subscription owner"
+      );
       userId = data?.user_id ?? null;
     }
     if (!userId) return null;
@@ -138,11 +159,14 @@ export async function POST(request: Request) {
   }
 
   async function userIdForCustomerId(customerId: string): Promise<string | null> {
-    const { data } = await admin
-      .from("subscriptions")
-      .select("user_id")
-      .eq("stripe_customer_id", customerId)
-      .maybeSingle();
+    const data = verifiedRead(
+      await admin
+        .from("subscriptions")
+        .select("user_id")
+        .eq("stripe_customer_id", customerId)
+        .maybeSingle(),
+      "subscription owner"
+    );
     return data?.user_id ?? null;
   }
 
@@ -172,11 +196,14 @@ export async function POST(request: Request) {
   async function variantForCustomerId(
     customerId: string
   ): Promise<TrialVariant | null> {
-    const { data } = await admin
-      .from("subscriptions")
-      .select("trial_variant")
-      .eq("stripe_customer_id", customerId)
-      .maybeSingle();
+    const data = verifiedRead(
+      await admin
+        .from("subscriptions")
+        .select("trial_variant")
+        .eq("stripe_customer_id", customerId)
+        .maybeSingle(),
+      "trial variant"
+    );
     return isTrialVariant(data?.trial_variant) ? data.trial_variant : null;
   }
 
@@ -211,11 +238,16 @@ export async function POST(request: Request) {
     // Resolve the user either from metadata or from the stored customer id
     let targetUserId = userId ?? null;
     if (!targetUserId) {
-      const { data } = await admin
-        .from("subscriptions")
-        .select("user_id")
-        .eq("stripe_customer_id", customerId)
-        .maybeSingle();
+      // B1: a failed lookup must not fall through to "another product's
+      // subscription" below — that would ack and drop a paying user's event.
+      const data = verifiedRead(
+        await admin
+          .from("subscriptions")
+          .select("user_id")
+          .eq("stripe_customer_id", customerId)
+          .maybeSingle(),
+        "subscription owner"
+      );
       targetUserId = data?.user_id ?? null;
     }
     if (!targetUserId) {
@@ -279,13 +311,25 @@ export async function POST(request: Request) {
       unix ? new Date(unix * 1000).toISOString() : null;
 
     // Existing row for trial-lock preservation and out-of-order guarding.
-    const { data: existing } = await admin
-      .from("subscriptions")
-      .select(
-        "trial_used_at, first_trial_subscription_id, current_period_end, last_stripe_event_created, trial_variant, trial_days"
-      )
-      .eq("user_id", targetUserId)
-      .maybeSingle();
+    //
+    // B1: this read MUST be verified. The upsert below derives `trial_used_at`,
+    // `first_trial_subscription_id`, `trial_variant` and `trial_days` from it
+    // and the ordering guard reads its watermark. With the error discarded, a
+    // transient failure looked like "no existing row": the guard passed, and a
+    // paid (no-trial) subscription was written with `trial_used_at: null` —
+    // erasing the one-trial-per-person lock and making the user trial-eligible
+    // again. Same rule as `classifyBillingRead` at checkout: a failed read is
+    // never "no subscription".
+    const existing = verifiedRead(
+      await admin
+        .from("subscriptions")
+        .select(
+          "trial_used_at, first_trial_subscription_id, current_period_end, last_stripe_event_created, trial_variant, trial_days"
+        )
+        .eq("user_id", targetUserId)
+        .maybeSingle(),
+      "existing subscription"
+    );
 
     // Out-of-order protection (Prompt 3): Stripe can deliver events out of
     // order, so we apply syncs strictly by the event's `created` timestamp.
@@ -479,16 +523,26 @@ export async function POST(request: Request) {
           //    Stripe redelivered after the recovery must not drag a paying
           //    customer back to past_due — entitlement follows event-created
           //    order, never arrival order.
-          const { data: row } = await admin
-            .from("subscriptions")
-            .select("user_id, status, last_stripe_event_created")
-            .eq("stripe_customer_id", customerId)
-            .maybeSingle();
-          if (row && shouldApplyStripeEvent(event.created, row.last_stripe_event_created)) {
+          //
+          // B2: both the read and the write are verified. A failed read is not
+          // "foreign customer", and the email/analytics below must not go out
+          // for a state change that was never recorded.
+          const row = verifiedRead(
             await admin
+              .from("subscriptions")
+              .select("user_id, status, last_stripe_event_created")
+              .eq("stripe_customer_id", customerId)
+              .maybeSingle(),
+            "invoice subscription"
+          );
+          if (row && shouldApplyStripeEvent(event.created, row.last_stripe_event_created)) {
+            const { error: updateError } = await admin
               .from("subscriptions")
               .update({ status: "past_due", last_stripe_event_created: event.created })
               .eq("stripe_customer_id", customerId);
+            if (updateError) {
+              throw new RetryableError(`past_due update: ${updateError.message}`);
+            }
             trackEvent("payment_failed", {
               userId: row.user_id,
               properties: { surface: "billing", outcome: "failure" },
@@ -519,11 +573,16 @@ export async function POST(request: Request) {
         if (customerId) {
           // Read-first, for the same isolation + ordering reasons as the
           // failure branch. A foreign customer has no row and is ignored.
-          const { data: row } = await admin
-            .from("subscriptions")
-            .select("user_id, status, last_stripe_event_created")
-            .eq("stripe_customer_id", customerId)
-            .maybeSingle();
+          // B2: a failed read here used to `break` and finalize the event
+          // `done` — dropping a dunning recovery for a customer who had paid.
+          const row = verifiedRead(
+            await admin
+              .from("subscriptions")
+              .select("user_id, status, last_stripe_event_created")
+              .eq("stripe_customer_id", customerId)
+              .maybeSingle(),
+            "invoice subscription"
+          );
           if (!row) break;
 
           const isCurrent = shouldApplyStripeEvent(event.created, row.last_stripe_event_created);
@@ -537,10 +596,13 @@ export async function POST(request: Request) {
           // The $0 trial-creation invoice is neither: status stays trialing and
           // the subscription.updated event owns the trial→active transition.
           if (wasPastDue && isCurrent) {
-            await admin
+            const { error: updateError } = await admin
               .from("subscriptions")
               .update({ status: "active", last_stripe_event_created: event.created })
               .eq("stripe_customer_id", customerId);
+            if (updateError) {
+              throw new RetryableError(`recovery update: ${updateError.message}`);
+            }
             trackEvent("payment_recovered", {
               userId: uid,
               properties: { surface: "billing", outcome: "success" },

@@ -41,11 +41,33 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
-  const { data: sub } = await admin
+  // Audit B8: read as a three-way result. A DB outage returns `error` with
+  // `data: null`; ignoring it told a paying user they had "no_subscription" on
+  // the one path where failing to cancel matters most. Only a verified read may
+  // conclude that — anything else is a retryable 503 with no Stripe call, the
+  // same contract as the portal route. `error` is a sentence because the
+  // billing UI prints it verbatim.
+  const { data: sub, error: subReadErr } = await admin
     .from("subscriptions")
     .select("stripe_subscription_id, status, current_period_end, trial_end")
     .eq("user_id", user.id)
     .maybeSingle();
+
+  if (subReadErr) {
+    console.error("[stripe] cancel_subscription_read_failed", {
+      event: "cancel_subscription_read_failed",
+      user_id: user.id,
+    });
+    return NextResponse.json(
+      {
+        error:
+          "We couldn't reach your billing details just now, so nothing was changed. Please try again in a moment.",
+        code: "billing_unavailable",
+        retryable: true,
+      },
+      { status: 503 }
+    );
+  }
 
   if (!sub?.stripe_subscription_id) {
     return NextResponse.json({ error: "no_subscription" }, { status: 400 });
@@ -61,10 +83,19 @@ export async function POST(request: Request) {
 
     // Reflect immediately so the billing page is correct without waiting for
     // the webhook (which remains the authoritative sync).
-    await admin
+    // If this mirror write fails the change still happened at Stripe, so the
+    // request succeeds; the webhook re-syncs the row. Logged so a stale billing
+    // page can be traced instead of guessed at.
+    const { error: mirrorErr } = await admin
       .from("subscriptions")
       .update({ cancel_at_period_end: updated.cancel_at_period_end ?? false })
       .eq("user_id", user.id);
+    if (mirrorErr) {
+      console.error("[stripe] cancel_local_mirror_write_failed", {
+        event: "cancel_local_mirror_write_failed",
+        user_id: user.id,
+      });
+    }
 
     if (cancelAtPeriodEnd) {
       // Cancellation confirmation with the exact access-end date (Prompt 19).
