@@ -30,6 +30,10 @@ const LEASE_TTL_SECONDS = 90;
 /** A crisis signal within this window suppresses activity nudges entirely. */
 const SAFETY_SUPPRESSION_DAYS = 30;
 
+// Audit S4: enforces the `timeoutSeconds` this job declares in
+// src/lib/ops/cron-registry.ts (kept equal by tests/route-max-duration.test.ts).
+export const maxDuration = 60;
+
 export async function GET(request: Request) {
   const denied = requireBearerSecret(request, serverEnv.cronSecret);
   if (denied) return denied;

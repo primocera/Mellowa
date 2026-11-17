@@ -5,6 +5,10 @@ import { getStripe } from "@/lib/stripe/client";
 import { reconcileBilling } from "@/lib/stripe/reconcile";
 import { runCronJob } from "@/lib/ops/run-cron-job";
 
+// Audit S4: enforces the `timeoutSeconds` this job declares in
+// src/lib/ops/cron-registry.ts (kept equal by tests/route-max-duration.test.ts).
+export const maxDuration = 60;
+
 /**
  * Billing reconciliation job (Launch v6, Prompt 18). Compares every local
  * subscription row with live Stripe state, fixes drift (Stripe wins) and

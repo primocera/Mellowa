@@ -15,6 +15,12 @@ import type { WellbeingProfile } from "@/types/dailyflow";
 
 const PROMPT_VERSION = promptVersionId("low-energy-day");
 
+// Audit S4: the execution limit lives in the repo, not only in the Vercel
+// project settings. 300s is the worst case the model policy already budgets
+// for (safety check + generation + one corrective generation, each with one
+// retry) — asserted in tests/route-max-duration.test.ts.
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   // 1. Authenticate
   const supabase = await createClient();

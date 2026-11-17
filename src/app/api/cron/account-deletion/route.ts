@@ -3,6 +3,10 @@ import { serverEnv } from "@/lib/env";
 import { requireBearerSecret } from "@/lib/cron-auth";
 import { runDeletionWorker } from "@/lib/account-deletion/worker";
 
+// Audit S4: enforces the `timeoutSeconds` this job declares in
+// src/lib/ops/cron-registry.ts (kept equal by tests/route-max-duration.test.ts).
+export const maxDuration = 60;
+
 /**
  * Durable account-deletion worker (MW-V18-04). Claims due jobs under a DB lease
  * (SKIP LOCKED) and drives each one pass; a job the API's inline pass could not

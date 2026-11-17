@@ -4,6 +4,10 @@ import { requireBearerSecret } from "@/lib/cron-auth";
 import { pruneExpiredData } from "@/lib/privacy/retention";
 import { runCronJob } from "@/lib/ops/run-cron-job";
 
+// Audit S4: enforces the `timeoutSeconds` this job declares in
+// src/lib/ops/cron-registry.ts (kept equal by tests/route-max-duration.test.ts).
+export const maxDuration = 60;
+
 /**
  * Data-retention pruning (v6 Prompt 15). Separated from the daily-reminder
  * job so a failure in either can never hide the other. Idempotent — pruning

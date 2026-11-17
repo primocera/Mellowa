@@ -68,7 +68,11 @@ export async function finalizeAiUsage(
         : null;
 
     const admin = createAdminClient();
-    await admin.rpc("finalize_ai_usage", {
+    // supabase-js resolves with `{ error }` for a database failure — it does
+    // not throw — so the catch below never saw one (audit S5). A failed
+    // finalize leaves the row `reserved` at its estimated cost (over-counts,
+    // never under-counts), which is safe but must not be silent.
+    const { error } = await admin.rpc("finalize_ai_usage", {
       p_event_id: eventId,
       p_status: input.status,
       p_provider: u?.provider ?? null,
@@ -82,6 +86,13 @@ export async function finalizeAiUsage(
       p_fallback_used: input.fallbackUsed ?? false,
       p_result_id: input.resultId ?? null,
     });
+    if (error) {
+      console.error("[ai] finalize_ai_usage failed", {
+        event_id: eventId,
+        status: input.status,
+        message: error.message,
+      });
+    }
   } catch (err) {
     console.error("[ai] finalize_ai_usage failed", {
       status: input.status,

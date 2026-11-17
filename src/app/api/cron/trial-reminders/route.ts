@@ -10,6 +10,10 @@ import { pricingFor, priceDisplay } from "@/lib/stripe/plans";
 import { toCurrency } from "@/lib/stripe/currency";
 import { isValidTimeZone, localCalendarDaysUntil } from "@/lib/dates/local-day";
 
+// Audit S4: enforces the `timeoutSeconds` this job declares in
+// src/lib/ops/cron-registry.ts (kept equal by tests/route-max-duration.test.ts).
+export const maxDuration = 60;
+
 /**
  * Daily cron — sends the trial-ending email to trialing users whose trial ends
  * soon. Idempotent via subscriptions.trial_reminder_sent.

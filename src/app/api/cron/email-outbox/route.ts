@@ -3,6 +3,10 @@ import { requireBearerSecret } from "@/lib/cron-auth";
 import { replayDeliveries } from "@/lib/email/deliver";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// Audit S4: enforces the `timeoutSeconds` this job declares in
+// src/lib/ops/cron-registry.ts (kept equal by tests/route-max-duration.test.ts).
+export const maxDuration = 60;
+
 /**
  * Email outbox worker (Launch audit v6, Prompt 4).
  *
